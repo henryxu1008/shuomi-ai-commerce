@@ -44,6 +44,7 @@ import {
   orderProblems,
   type ObservationKind,
   type ObservationRecord,
+  type AmazonObservedOrder,
   type ShopifyObservedOrder,
   type ObservationScope,
   type ObservationPrice,
@@ -165,8 +166,12 @@ function ScopedPage({
     retry: false,
   });
   const shopifyOrders = kind === "orders" && caps.data?.shopifyOrders === true;
-  const shopify = shopifyOrders && platform === "shopify";
-  const orderPlatform = shopify ? "shopify" : "shein";
+  const amazonOrders = kind === "orders" && caps.data?.amazonOrders === true;
+  const orderPlatform =
+    amazonOrders && platform === "amazon" ? "amazon" :
+    shopifyOrders && platform === "shopify" ? "shopify" : "shein";
+  const singleStoreOrder = orderPlatform !== "shein";
+  const orderPlatformName = orderPlatform === "amazon" ? "Amazon 美国站" : "Shopify";
   const stores = useQuery({
     queryKey: [...prefix, "stores", kind === "orders" ? orderPlatform : "", permissions],
     enabled: caps.data?.available === true,
@@ -174,13 +179,13 @@ function ScopedPage({
       const out: WorkbenchStore[] = [];
       for (let page = 1; page <= 5; page++) {
         const result = await listWorkbenchStores(
-          { page, pageSize: 100, ...(kind === "orders" ? { platform: orderPlatform } : {}), status: "active" },
+          { page, pageSize: 100, ...(kind === "orders" && orderPlatform !== "amazon" ? { platform: orderPlatform } : {}), status: "active" },
           scope.organizationId,
           signal,
         );
         if (result.pagination.total > 500)
           throw new ObservationError("DEPENDENCY_UNAVAILABLE", 503);
-        out.push(...result.items);
+        out.push(...(orderPlatform === "amazon" ? result.items.filter(store => store.platform === "amazon" && store.region === "US") : result.items));
         if (page * 100 >= result.pagination.total) return out;
       }
       return out;
@@ -188,7 +193,7 @@ function ScopedPage({
     retry: false,
   });
   const params = new URLSearchParams({ limit: "20" });
-  if (shopify || kind === "products" && platform) params.set("platform", platform);
+  if (singleStoreOrder || kind === "products" && platform) params.set("platform", platform);
   if (store) params.set("storeId", store);
   if (status) params.set("status", status);
   if (keyword) params.set("keyword", keyword);
@@ -196,7 +201,7 @@ function ScopedPage({
   if (partial && store) params.set("syncId", partial);
   const list = useQuery({
     queryKey: [...prefix, "list", params.toString(), permissions],
-    enabled: caps.data?.available === true && (!shopify || Boolean(store)),
+    enabled: caps.data?.available === true && (!singleStoreOrder || Boolean(store)),
     queryFn: ({ signal }) =>
       observationRequest(
         `${kind}?${params}`,
@@ -283,7 +288,7 @@ function ScopedPage({
   };
   const begin = () => {
     if (intent && !receipt) return;
-    if (isActive || shopify && !store) return;
+    if (isActive || singleStoreOrder && !store) return;
     if(platform&&!stores.data?.some(s=>s.platform===platform)) return;
     const captured: Intent = {
       key: crypto.randomUUID(),
@@ -312,8 +317,8 @@ function ScopedPage({
     !sync.isPending &&
     !isActive &&
     (!intent || Boolean(receipt));
-  const hasSelectedStores = shopify
-    ? Boolean(store && stores.data?.some(s => s.id === store && s.platform === "shopify"))
+  const hasSelectedStores = singleStoreOrder
+    ? Boolean(store && stores.data?.some(s => s.id === store && s.platform === orderPlatform))
     : !platform || Boolean(stores.data?.some(s => s.platform === platform));
   const known = Boolean(data?.syncs.length);
   const metric = (n: number | undefined) =>
@@ -351,8 +356,8 @@ function ScopedPage({
       description={
         kind === "products"
           ? "查看店铺已同步的 SHEIN / TEMU / Walmart 商品、平台状态和库存事实。"
-          : shopify
-            ? "手动同步 Shopify 最近 30 天的订单，查看订单状态和下单商品。"
+          : singleStoreOrder
+            ? `手动同步 ${orderPlatformName} 最近 30 天的订单，查看订单状态和下单商品。`
             : "同步最近 30 天的消费者订单，查看详情、物流和平台异常。发货与售后到 SHEIN 处理。"
       }
       actions={
@@ -362,7 +367,7 @@ function ScopedPage({
         </Button>
       }
     >
-      {!shopify ? <div className={styles.metrics}>
+      {!singleStoreOrder ? <div className={styles.metrics}>
         {metrics.map(([label, value]) => (
           <Card key={label} className={styles.metric}>
             <span>{label}</span>
@@ -373,13 +378,13 @@ function ScopedPage({
       <ConsoleToolbar>
         <label>
           平台
-          <Select aria-label="平台" disabled={kind === "orders" && (!shopifyOrders || isActive)} value={kind === "products" ? platform : orderPlatform}
+          <Select aria-label="平台" disabled={kind === "orders" && (!shopifyOrders && !amazonOrders || isActive)} value={kind === "products" ? platform : orderPlatform}
             onChange={e => { setPlatform(e.target.value); setStore(""); setStatus(""); setSelected(null); resetPage(); }}>
             {kind === "products" ? <><option value="">全部平台</option><option value="shein">SHEIN</option><option value="temu">TEMU</option><option value="walmart">Walmart US</option></>
-              : <><option value="shein">SHEIN</option>{shopifyOrders ? <option value="shopify">Shopify</option> : null}</>}
+              : <><option value="shein">SHEIN</option>{shopifyOrders ? <option value="shopify">Shopify</option> : null}{amazonOrders ? <option value="amazon">Amazon 美国站</option> : null}</>}
           </Select>
         </label>
-        {!shopify ? <label>
+        {!singleStoreOrder ? <label>
           站点
           <Select aria-label="站点" disabled value={kind==="products"?"store":"us"}>
             {kind==="products"?<option value="store">店铺官方目标</option>:<option value="us">美国站</option>}
@@ -395,7 +400,7 @@ function ScopedPage({
               resetPage();
             }}
           >
-            <option value="">{shopify ? "请选择 Shopify 店铺" : "全部授权店铺"}</option>
+            <option value="">{singleStoreOrder ? `请选择 ${orderPlatformName} 店铺` : "全部授权店铺"}</option>
             {stores.data?.filter(s=>!platform||s.platform===platform).map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -420,7 +425,7 @@ function ScopedPage({
                   ["off", "已下架"],
                   ["unknown", "平台未提供"],
                 ]
-              : shopify ? [
+              : orderPlatform === "amazon" ? [...Object.entries(amazonOrderStatuses), ["unknown", "平台状态未识别或未提供"]] : singleStoreOrder ? [
                   ["unfulfilled", "未发货"],
                   ["partial", "部分发货"],
                   ["fulfilled", "已发货"],
@@ -486,7 +491,7 @@ function ScopedPage({
                       {names.get(s.storeId) ?? s.storeId} ·{" "}
                       {statusLabels[s.status]} · 已读取 {s.progress.pages} 页
                       {s.errorCode === "unsupported_application"
-                        ? shopify ? " · 需要店主授予订单读取权限" : " · 全托管应用不支持消费者订单"
+                        ? singleStoreOrder ? " · 需要店主授予订单读取权限" : " · 全托管应用不支持消费者订单"
                         : s.errorCode
                           ? " · 授权、连接或服务不可用"
                           : ""}
@@ -501,7 +506,7 @@ function ScopedPage({
                         继续同步
                       </Button>
                     ) : null}
-                    {(s.status === "partial" || s.status === "failed") && (!shopifyOrders || names.has(s.storeId)) ? (
+                    {(s.status === "partial" || s.status === "failed") && (!shopifyOrders && !amazonOrders || names.has(s.storeId)) ? (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -560,14 +565,14 @@ function ScopedPage({
         <ConsoleState kind="unavailable" title="平台同步暂未开放">
           当前实例尚未完成商品和订单同步接线。
         </ConsoleState>
-      ) : shopify && !store ? (
-        <ConsoleState kind="empty" title="请选择要查看的 Shopify 店铺" />
+      ) : singleStoreOrder && !store ? (
+        <ConsoleState kind="empty" title={`请选择要查看的 ${orderPlatformName} 店铺`} />
       ) : list.isPending ? (
         <ConsoleState kind="loading" title="正在加载已保存数据…" />
       ) : list.isError ? (
         <ErrorState
           error={list.error}
-          shopifyOrder={shopify}
+          orderPlatformName={singleStoreOrder ? orderPlatformName : undefined}
           retry={() => {
             setAfter("");
             setHistory([]);
@@ -581,8 +586,8 @@ function ScopedPage({
               ? "已完成所选店铺的范围遍历。"
               : "覆盖不完整：含未同步、部分结果或当前不可用的店铺。"}
             {partial ? " 当前查看指定同步的部分结果。" : ""}
-            {!shopify ? "统计基于全部筛选结果，平台列表不保证取得期间的原子快照。" : ""}
-            {kind === "orders" && !shopify ? "今日按 UTC+8 下单时间统计。" : ""}
+            {!singleStoreOrder ? "统计基于全部筛选结果，平台列表不保证取得期间的原子快照。" : ""}
+            {kind === "orders" && !singleStoreOrder ? "今日按 UTC+8 下单时间统计。" : ""}
           </p>
           {data.syncs.length ? (
             <div className={styles.sources}>
@@ -613,7 +618,7 @@ function ScopedPage({
                       {names.get(s.storeId) ?? s.storeId} ·{" "}
                       {statusLabels[s.status]}
                       {s.errorCode === "unsupported_application"
-                        ? shopify ? " · 需要店主授予订单读取权限" : " · 全托管应用不支持消费者订单"
+                        ? singleStoreOrder ? " · 需要店主授予订单读取权限" : " · 全托管应用不支持消费者订单"
                         : s.errorCode
                           ? " · 授权、连接或服务不可用"
                           : " · 仅取得部分结果"}
@@ -637,8 +642,8 @@ function ScopedPage({
             </ConsoleState>
           ) : kind === "products" ? (
             <ProductTable rows={data.items} names={names} open={setSelected} />
-          ) : shopify ? (
-            <ShopifyOrderTable rows={data.items} names={names} open={setSelected} />
+          ) : singleStoreOrder ? (
+            <SavedOrderTable rows={data.items} names={names} open={setSelected} />
           ) : (
             <OrderTable rows={data.items} names={names} open={setSelected} />
           )}
@@ -802,7 +807,20 @@ function ProductTable({
     </Card>
   );
 }
-function shopifyOrderStatus(order: ShopifyObservedOrder) {
+const amazonOrderStatuses: Record<string, string> = {
+  PENDING_AVAILABILITY: "预订待供货",
+  PENDING: "待处理",
+  UNSHIPPED: "待发货",
+  PARTIALLY_SHIPPED: "部分发货",
+  SHIPPED: "已发货",
+  CANCELLED: "已取消",
+  UNFULFILLABLE: "无法履约",
+};
+
+function savedOrderStatus(order: ShopifyObservedOrder | AmazonObservedOrder) {
+  if (!("cancelled" in order)) {
+    return order.status ? amazonOrderStatuses[order.status] ?? "平台状态暂未识别" : "平台未提供";
+  }
   if (order.cancelled) return "已取消";
   switch (order.status) {
     case "UNFULFILLED": return "未发货";
@@ -812,7 +830,7 @@ function shopifyOrderStatus(order: ShopifyObservedOrder) {
   }
 }
 
-function ShopifyOrderTable({ rows, names, open }: {
+function SavedOrderTable({ rows, names, open }: {
   rows: ObservationRecord[];
   names: Map<string, string>;
   open: (record: ObservationRecord) => void;
@@ -821,13 +839,16 @@ function ShopifyOrderTable({ rows, names, open }: {
     <Table>
       <TableHeader><TableRow>{["订单号", "店铺", "下单时间", "平台状态", "操作"].map(title =>
         <TableHead key={title}>{title}</TableHead>)}</TableRow></TableHeader>
-      <TableBody>{rows.map(record => record.shopifyOrder ? <TableRow key={record.storeId + ":" + record.id}>
-        <TableCell><strong>{record.shopifyOrder.number}</strong></TableCell>
-        <TableCell>{names.get(record.storeId) ?? record.storeId}</TableCell>
-        <TableCell>{timestamp(record.shopifyOrder.createdAt)}</TableCell>
-        <TableCell>{shopifyOrderStatus(record.shopifyOrder)}</TableCell>
-        <TableCell><Button size="sm" variant="ghost" onClick={() => open(record)}>查看详情</Button></TableCell>
-      </TableRow> : null)}</TableBody>
+      <TableBody>{rows.map(record => {
+        const order = record.shopifyOrder ?? record.amazonOrder;
+        return order ? <TableRow key={record.storeId + ":" + record.id}>
+          <TableCell><strong>{record.shopifyOrder?.number ?? record.id}</strong></TableCell>
+          <TableCell>{names.get(record.storeId) ?? record.storeId}</TableCell>
+          <TableCell>{timestamp(order.createdAt)}</TableCell>
+          <TableCell>{savedOrderStatus(order)}</TableCell>
+          <TableCell><Button size="sm" variant="ghost" onClick={() => open(record)}>查看详情</Button></TableCell>
+        </TableRow> : null;
+      })}</TableBody>
     </Table>
   </Card>;
 }
@@ -946,6 +967,7 @@ function Detail({
       observationRequest(base, scope, observationRecordSchema, signal),
     retry: false,
   });
+  const savedOrder = detail.data?.shopifyOrder ?? detail.data?.amazonOrder;
   const order = detail.data?.order;
   const trackable = order?.packages.filter((p) => p.id !== "") ?? [];
   const packageID = trackable.some((p) => p.id === pkg)
@@ -990,7 +1012,7 @@ function Detail({
       <header>
         <div>
           <h2 id="observation-detail-title">
-            {kind === "products" ? "商品详情" : selected.shopifyOrder ? "订单详情" : "订单详情与物流"}
+            {kind === "products" ? "商品详情" : selected.shopifyOrder || selected.amazonOrder ? "订单详情" : "订单详情与物流"}
           </h2>
           <p>{selected.shopifyOrder?.number ?? selected.id}</p>
         </div>
@@ -1003,14 +1025,14 @@ function Detail({
       ) : detail.isError ? (
         <ErrorState
           error={detail.error}
-          shopifyOrder={Boolean(selected.shopifyOrder)}
+          orderPlatformName={selected.amazonOrder ? "Amazon 美国站" : selected.shopifyOrder ? "Shopify" : undefined}
           retry={() => void detail.refetch()}
         />
       ) : detail.data ? (
         <div className={styles.detailBody}>
           <p className={styles.coverage}>
             取得于 {timestamp(detail.data.observedAt)}。
-            {detail.data.shopifyOrder ? "显示最近同步保存的订单资料。" : kind === "orders"
+            {savedOrder ? "显示最近同步保存的订单资料。" : kind === "orders"
               ? detail.data.stale
                 ? "平台详情暂不可用，以下为上次保存的陈旧观察；包裹与物流须待平台详情恢复后重新核对。"
                 : "包裹来自本次平台只读查询；平台省略的状态和更新时间沿用同来源已保存观察，列表保留原同步观察。"
@@ -1026,16 +1048,16 @@ function Detail({
               重试平台详情
             </Button>
           ) : null}
-          {detail.data.shopifyOrder ? <section>
+          {savedOrder ? <section>
             <dl className={styles.facts}>
-              <dt>平台状态</dt><dd>{shopifyOrderStatus(detail.data.shopifyOrder)}</dd>
-              <dt>下单时间</dt><dd>{timestamp(detail.data.shopifyOrder.createdAt)}</dd>
-              <dt>平台更新时间</dt><dd>{timestamp(detail.data.shopifyOrder.updatedAt)}</dd>
+              <dt>平台状态</dt><dd>{savedOrderStatus(savedOrder)}</dd>
+              <dt>下单时间</dt><dd>{timestamp(savedOrder.createdAt)}</dd>
+              <dt>平台更新时间</dt><dd>{timestamp(savedOrder.updatedAt)}</dd>
             </dl>
             <Table>
               <TableHeader><TableRow><TableHead>商品</TableHead><TableHead>SKU</TableHead><TableHead>下单数量</TableHead></TableRow></TableHeader>
-              <TableBody>{detail.data.shopifyOrder.items.map(item => <TableRow key={item.id}>
-                <TableCell>{item.title}</TableCell><TableCell>{item.sku || "平台未提供"}</TableCell><TableCell>{item.quantity}</TableCell>
+              <TableBody>{savedOrder.items.map(item => <TableRow key={item.id}>
+                <TableCell>{item.title || "平台未提供"}</TableCell><TableCell>{item.sku || "平台未提供"}</TableCell><TableCell>{item.quantity}</TableCell>
               </TableRow>)}</TableBody>
             </Table>
           </section> : null}
@@ -1316,24 +1338,29 @@ function coverageNote(code: string) {
     order_window_saturated: "订单时间区间达到平台上限",
     duration_limit: "达到同步时长上限",
     page_limit: "达到页数上限",
+    amazon_order_page_limit: "达到订单分页上限",
+    amazon_order_identity_or_range: "平台返回的部分订单缺少资料或超出同步范围",
+    amazon_order_identity_conflict: "平台返回的同一笔订单信息不一致",
+    amazon_order_page_incomplete: "平台只返回了部分订单资料",
+    amazon_order_pages_incomplete: "订单分页未完成",
   };
   return notes[code] ?? code;
 }
 function ErrorState({
   error,
   retry,
-  shopifyOrder = false,
+  orderPlatformName,
 }: {
   error: unknown;
   retry: () => void;
-  shopifyOrder?: boolean;
+  orderPlatformName?: string;
 }) {
   const code =
     error instanceof ObservationError ? error.code : "DEPENDENCY_UNAVAILABLE";
-  const shopifyAccessDenied =
-    shopifyOrder && (code === "PERMISSION_DENIED" || code === "NOT_FOUND");
-  const message = shopifyAccessDenied
-    ? "当前无法查看这家 Shopify 店铺的订单，请核对店铺授权和成员权限"
+  const storeAccessDenied =
+    orderPlatformName && (code === "PERMISSION_DENIED" || code === "NOT_FOUND");
+  const message = storeAccessDenied
+    ? `当前无法查看这家 ${orderPlatformName} 店铺的订单，请核对店铺授权和成员权限`
     : code === "PERMISSION_DENIED"
       ? "没有查看当前企业数据的权限"
       : code === "REVISION_CONFLICT"

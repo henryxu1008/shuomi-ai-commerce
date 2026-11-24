@@ -13,6 +13,25 @@ const headers = {
   Origin: "http://localhost:3000",
 };
 
+it("checks each platform's saved order statuses and rejects a mismatched order variant", async () => {
+  configure();
+  const now = "2026-11-20T00:00:00Z";
+  const orderID = "111-1111111-1111111";
+  const amazonRecord = {storeId: id, syncId: id, id: orderID, observedAt: now,
+    amazonOrder: {id: orderID, createdAt: now, updatedAt: now, status: "SHIPPED", items: []}};
+  const list = {items: [amazonRecord], next: "", summary: {total: 1, active: 0, offShelf: 0, today: 0,
+    todayUnknown: 0, pending: 0, transit: 0, exceptional: 0, unknown: 0}, syncs: [], latest: [], complete: true};
+  const fetcher = vi.fn().mockImplementation(() => Response.json({organizationId: "org-a", userId: "actor-a", data: list}));
+  vi.stubGlobal("fetch", fetcher);
+  const read = (platform: string, status: string) => proxyStoreObservations(new Request(
+    `http://localhost:3000/api/workbench/store-observations/orders?platform=${platform}&storeId=${id}&status=${status}`,
+    {headers}), "private", "actor-a");
+  expect((await read("amazon", "SHIPPED")).status).toBe(200);
+  expect((await read("amazon", "fulfilled")).status).toBe(400);
+  expect((await read("shopify", "fulfilled")).status).toBe(502);
+  expect(fetcher).toHaveBeenCalledTimes(2);
+});
+
 it.each([undefined,null,1,2,99])("keeps order sales area %s through the authorized BFF",async salesArea=>{
  configure();
  const record={storeId:id,syncId:id,id:"order-a",observedAt:"2026-10-09T01:00:00Z",order:{id:"order-a",site:"shein-us",status:2,stockMode:null,salesArea,type:null,tag:null,reasons:[],items:[],packages:[],amount:null,supplyCost:null,createdAt:"",updatedAt:"",issuedAt:"",needDeliveryAt:"",handoverAt:"",expectedCollectAt:""}};

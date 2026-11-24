@@ -30,18 +30,18 @@ type ShopifyOrderItem struct {
 
 var shopifyOrderID = regexp.MustCompile(`^[1-9][0-9]{0,19}$`)
 var shopifyOrderLineGID = regexp.MustCompile(`^gid://shopify/LineItem/[1-9][0-9]{0,19}$`)
-var shopifyOrderStatusCode = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,63}$`)
+var platformOrderStatusCode = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,63}$`)
 
 func (o ShopifyOrder) Valid() bool {
-	if !shopifyOrderID.MatchString(o.ID) || o.Number == "" || !validShopifyOrderText(o.Number, 128) || !shopifyOrderStatusCode.MatchString(o.Status) ||
+	if !shopifyOrderID.MatchString(o.ID) || o.Number == "" || !validObservedOrderText(o.Number, 128) || !platformOrderStatusCode.MatchString(o.Status) ||
 		o.CreatedAt.IsZero() || o.UpdatedAt.Before(o.CreatedAt) || o.CreatedAt.Year() > 9999 || o.UpdatedAt.Year() > 9999 ||
 		o.Items == nil || len(o.Items) > MaxShopifyOrderItems {
 		return false
 	}
 	seen := make(map[string]struct{}, len(o.Items))
 	for _, item := range o.Items {
-		if !shopifyOrderLineGID.MatchString(item.ID) || item.Title == "" || !validShopifyOrderText(item.Title, 255) ||
-			!validShopifyOrderText(item.SKU, 255) || item.Quantity < 1 || item.Quantity > 2147483647 {
+		if !shopifyOrderLineGID.MatchString(item.ID) || item.Title == "" || !validObservedOrderText(item.Title, 255) ||
+			!validObservedOrderText(item.SKU, 255) || item.Quantity < 1 || item.Quantity > 2147483647 {
 			return false
 		}
 		if _, duplicate := seen[item.ID]; duplicate {
@@ -52,7 +52,7 @@ func (o ShopifyOrder) Valid() bool {
 	return true
 }
 
-func validShopifyOrderText(value string, maximum int) bool {
+func validObservedOrderText(value string, maximum int) bool {
 	return utf8.ValidString(value) && strings.TrimSpace(value) == value &&
 		utf8.RuneCountInString(value) <= maximum && !strings.ContainsFunc(value, unicode.IsControl)
 }

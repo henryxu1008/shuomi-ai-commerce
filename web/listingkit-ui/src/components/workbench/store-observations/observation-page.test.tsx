@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -485,25 +485,31 @@ it.each([
   },
 );
 
-it("selects a Shopify store, requests a scoped sync and shows saved order lines", async () => {
+it.each([
+  {platform: "shopify", label: "Shopify", orderID: "17", number: "#1001", status: "部分发货"},
+  {platform: "amazon", label: "Amazon 美国站", orderID: "111-1111111-1111111", number: "111-1111111-1111111", status: "平台未提供"},
+] as const)("selects a $label store, syncs and opens saved order lines", async ({ platform, label, orderID, number, status }) => {
+  const shopify = platform === "shopify";
+  const shopName = `合成 ${label} 店铺`;
   context.permissions = ["workbench.store.orders.read", "workbench.store.orders.sync"];
   vi.mocked(listWorkbenchStores)
     .mockResolvedValueOnce({items: [], pagination: {page: 1, pageSize: 100, total: 0}})
     .mockResolvedValueOnce({
       items: [{
-        id, name: "合成 Shopify 店铺", platform: "shopify", region: "US", externalStoreId: "",
+        id, name: shopName, platform, region: "US", externalStoreId: "",
         recordStatus: "active", serviceStatus: "active", connectionStatus: "connected", version: 2,
         serviceStartedAt: "2026-10-01T01:00:00Z", serviceExpiresAt: "2026-11-01T01:00:00Z",
         createdAt: "2026-10-01T01:00:00Z", updatedAt: "2026-10-01T01:00:00Z",
       }],
       pagination: {page: 1, pageSize: 100, total: 1},
     });
-  const shopRecord = { storeId: id, syncId: id, id: "17", observedAt: "2026-10-31T01:00:00Z",
-    shopifyOrder: { id: "17", number: "#1001", createdAt: "2026-10-20T01:00:00Z", updatedAt: "2026-10-22T01:00:00Z",
-      status: "PARTIALLY_FULFILLED", cancelled: false,
-      items: [{id: "gid://shopify/LineItem/51", title: "Fixture Shopify item", sku: "", quantity: 2}] } };
+  const order = { id: orderID, createdAt: "2026-10-20T01:00:00Z", updatedAt: "2026-10-22T01:00:00Z",
+    items: [{id: shopify ? "gid://shopify/LineItem/51" : "51", title: "Fixture order item", sku: "", quantity: 2}] };
+  const shopRecord = { storeId: id, syncId: id, id: orderID, observedAt: "2026-10-31T01:00:00Z",
+    ...(shopify ? {shopifyOrder: {...order, number, status: "PARTIALLY_FULFILLED", cancelled: false}} :
+      {amazonOrder: {...order, status: ""}}) };
   const saved = { id, commandId: id, storeId: id, kind: "orders", status: "completed",
-    progress: {shopifyOrders:{ complete:true },page: 1, windows: [], expectedTotal: null, seen: 1, pages: 1, incomplete: false, notes: []},
+    progress: {[shopify ? "shopifyOrders" : "amazonOrders"]:{ complete:true },page: 1, windows: [], expectedTotal: null, seen: 1, pages: 1, incomplete: false, notes: []},
     range:{start:"2026-10-01T01:00:00Z",end:"2026-10-31T01:00:00Z"},
     createdAt:"2026-10-31T01:00:00Z",observedAt:"2026-10-31T01:00:00Z",errorCode:""};
   const summary = {total: 1, active: 0, offShelf: 0, today: 0, todayUnknown: 0, pending: 0, transit: 0, exceptional: 0, unknown: 0};
@@ -511,14 +517,14 @@ it("selects a Shopify store, requests a scoped sync and shows saved order lines"
   const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input);
     let data: unknown;
-    if (path.endsWith("/capabilities")) data = {kind: "orders", available: true, canSync: true, runtimeReady: true, providerConfigured:true, shopifyOrders: true, site: "shein-us", platformUrl: "https://sellerhub.shein.com/"};
+    if (path.endsWith("/capabilities")) data = {kind: "orders", available: true, canSync: true, runtimeReady: true, providerConfigured:true, [shopify ? "shopifyOrders" : "amazonOrders"]: true, site: "shein-us", platformUrl: "https://sellerhub.shein.com/"};
     else if (path.endsWith("/syncs")) {
       expect(JSON.parse(init?.body as string)).toEqual({ kind: "orders", stores: [id] });
       submitted = true;
       data = { id, input: {kind:"orders",stores:[id]}, syncs:[saved], createdAt:saved.createdAt };
     } else if (path.includes("/commands/")) data = { id, input: {kind:"orders",stores:[id]}, syncs:[saved], createdAt:saved.createdAt };
-    else if (path.endsWith("/records/17")) data = shopRecord;
-    else if (path.includes("platform=shopify")) {
+    else if (path.endsWith(`/records/${orderID}`)) data = shopRecord;
+    else if (path.includes(`platform=${platform}`)) {
       expect(path).toContain("storeId="+id);
       data = { items: submitted ? [shopRecord] : [], next: "", summary, syncs: submitted ? [saved] : [], latest: [], complete: submitted };
     } else data = {items:[],next:"",summary,syncs:[],latest:[],complete:false};
@@ -526,16 +532,16 @@ it("selects a Shopify store, requests a scoped sync and shows saved order lines"
   });
   vi.stubGlobal("fetch", fetcher);
   renderPage("orders");
-  await userEvent.selectOptions(screen.getByRole("combobox", {name: "平台"}), await screen.findByRole("option", {name: "Shopify"}));
+  await userEvent.selectOptions(screen.getByRole("combobox", {name: "平台"}), await screen.findByRole("option", {name: label}));
   expect(screen.getByRole("button", {name:"同步订单"})).toBeDisabled();
-  await userEvent.selectOptions(screen.getByRole("combobox", {name: "店铺"}), await screen.findByRole("option", {name:"合成 Shopify 店铺"}));
+  await userEvent.selectOptions(screen.getByRole("combobox", {name: "店铺"}), await screen.findByRole("option", {name: shopName}));
   await userEvent.click(screen.getByRole("button", {name:"同步订单"}));
-  expect(await screen.findByText("#1001")).toBeVisible();
-  expect(screen.getByRole("cell", { name: "部分发货" })).toBeVisible();
+  expect(await screen.findByText(number)).toBeVisible();
+  expect(screen.getByRole("cell", { name: status })).toBeVisible();
   expect(screen.queryByText("订单金额")).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", {name:"查看详情"}));
-  expect(await screen.findByText("Fixture Shopify item")).toBeVisible();
-  expect(screen.getByText("平台未提供")).toBeVisible();
+  expect(await screen.findByText("Fixture order item")).toBeVisible();
+  expect(within(screen.getByRole("dialog")).getByRole("cell", { name: "平台未提供" })).toBeVisible();
   expect(screen.getByRole("cell", {name:"2"})).toBeVisible();
   expect(fetcher.mock.calls.some(([path]) => String(path).includes("/packages/"))).toBe(false);
 });

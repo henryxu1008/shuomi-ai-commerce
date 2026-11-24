@@ -241,16 +241,8 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 		if !sameSync(current, expected) || current.Terminal() {
 			return o.ErrConflict
 		}
-		if current.Binding.Platform == storecenter.PlatformShopify {
-			if current.Kind != o.Orders {
-				return o.ErrInvalid
-			}
-			if err := storecenter.LockShopifyOrderObservation(tx, current.Binding); err != nil {
-				if errors.Is(err, storecenter.ErrNotFound) {
-					return o.ErrConflict
-				}
-				return o.ErrUnavailable
-			}
+		if err := lockExternalOrderObservation(tx, current); err != nil {
+			return err
 		}
 		if len(records) > 30 && (current.Kind != o.Orders || current.Binding.Platform != storecenter.PlatformTikTokShop && current.Binding.Platform != storecenter.PlatformTemu) {
 			return o.ErrInvalid
@@ -271,6 +263,9 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				return o.ErrInvalid
 			}
 			seen[v.ID] = true
+			if v.AmazonOrder != nil && (current.Kind != o.Orders || current.Binding.Platform != storecenter.PlatformAmazon) {
+				return o.ErrInvalid
+			}
 			if v.ShopifyOrder != nil && (current.Kind != o.Orders || current.Binding.Platform != storecenter.PlatformShopify) {
 				return o.ErrInvalid
 			}
@@ -288,6 +283,10 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				validProduct = v.Order == nil && v.Product == nil && v.TemuProduct == nil && v.WalmartProduct != nil && v.WalmartProduct.Valid() && v.WalmartProduct.SKU == v.ID
 			}
 			validOrder := v.TemuOrder == nil && v.TikTokOrder == nil && v.WalmartOrder == nil && v.WalmartProduct == nil && v.Order != nil && v.Product == nil && v.TemuProduct == nil && v.Order.ID == v.ID && v.Order.Site == "shein-us" && current.Binding.Platform != storecenter.PlatformTemu
+			if current.Binding.Platform == storecenter.PlatformAmazon {
+				validOrder = v.AmazonOrder != nil && v.AmazonOrder.Valid() && v.AmazonOrder.ID == v.ID && v.Order == nil &&
+					v.Product == nil && v.TemuProduct == nil && v.WalmartProduct == nil && v.TemuOrder == nil && v.TikTokOrder == nil && v.WalmartOrder == nil
+			}
 			if current.Binding.Platform == storecenter.PlatformShopify {
 				validOrder = v.ShopifyOrder != nil && v.ShopifyOrder.Valid() && v.ShopifyOrder.ID == v.ID && v.Order == nil &&
 					v.Product == nil && v.TemuProduct == nil && v.WalmartProduct == nil && v.TemuOrder == nil && v.TikTokOrder == nil && v.WalmartOrder == nil
@@ -346,24 +345,21 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				}
 				continue
 			}
-			if v.ShopifyOrder != nil && result.RowsAffected > 0 {
-				var saved struct {
-					Order *o.ShopifyOrder `json:"shopifyOrder"`
+			externalOrder := v.AmazonOrder != nil || v.ShopifyOrder != nil
+			if externalOrder && result.RowsAffected > 0 {
+				replace, err := shouldReplaceExternalOrder(v, prior.Payload, &next)
+				if err != nil {
+					return err
 				}
-				if json.Unmarshal(prior.Payload, &saved) != nil || saved.Order == nil || !saved.Order.Valid() || saved.Order.ID != v.ID {
-					return o.ErrUnavailable
-				}
-				if !v.ShopifyOrder.UpdatedAt.After(saved.Order.UpdatedAt) {
-					if v.ShopifyOrder.UpdatedAt.Equal(saved.Order.UpdatedAt) && !reflect.DeepEqual(v.ShopifyOrder, saved.Order) {
-						next.Note("shopify_order_identity_conflict")
-					}
+				if !replace {
 					continue
 				}
 			}
-			if v.ShopifyOrder == nil && result.RowsAffected > 0 && prior.WindowKey == v.WindowKey && prior.PageIndex != current.Progress.Page {
+			if !externalOrder && result.RowsAffected > 0 && prior.WindowKey == v.WindowKey && prior.PageIndex != current.Progress.Page {
 				next.Note("duplicate_platform_identity")
 			}
 			payload, _ := json.Marshal(struct {
+				AmazonOrder    *o.AmazonOrder   `json:"amazonOrder,omitempty"`
 				ShopifyOrder   *o.ShopifyOrder  `json:"shopifyOrder,omitempty"`
 				SupplyOrder    *o.SupplyOrder   `json:"supplyOrder,omitempty"`
 				TemuOrder      *o.TemuOrder     `json:"temuOrder,omitempty"`
@@ -373,13 +369,20 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				Product        *o.Product       `json:"product,omitempty"`
 				TemuProduct    *temuo.Product   `json:"temuProduct,omitempty"`
 				Order          *o.Order         `json:"order,omitempty"`
-			}{v.ShopifyOrder, v.SupplyOrder, v.TemuOrder, v.TikTokOrder, v.WalmartOrder, v.WalmartProduct, v.Product, v.TemuProduct, v.Order})
+			}{v.AmazonOrder, v.ShopifyOrder, v.SupplyOrder, v.TemuOrder, v.TikTokOrder, v.WalmartOrder, v.WalmartProduct, v.Product, v.TemuProduct, v.Order})
 			if len(payload) > 262144 {
 				return o.ErrInvalid
 			}
 			if tx.Exec(`INSERT INTO store_observations.records(organization_id,store_id,sync_id,kind,platform_id,payload,observed_at,window_key,page_index) VALUES(?,?,?,?,?,?::jsonb,?,?,?) ON CONFLICT(organization_id,store_id,sync_id,platform_id) DO UPDATE SET payload=EXCLUDED.payload,observed_at=EXCLUDED.observed_at,window_key=EXCLUDED.window_key,page_index=EXCLUDED.page_index`, current.Owner.OrganizationID, current.StoreID, current.ID, current.Kind, v.ID, string(payload), at, v.WindowKey, current.Progress.Page).Error != nil {
 				return o.ErrUnavailable
 			}
+		}
+		if status == "completed" && current.Kind == o.Orders && current.Binding.Platform == storecenter.PlatformAmazon &&
+			(next.AmazonOrders == nil || !next.AmazonOrders.Complete || len(next.Windows) > 0) {
+			next.Note("amazon_order_pages_incomplete")
+		}
+		if next.Incomplete && next.AmazonOrders != nil {
+			next.AmazonOrders.Complete = false
 		}
 		if status == "completed" && current.Kind == o.Orders && current.Binding.Platform == storecenter.PlatformShopify &&
 			(next.ShopifyOrders == nil || !next.ShopifyOrders.Complete || len(next.Windows) > 0) {
@@ -541,6 +544,8 @@ func (r *Repository) list(ctx context.Context, org string, q o.Query) (o.Result,
 		base += `entry.row_id,entry.payload,entry.item,entry.sale_state FROM store_observations.records r` + productRowsLateral
 	} else if q.Platform == "shopify" {
 		base += `r.platform_id AS row_id,r.payload,r.payload->'shopifyOrder' AS item FROM store_observations.records r`
+	} else if q.Platform == "amazon" {
+		base += `r.platform_id AS row_id,r.payload,r.payload->'amazonOrder' AS item FROM store_observations.records r`
 	} else {
 		base += `r.platform_id AS row_id,r.payload,r.payload->'order' AS item FROM store_observations.records r`
 	}
@@ -553,9 +558,9 @@ func (r *Repository) list(ctx context.Context, org string, q o.Query) (o.Result,
 			for i := 0; i < 13; i++ {
 				args = append(args, pattern)
 			}
-		} else if q.Platform == "shopify" {
-			filter += ` AND (item->>'number' ILIKE ? OR EXISTS(SELECT 1 FROM jsonb_array_elements(item->'items') goods WHERE goods->>'title' ILIKE ? OR goods->>'sku' ILIKE ?))`
-			args = append(args, pattern, pattern, pattern)
+		} else if q.Platform == "shopify" || q.Platform == "amazon" {
+			filter += ` AND (platform_id ILIKE ? OR item->>'number' ILIKE ? OR EXISTS(SELECT 1 FROM jsonb_array_elements(item->'items') goods WHERE goods->>'title' ILIKE ? OR goods->>'sku' ILIKE ?))`
+			args = append(args, pattern, pattern, pattern, pattern)
 		} else {
 			filter += ` AND (platform_id ILIKE ? OR EXISTS(SELECT 1 FROM jsonb_array_elements(item->'items') goods WHERE goods->>'title' ILIKE ? OR goods->>'sku' ILIKE ? OR goods->>'sellerSku' ILIKE ?))`
 			for i := 0; i < 4; i++ {
@@ -575,6 +580,13 @@ func (r *Repository) list(ctx context.Context, org string, q o.Query) (o.Result,
 				filter += ` AND sale_state NOT IN('active','off')`
 			default:
 				return out, o.ErrInvalid
+			}
+		} else if q.Platform == "amazon" {
+			if q.Status == "unknown" {
+				filter += ` AND item->>'status' NOT IN('PENDING_AVAILABILITY','PENDING','UNSHIPPED','PARTIALLY_SHIPPED','SHIPPED','CANCELLED','UNFULFILLABLE')`
+			} else {
+				filter += ` AND item->>'status'=?`
+				args = append(args, q.Status)
 			}
 		} else if q.Platform == "shopify" {
 			if q.Status == "cancelled" {
@@ -616,7 +628,7 @@ func (r *Repository) list(ctx context.Context, org string, q o.Query) (o.Result,
 	summaryArgs := append([]any{}, args...)
 	if q.Kind == o.Products {
 		summary += `,count(*) FILTER(WHERE sale_state='active') AS active,count(*) FILTER(WHERE sale_state='off') AS off_shelf,count(*) FILTER(WHERE sale_state NOT IN('active','off')) AS unknown`
-	} else if q.Platform != "shopify" {
+	} else if q.Platform != "shopify" && q.Platform != "amazon" {
 		summary += `,count(*) FILTER(WHERE NULLIF(item->>'createdAt','')::timestamptz>=? AND NULLIF(item->>'createdAt','')::timestamptz<?) AS today,count(*) FILTER(WHERE NULLIF(item->>'createdAt','') IS NULL) AS today_unknown,count(*) FILTER(WHERE item->>'status' IN('1','2','3')) AS pending,count(*) FILTER(WHERE item->>'status' IN('4','7')) AS transit,count(*) FILTER(WHERE ` + exceptional + `) AS exceptional,count(*) FILTER(WHERE item->>'status' IS NULL OR item->>'status' NOT IN('1','2','3','4','5','6','7','8','9')) AS unknown`
 		summaryArgs = append(summaryArgs, q.TodayStart, q.TodayStart.Add(24*time.Hour))
 	}
@@ -748,4 +760,51 @@ func (r *Repository) StoreAggregates(ctx context.Context, org string, kind o.Kin
 		return nil, o.ErrUnavailable
 	}
 	return out, nil
+}
+
+func lockExternalOrderObservation(tx *gorm.DB, current o.Sync) error {
+	var lock func(*gorm.DB, storecenter.ProductMerchantBinding) error
+	switch current.Binding.Platform {
+	case storecenter.PlatformAmazon:
+		lock = storecenter.LockAmazonOrderObservation
+	case storecenter.PlatformShopify:
+		lock = storecenter.LockShopifyOrderObservation
+	default:
+		return nil
+	}
+	if current.Kind != o.Orders {
+		return o.ErrInvalid
+	}
+	if err := lock(tx, current.Binding); err != nil {
+		if errors.Is(err, storecenter.ErrNotFound) {
+			return o.ErrConflict
+		}
+		return o.ErrUnavailable
+	}
+	return nil
+}
+
+func shouldReplaceExternalOrder(record o.Record, payload []byte, next *o.Checkpoint) (bool, error) {
+	var saved o.Record
+	if json.Unmarshal(payload, &saved) != nil {
+		return false, o.ErrUnavailable
+	}
+	if incoming := record.AmazonOrder; incoming != nil {
+		prior := saved.AmazonOrder
+		if prior == nil || !prior.Valid() || prior.ID != record.ID {
+			return false, o.ErrUnavailable
+		}
+		if incoming.UpdatedAt.Equal(prior.UpdatedAt) && !reflect.DeepEqual(incoming, prior) {
+			next.Note("amazon_order_identity_conflict")
+		}
+		return incoming.UpdatedAt.After(prior.UpdatedAt), nil
+	}
+	prior := saved.ShopifyOrder
+	if prior == nil || !prior.Valid() || prior.ID != record.ID {
+		return false, o.ErrUnavailable
+	}
+	if record.ShopifyOrder.UpdatedAt.Equal(prior.UpdatedAt) && !reflect.DeepEqual(record.ShopifyOrder, prior) {
+		next.Note("shopify_order_identity_conflict")
+	}
+	return record.ShopifyOrder.UpdatedAt.After(prior.UpdatedAt), nil
 }

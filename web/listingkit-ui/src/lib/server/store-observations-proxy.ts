@@ -45,7 +45,7 @@ type Endpoint = {
   store?: string;
   sync?: string;
   record?: string;
-  shopifyOrderList?: boolean;
+  orderPlatform?: "shopify" | "amazon";
   command?: string;
   dateRange?: {startDate:string;endDate:string};
 };
@@ -95,8 +95,10 @@ function observationEndpoint(url: URL, method: string): Endpoint | null {
     const platform=url.searchParams.get("platform");
     if (platform !== null && platform !== "shein" &&
       !(kind === "products" && ["temu", "walmart"].includes(platform)) &&
-      !(kind === "orders" && platform === "shopify")) return null;
-    e.shopifyOrderList = kind === "orders" && platform === "shopify";
+      !(kind === "orders" && (platform === "shopify" || platform === "amazon"))) return null;
+    if (kind === "orders" && (platform === "shopify" || platform === "amazon")) {
+      e.orderPlatform = platform;
+    }
     for (const k of ["storeId", "syncId"])
       if (
         url.searchParams.has(k) &&
@@ -118,7 +120,11 @@ function observationEndpoint(url: URL, method: string): Endpoint | null {
       !(
         kind === "products"
           ? ["", "active", "off", "unknown"]
-          : [
+          : e.orderPlatform === "amazon"
+            ? ["", "PENDING_AVAILABILITY", "PENDING", "UNSHIPPED", "PARTIALLY_SHIPPED", "SHIPPED", "CANCELLED", "UNFULFILLABLE", "unknown"]
+            : e.orderPlatform === "shopify"
+              ? ["", "unfulfilled", "fulfilled", "partial", "cancelled", "unknown"]
+              : [
               "",
               "1",
               "2",
@@ -243,7 +249,7 @@ function matches(e: Endpoint, data: unknown): boolean {
       v.id === e.record &&
       v.storeId === e.store &&
       v.syncId === e.sync &&
-      (e.kind === "products" ? Boolean(v.product || v.temuProduct || v.walmartProduct) : Boolean(v.order || v.shopifyOrder))
+      (e.kind === "products" ? Boolean(v.product || v.temuProduct || v.walmartProduct) : Boolean(v.order || v.shopifyOrder || v.amazonOrder))
     );
   }
   if (e.schema === observationSyncSchema) {
@@ -271,7 +277,7 @@ function matches(e: Endpoint, data: unknown): boolean {
     return (
       v.items.every((r) =>
         e.kind === "products" ? Boolean(r.product || r.temuProduct || r.walmartProduct)
-          : Boolean(e.shopifyOrderList ? r.shopifyOrder : r.order),
+          : Boolean(e.orderPlatform === "shopify" ? r.shopifyOrder : e.orderPlatform === "amazon" ? r.amazonOrder : r.order),
       ) &&
       v.syncs.every((s) => s.kind === e.kind) &&
       v.latest.every((s) => s.kind === e.kind)
