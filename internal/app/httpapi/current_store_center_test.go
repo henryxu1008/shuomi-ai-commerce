@@ -123,7 +123,8 @@ type startedShopifyRoutes struct {
 	*storeapp.ShopifyConnections
 }
 
-func (startedShopifyRoutes) StartedInstallationEnabled() bool { return true }
+func (startedShopifyRoutes) StartedInstallationEnabled() bool    { return true }
+func (startedShopifyRoutes) LifecycleNotificationsEnabled() bool { return true }
 
 func TestShopifyStartedInstallationPublicRouteAdmission(t *testing.T) {
 	h, err := storehttp.NewHandlerWithServiceLifecycle(inertStoreService{}, &storecenter.ServiceLifecycleApplication{})
@@ -147,13 +148,13 @@ func TestShopifyStartedInstallationPublicRouteAdmission(t *testing.T) {
 	all = append(all, registry.Routes()...)
 	validate := func(routes []httproute.Descriptor, startEnabled bool) error {
 		return validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false,
-			currentApplicationOptionalRoutes{StoreCenter: true, Shopify: true, ShopifyInstall: startEnabled})
+			currentApplicationOptionalRoutes{StoreCenter: true, Shopify: true, ShopifyInstall: startEnabled, ShopifyLifecycle: startEnabled})
 	}
 	require.NoError(t, validate(all, true))
 	require.Error(t, validate(all, false))
 	found := false
 	for i, r := range all {
-		if r.Path == storehttp.ShopifyStartedInstallationPath {
+		if r.Path == storehttp.ShopifyStartedInstallationPath || r.Path == storehttp.ShopifyUninstalledPath || r.Path == storehttp.ShopifyScopesUpdatedPath {
 			found = true
 			for _, mutate := range []func(*httproute.Descriptor){
 				func(d *httproute.Descriptor) { d.Method = http.MethodGet },

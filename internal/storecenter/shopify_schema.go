@@ -74,6 +74,21 @@ var shopifySchemaStatements = []string{
  (state='staged' AND shop_key IS NULL AND key_id<>'' AND ciphertext<>'' AND shop_id<>'' AND installation_id<>'' AND domain<>'' AND length(currency)=3) OR
  (state='confirmed' AND shop_key IS NOT NULL AND generation>0 AND key_id='' AND ciphertext='' AND shop_id='' AND installation_id='' AND domain='' AND currency=''))
 )`,
+	`CREATE TABLE public.workbench_store_shopify_lifecycle_events (
+ app_id VARCHAR(128) NOT NULL, shop_id VARCHAR(128) NOT NULL, revision BIGINT NOT NULL,
+ topic VARCHAR(32) NOT NULL, event_id VARCHAR(128) NOT NULL, body_hash CHAR(64) NOT NULL,
+ organization_id VARCHAR(200) NOT NULL, shop_key VARCHAR(36) NOT NULL, generation BIGINT NOT NULL,
+ status VARCHAR(16) NOT NULL, received_at TIMESTAMPTZ NOT NULL, retry_at TIMESTAMPTZ, attempt BIGINT NOT NULL,
+ CONSTRAINT shopify_lifecycle_pk PRIMARY KEY (app_id,shop_id,revision),
+ CONSTRAINT shopify_lifecycle_event UNIQUE (app_id,shop_id,topic,event_id),
+ CONSTRAINT shopify_lifecycle_bounds CHECK (revision>0 AND attempt>=0 AND app_id<>'' AND shop_id<>'' AND event_id<>''
+   AND topic IN ('app/uninstalled','app/scopes_update') AND length(body_hash)=64
+   AND ((status='unbound' AND generation=0 AND organization_id='' AND shop_key='' AND retry_at IS NULL AND attempt=0)
+     OR (generation>0 AND organization_id<>'' AND shop_key<>''
+       AND ((status='pending' AND retry_at IS NOT NULL) OR (status IN ('healthy','revoked','superseded') AND retry_at IS NULL)))) )
+)`,
+	`CREATE INDEX shopify_lifecycle_due ON public.workbench_store_shopify_lifecycle_events(app_id,retry_at,shop_id,revision) WHERE status='pending'`,
+	`CREATE INDEX shopify_lifecycle_pending ON public.workbench_store_shopify_lifecycle_events(organization_id,shop_key,generation) WHERE status='pending'`,
 	shopifyInstallSchema,
 	`CREATE INDEX shopify_install_expiry ON public.workbench_store_shopify_installs(expires_at)`,
 }
@@ -149,7 +164,9 @@ func verifyShopifySchema(ctx context.Context, db coreSchemaQueryer) error {
    ('workbench_store_shopify_shops','shopify_store_unique','UNIQUE (organization_id, store_id)'),
    ('workbench_store_shopify_shops','shopify_current_authorization','FOREIGN KEY (organization_id, shop_key, generation) REFERENCES workbench_store_shopify_authorizations(organization_id, shop_key, generation) DEFERRABLE INITIALLY DEFERRED'),
    ('workbench_store_shopify_authorizations','shopify_authorization_pk','PRIMARY KEY (organization_id, shop_key, generation)'),
-   ('workbench_store_shopify_pairings','shopify_pairing_pk','PRIMARY KEY (organization_id, attempt_id)')
+   ('workbench_store_shopify_pairings','shopify_pairing_pk','PRIMARY KEY (organization_id, attempt_id)'),
+   ('workbench_store_shopify_lifecycle_events','shopify_lifecycle_pk','PRIMARY KEY (app_id, shop_id, revision)'),
+   ('workbench_store_shopify_lifecycle_events','shopify_lifecycle_event','UNIQUE (app_id, shop_id, topic, event_id)')
  ) AS expected(table_name, constraint_name, definition)
  WHERE NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint c JOIN pg_catalog.pg_class r ON r.oid=c.conrelid
   JOIN pg_catalog.pg_namespace n ON n.oid=r.relnamespace WHERE n.nspname='public' AND r.relname=expected.table_name AND r.relkind='r'

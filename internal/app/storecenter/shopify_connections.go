@@ -14,13 +14,14 @@ import (
 )
 
 type ShopifyApplication struct {
-	AppID               string
-	InstallURL          string
-	StartedInstallation bool
-	OAuth               *wire.OAuthClient
-	Admin               *wire.AdminClient
-	Issuer              *wire.AppTokenIssuer
-	Protection          *wire.PairingProtection
+	AppID                  string
+	InstallURL             string
+	StartedInstallation    bool
+	LifecycleNotifications bool
+	OAuth                  *wire.OAuthClient
+	Admin                  *wire.AdminClient
+	Issuer                 *wire.AppTokenIssuer
+	Protection             *wire.PairingProtection
 }
 
 type ShopifyConnections struct {
@@ -119,7 +120,7 @@ func (a *ShopifyConnections) Confirm(ctx context.Context, key storecenter.Shopif
 		if err != nil {
 			return storecenter.ShopifyBinding{}, err
 		}
-		return a.store.ConfirmShopifyPairing(ctx, key, session, binding.ShopifyInstallation, time.Now())
+		return a.store.ConfirmShopifyPairing(ctx, key, session, binding.ShopifyInstallation, time.Now(), 0)
 	}
 	if row.State != "staged" {
 		return storecenter.ShopifyBinding{}, storecenter.ErrVersionConflict
@@ -129,11 +130,15 @@ func (a *ShopifyConnections) Confirm(ctx context.Context, key storecenter.Shopif
 	if err != nil {
 		return storecenter.ShopifyBinding{}, storecenter.ErrOfficialConnectionUnavailable
 	}
+	revision, err := a.store.ReadShopifyLifecycleRevision(ctx, row.ShopifyInstallation)
+	if err != nil {
+		return storecenter.ShopifyBinding{}, err
+	}
 	actual, err := a.app.Admin.Installation(ctx, expected.Domain, token.Value, a.app.AppID)
 	if err != nil || actual != expected {
 		return storecenter.ShopifyBinding{}, storecenter.ErrVersionConflict
 	}
-	return a.store.ConfirmShopifyPairing(ctx, key, session, shopifyIdentity(actual), time.Now())
+	return a.store.ConfirmShopifyPairing(ctx, key, session, shopifyIdentity(actual), time.Now(), revision)
 }
 
 func (a *ShopifyConnections) Read(ctx context.Context, org, storeID string) (storecenter.ShopifyBinding, error) {
@@ -142,6 +147,9 @@ func (a *ShopifyConnections) Read(ctx context.Context, org, storeID string) (sto
 
 func (a *ShopifyConnections) Status(ctx context.Context, org, storeID string) (storecenter.ConnectionStatus, error) {
 	_, err := a.store.ReadShopifyBinding(ctx, org, storeID)
+	if errors.Is(err, storecenter.ErrShopifyLifecyclePending) {
+		return storecenter.ConnectionStatusUnavailable, nil
+	}
 	if errors.Is(err, storecenter.ErrNotFound) {
 		return storecenter.ConnectionStatusDisconnected, nil
 	}

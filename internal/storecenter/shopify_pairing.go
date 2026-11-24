@@ -253,7 +253,7 @@ func (r *MemberScopedStoreRepository) ReadShopifyPairing(ctx context.Context, ke
 	return r.updateShopifyPairing(ctx, key, session, now, func(*gorm.DB, *ShopifyPairing) error { return nil })
 }
 
-func (r *MemberScopedStoreRepository) ConfirmShopifyPairing(ctx context.Context, key ShopifyPairingKey, session string, identity ShopifyInstallation, now time.Time) (ShopifyBinding, error) {
+func (r *MemberScopedStoreRepository) ConfirmShopifyPairing(ctx context.Context, key ShopifyPairingKey, session string, identity ShopifyInstallation, now time.Time, verifiedRevision int64) (ShopifyBinding, error) {
 	if !identity.valid() {
 		return ShopifyBinding{}, ErrNotFound
 	}
@@ -262,6 +262,11 @@ func (r *MemberScopedStoreRepository) ConfirmShopifyPairing(ctx context.Context,
 		row, err := lockShopifyPairing(tx, access, store, key, session, now)
 		if err != nil {
 			return err
+		}
+		if row.State != "confirmed" {
+			if err := validateShopifyLifecycleProof(tx, identity, verifiedRevision, row.CreatedAt); err != nil {
+				return err
+			}
 		}
 		shop, err := findShopifyShop(tx, identity.AppID, identity.ShopID)
 		if err != nil {
@@ -357,6 +362,13 @@ func currentShopifyBinding(tx *gorm.DB, shop shopifyShopRow, key ShopifyPairingK
 	if err != nil {
 		return ShopifyBinding{}, ErrOfficialConnectionUnavailable
 	}
+	pending, err := shopifyAuthorizationPending(tx, shop)
+	if err != nil {
+		return ShopifyBinding{}, ErrOfficialConnectionUnavailable
+	}
+	if pending {
+		return ShopifyBinding{}, ErrShopifyLifecyclePending
+	}
 	return shopifyBindingValue(shop, auth), nil
 }
 
@@ -374,7 +386,7 @@ func (r *MemberScopedStoreRepository) ReadShopifyBinding(ctx context.Context, or
 func readShopifyBinding(tx *gorm.DB, org, storeID, shopKey string) (ShopifyBinding, error) {
 	tx = tx.Session(&gorm.Session{})
 	var shop shopifyShopRow
-	err := tx.Where("organization_id=? AND store_id=? AND shop_key=?", org, storeID, shopKey).Take(&shop).Error
+	err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("organization_id=? AND store_id=? AND shop_key=?", org, storeID, shopKey).Take(&shop).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return ShopifyBinding{}, ErrNotFound
 	}

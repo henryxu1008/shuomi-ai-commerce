@@ -89,14 +89,14 @@ func TestShopifyPairingIsConsumedOnceAndShopRemainsExclusive(t *testing.T) {
 	staged, err := repo.StageShopifyPairing(ctx, claimed.Key(), session, provider, 0, "fixture-key", "fixture-ciphertext", now)
 	require.NoError(t, err)
 	authorizer.member = "replacement-member"
-	_, err = repo.ConfirmShopifyPairing(ctx, staged.Key(), session, provider, now)
+	_, err = repo.ConfirmShopifyPairing(ctx, staged.Key(), session, provider, now, 0)
 	require.ErrorIs(t, err, storecenter.ErrNotFound)
 	authorizer.member = "member-original"
-	result, err := repo.ConfirmShopifyPairing(ctx, staged.Key(), session, provider, now)
+	result, err := repo.ConfirmShopifyPairing(ctx, staged.Key(), session, provider, now, 0)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), result.Generation)
 	require.NotEmpty(t, result.ShopKey)
-	pairedAgain, err := repo.ConfirmShopifyPairing(ctx, staged.Key(), session, provider, now)
+	pairedAgain, err := repo.ConfirmShopifyPairing(ctx, staged.Key(), session, provider, now, 0)
 	require.NoError(t, err)
 	require.Equal(t, result, pairedAgain)
 	var storedCiphertext string

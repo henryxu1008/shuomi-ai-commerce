@@ -99,6 +99,10 @@ func (r *OfficialApplicationRegistry) ShopifyConfigured() bool {
 	return r != nil && r.shopify != nil
 }
 
+func (r *OfficialApplicationRegistry) ShopifyLifecycleConfigured() bool {
+	return r.ShopifyConfigured() && r.shopify.LifecycleNotifications
+}
+
 func (r *OfficialApplicationRegistry) ShopifyStartedInstallationConfigured() bool {
 	return r.ShopifyConfigured() && r.shopify.StartedInstallation
 }

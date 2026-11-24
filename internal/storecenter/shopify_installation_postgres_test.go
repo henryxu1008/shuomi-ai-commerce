@@ -79,6 +79,14 @@ func TestShopifyStartedInstallationConsumesOnlyTheConfirmedStore(t *testing.T) {
 	require.NoError(t, err)
 	_, err = repo.SelectShopifyInstall(ctx, other, session, now)
 	require.ErrorIs(t, err, storecenter.ErrNotFound)
+	notice := storecenter.ShopifyLifecycleNotice{AppID: identity.AppID, ShopID: identity.ShopID,
+		Topic: "app/uninstalled", EventID: "before-started-install-confirm", BodyHash: strings.Repeat("f", 64)}
+	require.NoError(t, repo.ReceiveShopifyLifecycle(ctx, notice, now))
+	_, err = repo.ConfirmShopifyInstall(ctx, first, session, identity, now, 0)
+	require.ErrorIs(t, err, storecenter.ErrVersionConflict, "first binding must recheck after a new notice")
+	revision, err := repo.ReadShopifyLifecycleRevision(ctx, identity)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, revision)
 	type confirmation struct {
 		binding storecenter.ShopifyBinding
 		err     error
@@ -88,7 +96,7 @@ func TestShopifyStartedInstallationConsumesOnlyTheConfirmedStore(t *testing.T) {
 	for range 2 {
 		go func() {
 			<-ready
-			binding, err := repo.ConfirmShopifyInstall(ctx, first, session, identity, now)
+			binding, err := repo.ConfirmShopifyInstall(ctx, first, session, identity, now, revision)
 			result <- confirmation{binding, err}
 		}()
 	}
@@ -104,10 +112,10 @@ func TestShopifyStartedInstallationConsumesOnlyTheConfirmedStore(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, selection.Confirmed)
 	require.Equal(t, first.ExpectedStoreVersion, selection.StoreVersion)
-	replayed, err := repo.ConfirmShopifyInstall(ctx, first, session, identity, now)
+	replayed, err := repo.ConfirmShopifyInstall(ctx, first, session, identity, now, 0)
 	require.NoError(t, err)
 	require.Equal(t, bound, replayed)
-	_, err = repo.ConfirmShopifyInstall(ctx, other, session, identity, now)
+	_, err = repo.ConfirmShopifyInstall(ctx, other, session, identity, now, 0)
 	require.ErrorIs(t, err, storecenter.ErrNotFound)
 	_, err = repo.ReadShopifyBinding(ctx, other.OrganizationID, other.StoreID)
 	require.ErrorIs(t, err, storecenter.ErrNotFound)

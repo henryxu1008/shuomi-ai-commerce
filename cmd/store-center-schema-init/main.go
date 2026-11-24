@@ -277,7 +277,7 @@ func installShopifyStoreSchema(ctx context.Context, records *gorm.DB) error {
 	if err := storecenter.InstallShopifySchemaTx(ctx, tx); err != nil {
 		return fmt.Errorf("initialize Store Shopify schema: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `GRANT SELECT,INSERT,UPDATE ON public.workbench_store_shopify_shops, public.workbench_store_shopify_authorizations, public.workbench_store_shopify_pairings TO store_center_runtime`); err != nil {
+	if _, err := tx.ExecContext(ctx, `GRANT SELECT,INSERT,UPDATE ON public.workbench_store_shopify_shops, public.workbench_store_shopify_authorizations, public.workbench_store_shopify_pairings, public.workbench_store_shopify_lifecycle_events TO store_center_runtime`); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `DO $$ BEGIN IF to_regclass('public.workbench_store_shopify_installs') IS NOT NULL THEN

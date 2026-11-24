@@ -191,7 +191,7 @@ func pairShopifyChargeStore(t *testing.T, repo *storecenter.MemberScopedStoreRep
 	require.NoError(t, err)
 	staged, err := repo.StageShopifyPairing(ctx, claimed.Key(), session, installation, generation, "fixture-key", "fixture-ciphertext", now)
 	require.NoError(t, err)
-	binding, err := repo.ConfirmShopifyPairing(ctx, staged.Key(), session, installation, now)
+	binding, err := repo.ConfirmShopifyPairing(ctx, staged.Key(), session, installation, now, 0)
 	require.NoError(t, err)
 	return binding
 }

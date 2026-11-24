@@ -60,6 +60,7 @@ func (m routeModule) Register(registry *kernelmodule.Registry) error {
 	if installation := m.handler.shopifyStartedInstallationRoute(); installation != nil {
 		registry.AddRoutes(*installation)
 	}
+	registry.AddRoutes(m.handler.shopifyLifecycleRoutes()...)
 	registry.AddRoutes(m.handler.amazonAuthorizationRoutes()...)
 	if m.handler.google != nil {
 		registry.AddRoutes(GoogleStoreRoutes(m.handler)...)

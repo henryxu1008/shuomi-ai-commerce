@@ -92,18 +92,22 @@ func (a *ShopifyConnections) ConfirmStartedInstallation(ctx context.Context, com
 		return storecenter.ShopifyBinding{}, storecenter.ErrVersionConflict
 	}
 	if proof.State == "confirmed" {
-		return a.store.ConfirmShopifyInstall(ctx, command, session, storecenter.ShopifyInstallation{}, time.Now())
+		return a.store.ConfirmShopifyInstall(ctx, command, session, storecenter.ShopifyInstallation{}, time.Now(), 0)
 	}
 	expected := shopifyWireIdentity(proof.ShopifyInstallation)
 	token, err := a.app.Protection.OpenInstallProof(installProofAAD(proof, expected, proof.Generation), proof.KeyID, proof.Ciphertext, time.Now())
 	if err != nil {
 		return storecenter.ShopifyBinding{}, storecenter.ErrOfficialConnectionUnavailable
 	}
+	revision, err := a.store.ReadShopifyLifecycleRevision(ctx, proof.ShopifyInstallation)
+	if err != nil {
+		return storecenter.ShopifyBinding{}, err
+	}
 	actual, err := a.app.Admin.Installation(ctx, expected.Domain, token.Value, a.app.AppID)
 	if err != nil || actual != expected {
 		return storecenter.ShopifyBinding{}, storecenter.ErrVersionConflict
 	}
-	return a.store.ConfirmShopifyInstall(ctx, command, session, shopifyIdentity(actual), time.Now())
+	return a.store.ConfirmShopifyInstall(ctx, command, session, shopifyIdentity(actual), time.Now(), revision)
 }
 
 func (a *ShopifyConnections) ExpireStartedInstallationProofs(ctx context.Context) error {

@@ -273,7 +273,7 @@ func (r *MemberScopedStoreRepository) SelectShopifyInstall(ctx context.Context, 
 	return selected, err
 }
 
-func (r *MemberScopedStoreRepository) ConfirmShopifyInstall(ctx context.Context, command OfficialConnectionCommand, session string, verified ShopifyInstallation, now time.Time) (ShopifyBinding, error) {
+func (r *MemberScopedStoreRepository) ConfirmShopifyInstall(ctx context.Context, command OfficialConnectionCommand, session string, verified ShopifyInstallation, now time.Time, verifiedRevision int64) (ShopifyBinding, error) {
 	var result ShopifyBinding
 	err := r.shopifyTx(ctx, command.OrganizationID, command.StoreID, true, func(tx *gorm.DB, access StoreMemberAccess, store workbenchStoreRecord) error {
 		proof, err := lockShopifyInstallProof(tx, command.AttemptID, session, now)
@@ -293,6 +293,9 @@ func (r *MemberScopedStoreRepository) ConfirmShopifyInstall(ctx context.Context,
 		}
 		if proof.State != "selected" || store.Version != command.ExpectedStoreVersion || !verified.valid() || proof.ShopifyInstallation != verified {
 			return ErrVersionConflict
+		}
+		if err := validateShopifyLifecycleProof(tx, verified, verifiedRevision, proof.CreatedAt); err != nil {
+			return err
 		}
 		shop, err := findShopifyShop(tx, verified.AppID, verified.ShopID)
 		if err != nil {
