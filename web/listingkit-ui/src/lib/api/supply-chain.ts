@@ -9,6 +9,7 @@ import type { CollectionScope } from "./product-collection";
 import { readBoundedStrictJSON } from "./strict-json-response";
 import { supplyReviewCommand,supplyReviewApplyCommandSchema,supplyReviewDecisionCommandSchema } from "./supply-review-command";
 import { SupplyAPIError } from "./supply-error";
+import {amazonListingInputSchema,amazonConfirmSchema,amazonListingResultSchema,amazonReviewInputSchema,amazonReviewSchema,matchesAmazonListingResponse} from "@/lib/contracts/amazon-listing";
 
 export type SupplyScope=CollectionScope & {draftKind?:c.DraftKind;draftSourceId?:string};
 export type SupplyIntent=Readonly<SupplyScope & { key:string; route:"create-color-split"|"cancel-upload-plan"|"create-upload-plan"|"continue-upload-plan"|"shein-shelf-confirm"|"save-completion-draft"|"transfer"|"save-target"|"approve"|"create-operation"|"resolve-upload"|"review-decision"|"review-apply"; command:unknown; lookupOnly?:true }>;
@@ -160,7 +161,7 @@ async function send<T extends z.ZodType>(path:string,scope:SupplyScope,schema:T,
  const bounded=/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
  if(!bounded.test(scope.userId)||!bounded.test(scope.organizationId))throw new SupplyAPIError("INVALID_REQUEST",400);
  const controller=new AbortController();const abort=()=>controller.abort();signal?.addEventListener("abort",abort,{once:true});if(signal?.aborted)abort();
- const timeout=setTimeout(abort,path.includes("/shein-publication/")?32_000:27_000);const unavailable=()=>new SupplyAPIError(input?.mutates?"OUTCOME_UNKNOWN":"DEPENDENCY_UNAVAILABLE",input?.mutates?503:502);
+ const timeout=setTimeout(abort,path.includes("/amazon-listings/")?108_000:path.includes("/shein-publication/")?32_000:27_000);const unavailable=()=>new SupplyAPIError(input?.mutates?"OUTCOME_UNKNOWN":"DEPENDENCY_UNAVAILABLE",input?.mutates?503:502);
  try{
   const headers=new Headers({Accept:"application/json","X-Expected-Organization-ID":scope.organizationId,"X-Expected-User-ID":scope.userId});
   if(input?.command!==undefined)headers.set("Content-Type","application/json");if(input?.key)headers.set("Idempotency-Key",input.key);
@@ -169,6 +170,34 @@ async function send<T extends z.ZodType>(path:string,scope:SupplyScope,schema:T,
   if(!response.ok){const error=z.object({code:z.string().regex(/^[A-Z][A-Z0-9_]{0,79}$/)}).safeParse(payload);if(error.success)throw new SupplyAPIError(error.data.code,response.status);throw unavailable()}
   const value=schema.safeParse(payload);if(response.status!==200 || !value.success)throw unavailable();return value.data;
  }catch(error){if(error instanceof SupplyAPIError)throw error;throw unavailable()}finally{clearTimeout(timeout);signal?.removeEventListener("abort",abort)}
+}
+
+export async function amazonReview(scope:SupplyScope, input:z.input<typeof amazonReviewInputSchema>, key:string, signal?:AbortSignal){
+ const command=amazonReviewInputSchema.parse(input);
+ const value=await send(`${base}/amazon-listings/review`,scope,amazonReviewSchema,signal,{method:"POST",command,key,mutates:true});
+ if(!matchesAmazonListingResponse("amazon-review",value,JSON.stringify(command)))throw new SupplyAPIError("OUTCOME_UNKNOWN",503);
+ return value;
+}
+
+export async function amazonConfirm(scope:SupplyScope, input:z.input<typeof amazonConfirmSchema>, key:string, signal?:AbortSignal){
+ const command=amazonConfirmSchema.parse(input);
+ const value=await send(`${base}/amazon-listings/confirm`,scope,amazonListingResultSchema,signal,{method:"POST",command,key,mutates:true});
+ if(value.recordId!==command.recordId)throw new SupplyAPIError("OUTCOME_UNKNOWN",503);
+ return value;
+}
+
+export async function readAmazonReview(scope:SupplyScope, sourceId:string, storeId:string, signal?:AbortSignal){
+ const command=amazonListingInputSchema.parse({sourceId,storeId});
+ const value=await send(`${base}/amazon-listings/details`,scope,amazonReviewSchema,signal,{method:"POST",command});
+ if(!matchesAmazonListingResponse("amazon-details",value,JSON.stringify(command)))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);
+ return value;
+}
+
+export async function readAmazonListing(scope:SupplyScope, sourceId:string, storeId:string, refresh:boolean, signal?:AbortSignal){
+ const command=amazonListingInputSchema.parse({sourceId,storeId});
+ const value=await send(`${base}/amazon-listings/${refresh?"check":"result"}`,scope,amazonListingResultSchema,signal,{method:"POST",command});
+ if(value.sourceId!==sourceId||value.storeId!==storeId)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);
+ return value;
 }
 
 function commandResult(value:unknown,intent:SupplyIntent,mutates:boolean){

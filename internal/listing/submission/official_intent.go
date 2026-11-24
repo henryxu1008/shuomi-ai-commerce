@@ -17,6 +17,7 @@ import (
 )
 
 type OfficialIntent struct {
+	Amazon             *AmazonIntent                      `json:"amazon,omitempty"`
 	Key                string                             `json:"key"`
 	Owner              collection.Scope                   `json:"owner"`
 	Kind               string                             `json:"kind"`
@@ -102,6 +103,9 @@ func PrepareOfficialIntent(ctx context.Context, sourceProof preparation.Authoriz
 	return OfficialIntentCommit{source: sourceProof, intent: body, hash: collection.Digest(body)}, nil
 }
 func OfficialIntentInputHash(value OfficialIntent) string {
+	if value.Target.Platform == "amazon" {
+		return collection.Digest([]any{value.Kind, value.Owner, value.RecordID, value.RecordHash, value.Source, value.Target, value.Binding, value.PayloadFingerprint, value.Amazon})
+	}
 	if value.Shelf != nil {
 		return collection.Digest(ShelfPayload(value))
 	}
@@ -124,8 +128,14 @@ func OfficialIntentInputHash(value OfficialIntent) string {
 func ValidateOfficialIntent(value OfficialIntent) error {
 	if !authidentity.IsBoundedIdentifier(value.Key) || value.Owner.Validate() != nil || !collection.ValidID(value.RecordID) || !isExecutionDigest(value.RecordHash) || !collection.ValidID(value.Source.ID) ||
 		!validOfficialBindingForTarget(value.Binding, value.Target) || !collection.ValidID(value.Target.StoreID) || value.Binding.OrganizationID != value.Owner.OrganizationID ||
-		value.Binding.StoreVersion < 1 || value.Binding.ConnectionRevision < 1 || !value.Binding.ValidApplication() || !isExecutionDigest(value.Binding.SupplierIdentityHash) || value.Binding.ServiceExpiresAt.IsZero() ||
+		value.Binding.StoreVersion < 1 || value.Binding.ConnectionRevision < 1 || !value.Binding.ValidApplication() ||
 		!isExecutionDigest(value.PayloadFingerprint) || value.CreatedAt.IsZero() || OfficialIntentInputHash(value) != value.InputHash {
+		return ErrExecutionEvidenceRequired
+	}
+	if value.Target.Platform == "amazon" {
+		return validateAmazonIntent(value)
+	}
+	if value.Amazon != nil || !isExecutionDigest(value.Binding.SupplierIdentityHash) || value.Binding.ServiceExpiresAt.IsZero() {
 		return ErrExecutionEvidenceRequired
 	}
 	if value.Shelf != nil || value.Kind == "shelf_on" {

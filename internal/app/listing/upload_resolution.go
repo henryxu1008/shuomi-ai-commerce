@@ -50,7 +50,7 @@ func (a *Application) ReadUploadAttempt(ctx context.Context, recordID, attemptID
 	if err != nil {
 		return UploadAttemptView{}, err
 	}
-	if saved.Input.ColorPartition != nil || record.IsLocalTrial(saved) {
+	if saved.Input.ColorPartition != nil || record.IsLocalTrial(saved) || saved.Merchant.Platform == storecenter.PlatformAmazon {
 		return UploadAttemptView{}, record.ErrForbidden
 	}
 	if _, err = s.source(ctx, scope, saved); err != nil {
@@ -201,7 +201,7 @@ func (s *UploadService) ResolveUpload(ctx context.Context, scope collection.Scop
 	if err != nil {
 		return UploadResult{}, err
 	}
-	if saved.Input.ColorPartition != nil || record.IsLocalTrial(saved) {
+	if saved.Input.ColorPartition != nil || record.IsLocalTrial(saved) || saved.Merchant.Platform == storecenter.PlatformAmazon {
 		return UploadResult{}, record.ErrForbidden
 	}
 	if _, err = s.source(ctx, scope, saved); err != nil {
