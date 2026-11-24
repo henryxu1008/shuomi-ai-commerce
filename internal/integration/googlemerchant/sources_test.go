@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"testing"
 
-	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/googlemerchant"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/googlemerchant"
 )
 
 func TestListAccountsAndFilterAuthorizedSources(t *testing.T) {

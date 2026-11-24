@@ -16,6 +16,7 @@ import (
 )
 
 type OfficialConnections struct {
+	google       *GoogleConnections
 	store        storecenter.OfficialConnectionStore
 	applications *OfficialApplicationRegistry
 	tiktok       *TikTokConnections
@@ -84,7 +85,18 @@ func NewOfficialConnections(store storecenter.OfficialConnectionStore, applicati
 	if err != nil {
 		return nil, err
 	}
-	return &OfficialConnections{store: store, applications: applications, tiktok: tiktok, walmart: newWalmartConnections(store, applications)}, nil
+	var google *GoogleConnections
+	if applications.GoogleMerchantConfigured() {
+		repo, ok := store.(GoogleConnectionStore)
+		if !ok {
+			return nil, storecenter.ErrOfficialConnectionUnavailable
+		}
+		google, err = applications.GoogleConnections(repo)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &OfficialConnections{store: store, applications: applications, tiktok: tiktok, walmart: newWalmartConnections(store, applications), google: google}, nil
 }
 
 // Missing developer setup affects this capability, while Store CRUD and local
@@ -382,6 +394,13 @@ func (a *OfficialConnections) Applications(ctx context.Context, org, store strin
 	return choices, nil
 }
 func (a *OfficialConnections) Status(ctx context.Context, input storecenter.ConnectionStatusInput) (storecenter.ConnectionStatus, error) {
+	if input.Platform == storecenter.PlatformGoogleMerchant {
+		if a.google == nil {
+			return storecenter.ConnectionStatusUnavailable, storecenter.ErrOfficialConnectionUnavailable
+		}
+		view, err := a.google.Read(ctx, input.OrganizationID, input.StoreID)
+		return view.Status, err
+	}
 	if input.Platform == storecenter.PlatformWalmart && a.walmart != nil {
 		return a.walmart.Status(ctx, input)
 	}

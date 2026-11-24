@@ -2,6 +2,9 @@ package googlemerchant
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"net/url"
@@ -86,4 +89,26 @@ func grantResult(token *oauth2.Token, err error) (domain.TokenSet, error) {
 	return domain.TokenSet{
 		AccessToken: token.AccessToken, RefreshToken: token.RefreshToken, ExpiresAt: token.Expiry.UTC(),
 	}, nil
+}
+
+func (c *OAuth) BeginAuthorization(state string) (string, error) {
+	if c == nil {
+		return "", domain.ErrInvalidGrantInput
+	}
+	return c.AuthorizationURL(state, c.verifier(state))
+}
+
+func (c *OAuth) ExchangeAuthorization(ctx context.Context, state, code string) (domain.TokenSet, error) {
+	if c == nil || !challengeInput.MatchString(state) {
+		return domain.TokenSet{}, domain.ErrInvalidGrantInput
+	}
+	return c.Exchange(ctx, code, c.verifier(state))
+}
+
+// The server derives a different PKCE verifier for every random state. The
+// browser sees the challenge but cannot reconstruct the verifier.
+func (c *OAuth) verifier(state string) string {
+	key := hmac.New(sha256.New, []byte(c.config.ClientSecret))
+	_, _ = key.Write([]byte("google-merchant/oauth/pkce/v1:" + state))
+	return base64.RawURLEncoding.EncodeToString(key.Sum(nil))
 }

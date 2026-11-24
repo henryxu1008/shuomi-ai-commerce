@@ -47,3 +47,17 @@ Store Center 将 Google Merchant Center 账号或 Meta 商品目录各映射为�
 - 隔离检查使用官方形状的模拟供应商，覆盖有效确认上传、缺项、同意图重放、并发与丢响应、他企业目标、撤权后发送拦截，以及平台回执到用户状态的映射。
 - 真实试用使用明确授权的试用账号和商品。Google 验收 Merchant Center 中可回查商品和处理状态。Meta 验收目录中可回查商品，以及具备资格的 Facebook Shop 和已绑定的 WhatsApp 买家端能看到同一份目录商品。平台应用获批、账号具备资格、真实写入、真实展示分别记录证据。
 - 当前没有真实账号写入、应用审核结果或用户验收证据。应用注册／审核和真实试用按对应操作授权执行。
+
+
+## Google 隔离试用
+
+在已安装前端依赖和 Playwright Chromium、且 Docker 已运行的开发环境，从仓库根目录执行：
+
+```powershell
+$env:GOOGLE_WORKBENCH_BROWSER = '1'
+go test ./internal/app/listing -run '^TestGoogleMockAuthorizationPublicationAndSavedResult$' -count=1 -v
+```
+
+浏览器经过工作台的真实服务代理和 Go 路由。测试使用合成企业会话和自有商品、两个隔离 PostgreSQL 数据库、模拟的 Google OAuth 与 Merchant API。它检查授权、选择账号及数据源、预览、发送和返回商品页查回记录。恢复普通 Go 用例前，移除本次设置的环境变量。
+
+实际部署前由各数据库 owner 显式安装 Google 表。Store 使用现有 `store-center-schema-init --google-merchant --config ... --confirm-database ...`。Product 使用现有初始化清单里的 `googleMerchant: true` 和 `supplyChain: true`，或对符合当前供货合同的数据库使用 `product-acquisition-init --enable-supply-chain`。应用读取 `runtime.storeCenter.googleMerchant` 私有配置。工作台编译时以 `NEXT_PUBLIC_GOOGLE_MERCHANT_ENABLED=true` 展示入口。真实 OAuth、客户数据源和展示资格按试用账号另行验收。

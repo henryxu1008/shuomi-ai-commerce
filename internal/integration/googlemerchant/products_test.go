@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/googlemerchant"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/googlemerchant"
 )
 
 const testPrefix = "sm-0123456789abcdef0123-"

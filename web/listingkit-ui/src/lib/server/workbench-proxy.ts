@@ -1,3 +1,4 @@
+import { googleContracts, googleUpstreamPath, type GoogleAction, type GoogleRouteContract } from "@/lib/contracts/google-merchant";
 import { isCockpitMetricsQuery } from "@/lib/contracts/cockpit-metrics";
 import { catalogVersionSchema, COMPLETION_MAX_BYTES, SUPPLY_MAX_BYTES, supplyRouteMethods, supplyPath, supplyRequestSchema, supplyUsesKey, supplyMutates, parseSupplyResponse, type SupplyRoute } from "@/lib/contracts/supply-chain";
 import {completionRevision} from "@/lib/contracts/completion-draft-navigation";
@@ -57,6 +58,7 @@ const REQUEST_ID_MAX_BYTES = 128;
 const imageErrorStatuses: Readonly<Record<string, number>> = { INVALID_IMAGE_REQUEST: 400, FORBIDDEN: 403, IMAGE_NOT_FOUND: 404, IMAGE_CONFLICT: 409, IMAGE_BLOCKED: 409, IMAGE_UNAVAILABLE: 503 };
 
 export type WorkbenchResponseContract =
+  | GoogleRouteContract
   | `product-acquisition-plan-${PlanRoute}`
   | `image-set-${ImageSetRoute}`
   | `collection-${CollectionRoute}`
@@ -88,6 +90,7 @@ export type WorkbenchResponseContract =
   | "source-account-mutation";
 
 type WorkbenchRequestContract =
+  | GoogleRouteContract
   | `product-acquisition-plan-${PlanRoute}`
   | `image-set-${ImageSetRoute}`
   | `collection-${CollectionRoute}`
@@ -417,6 +420,8 @@ const workbenchRouteAllowlist = [
   routeDefinition("POST","store-service-activate","store-service-lifecycle",path=>storeActionPath(path,"activate")),
   routeDefinition("POST","store-service-renew","store-service-lifecycle",path=>storeActionPath(path,"renew")),
   routeDefinition("POST","store-service-reactivate","store-service-lifecycle",path=>storeActionPath(path,"reactivate")),
+  ...(Object.keys(googleContracts) as GoogleAction[]).map(action =>
+    routeDefinition(googleContracts[action].method, ("google-"+action) as GoogleRouteContract, ("google-"+action) as GoogleRouteContract, path => googleUpstreamPath(action,path))),
   routeDefinition("GET","store-connection-applications","store-connection-applications",path=>path.length===4&&path[0]==="stores"&&isAcquisitionUUID(path[1]!)&&path[2]==="connection"&&path[3]==="applications" ? `stores/${path[1]}/connection/applications`:null),
   routeDefinition("GET","store-connection-read","store-connection-view",path=>path.length === 3&&path[0] === "stores"&&isAcquisitionUUID(path[1]!)&&path[2] === "connection" ? `stores/${path[1]}/connection`:null),
   ...(["begin","complete","query","disconnect","token","refresh"] as const).map(action=>routeDefinition("POST",`store-connection-${action}`,action === "begin" ? "store-connection-begin":"store-connection-view",path=>path.length === 4&&path[0] === "stores"&&isAcquisitionUUID(path[1]!)&&path[2] === "connection"&&path[3] === action ? `stores/${path[1]}/connection/${action}`:null)),
@@ -460,12 +465,13 @@ export async function buildWorkbenchUpstreamRequest(
       "Workbench route is not allowed",
     );
   }
+  const googleContract = route.requestContract.startsWith("google-");
   const collectionContract = route.requestContract.startsWith("collection-");
   const supplyContract = route.requestContract.startsWith("supply-");
   const imageSetContract = route.requestContract.startsWith("image-set-");
   const analysisContract = route.requestContract.startsWith("product-agent-image-analysis-");
   if (
-    (supplyContract || collectionContract || route.requestContract.startsWith("store-") ||
+    (googleContract || supplyContract || collectionContract || route.requestContract.startsWith("store-") ||
       route.requestContract.startsWith("source-account-") ||
       (route.requestContract.startsWith("product-acquisition-") || route.requestContract.startsWith("browser-capture-") || (imageSetContract || route.requestContract.startsWith("acquisition-image-")) || route.requestContract.startsWith("product-agent-") || route.requestContract.startsWith("ai-"))) &&
     new URL(request.url).pathname !==
@@ -499,12 +505,12 @@ export async function buildWorkbenchUpstreamRequest(
     headers.set("Content-Type", "application/json");
     headers.set("X-Requested-Organization-ID", organizationId);
   } else {
-    const selectedOrganization = (supplyContract || collectionContract || route.requestContract.startsWith("source-account-") || (route.requestContract.startsWith("product-acquisition-") || route.requestContract.startsWith("browser-capture-") || (imageSetContract || route.requestContract.startsWith("acquisition-image-")) || route.requestContract.startsWith("product-agent-") || route.requestContract.startsWith("ai-")))
+    const selectedOrganization = (googleContract || supplyContract || collectionContract || route.requestContract.startsWith("source-account-") || (route.requestContract.startsWith("product-acquisition-") || route.requestContract.startsWith("browser-capture-") || (imageSetContract || route.requestContract.startsWith("acquisition-image-")) || route.requestContract.startsWith("product-agent-") || route.requestContract.startsWith("ai-")))
       ? readSourceSelectedOrganization(request)
       : readSelectedOrganization(request);
     if (selectedOrganization instanceof Response) return selectedOrganization;
     if (
-      supplyContract || collectionContract || route.requestContract.startsWith("store-") ||
+      googleContract || supplyContract || collectionContract || route.requestContract.startsWith("store-") ||
       route.requestContract.startsWith("source-account-") || (route.requestContract.startsWith("product-acquisition-") || route.requestContract.startsWith("browser-capture-") || (imageSetContract || route.requestContract.startsWith("acquisition-image-")) || route.requestContract.startsWith("product-agent-") || route.requestContract.startsWith("ai-"))
     ) {
       const expectedOrganization = readExpectedOrganizationAssertion(
@@ -526,7 +532,34 @@ export async function buildWorkbenchUpstreamRequest(
       headers.set("X-Requested-Organization-ID", selectedOrganization);
     }
 
-    if (analysisContract) {
+    if (googleContract) {
+      const action = route.requestContract.slice(7) as GoogleAction;
+      const spec = googleContracts[action];
+      if (!hasExactNoQuery(request) || !authenticatedActorSubject || request.headers.get(EXPECTED_USER_ID_HEADER) !== authenticatedActorSubject)
+        return protocolError(409,"IDENTITY_CONTEXT_CHANGED","Identity context changed");
+      if (spec.method === "GET") {
+        if (!(await requestHasNoBody(request))) return protocolError(400,"INVALID_REQUEST","Body is not allowed");
+      } else {
+        const boundary = validateSourceMutationBoundary(request,authenticatedActorSubject);
+        if (boundary) return boundary;
+        if (request.headers.get("content-type") !== "application/json" || request.headers.has("content-encoding"))
+          return protocolError(400,"INVALID_REQUEST","Invalid content type");
+        const raw = await readRequestBody(request,32768);
+        if (raw instanceof Response) return raw;
+        const parsed = parseJSONBody(raw);
+        const result = spec.body.safeParse(parsed?.payload);
+        if (!parsed || !result.success) return protocolError(400,"INVALID_REQUEST","Invalid Google Merchant request");
+        if (action === "prepare") {
+          const key = readCanonicalUUIDHeader(request.headers,"Idempotency-Key");
+          if (!key) return protocolError(400,"INVALID_REQUEST","Invalid request key");
+          headers.set("Idempotency-Key",key);
+        } else if (request.headers.has("Idempotency-Key")) {
+          return protocolError(400,"INVALID_REQUEST","Unexpected request key");
+        }
+        body = JSON.stringify(result.data);
+        headers.set("Content-Type","application/json");
+      }
+    } else if (analysisContract) {
       const action=route.requestContract.slice("product-agent-image-analysis-".length) as AnalysisRoute,url=new URL(request.url);
       if(!authenticatedActorSubject||request.headers.get(EXPECTED_USER_ID_HEADER)!==authenticatedActorSubject)return protocolError(409,"IDENTITY_CONTEXT_CHANGED","Identity context changed");
       if(analysisMethods[action]==="GET"){
@@ -1097,6 +1130,7 @@ export async function buildWorkbenchUpstreamRequest(
         : undefined),
     requestId,
     sourceMutation:
+      (googleContract && request.method==="POST") ||
       (route.requestContract.startsWith("product-acquisition-plan-")&&request.method==="POST") ||
       (imageSetContract && request.method==="POST" && route.requestContract!=="image-set-preview" && route.requestContract!=="image-set-requirements") ||
       (supplyContract && supplyMutates(route.requestContract.slice(7) as SupplyRoute)) ||
@@ -1193,6 +1227,17 @@ export async function buildWorkbenchBrowserResponse(
 
   const parsedBody = parseJSONBody(body);
   const payload = parsedBody?.payload ?? null;
+  if (contract.startsWith("google-")) {
+    const action = contract.slice(7) as GoogleAction;
+    const checked = googleContracts[action].response.safeParse(payload);
+    if (upstream.status === 200 && checked.success) return new NextResponse(JSON.stringify(checked.data), {status:200,headers:safeJSONHeaders()});
+    const code = typeof payload?.code === "string" ? payload.code : "";
+    const permitted = new Set(["INVALID_REQUEST","AUTHENTICATION_REQUIRED","PERMISSION_DENIED","NOT_FOUND","STORE_NOT_FOUND",
+      "STORE_VERSION_CONFLICT","VERSION_CONFLICT","OUTCOME_UNKNOWN","NOT_READY","REVISION_CONFLICT","DEPENDENCY_UNAVAILABLE",
+      "STORE_OFFICIAL_SETUP_UNAVAILABLE","STORE_AUTHORIZATION_REJECTED","STORE_AUTHORIZATION_OUTCOME_UNKNOWN","STORE_CONNECTION_NOT_CONNECTED","STORE_CONNECTION_UNAVAILABLE","STORE_INVALID_STATE","IDEMPOTENCY_KEY_CONFLICT","ORGANIZATION_ACCESS_DENIED","ORGANIZATION_ACCESS_REVOKED"]);
+    if (!upstream.ok && permitted.has(code)) return protocolError(upstream.status,code,"Google Merchant request failed",options.requestId??"");
+    return protocolError(502,options.sourceMutation ? "OUTCOME_UNKNOWN" : "DEPENDENCY_UNAVAILABLE","Google Merchant response invalid",options.requestId??"");
+  }
   if(supplyContract){
     const invalid=()=>protocolError(options.sourceMutation?503:502,options.sourceMutation?"OUTCOME_UNKNOWN":"DEPENDENCY_UNAVAILABLE","Supply response invalid",options.requestId??"");
     if(!parsedBody||!payload)return invalid();

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
+	"maps"
 	"slices"
 	"strings"
 
@@ -188,7 +189,19 @@ func VerifyCurrentSchemaTx(ctx context.Context, tx *sql.Tx) error {
 }
 
 func verifyCurrentSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilities RuntimeCapabilities) error {
-	if err := verifyCoreSchema(ctx, sqlDB, capabilities, currentConstraintDefinitions); err != nil {
+	definitions := currentConstraintDefinitions
+	var googleInstalled bool
+	if err := sqlDB.QueryRowContext(ctx, "SELECT to_regclass('public.workbench_store_google_oauth_grants') IS NOT NULL OR to_regclass('public.workbench_store_google_oauth_attempts') IS NOT NULL").Scan(&googleInstalled); err != nil {
+		return err
+	}
+	if capabilities.GoogleMerchant || googleInstalled {
+		definitions = maps.Clone(currentConstraintDefinitions)
+		definitions["store_platform"] = "CHECK ((platform = ANY (ARRAY['shein'::text, 'temu'::text, 'tiktokshop'::text, 'walmart'::text, 'googlemerchant'::text])))"
+		if err := verifyGoogleSchema(ctx, sqlDB); err != nil {
+			return err
+		}
+	}
+	if err := verifyCoreSchema(ctx, sqlDB, capabilities, definitions); err != nil {
 		return err
 	}
 	if _, err := VerifyBrowserSchemaIfPresent(ctx, sqlDB); err != nil {
@@ -353,6 +366,11 @@ const storeRuntimePermissionQuery = `SELECT current_user,
  AND coalesce(has_table_privilege(subject.runtime_role,to_regclass('store_observations.syncs'),'SELECT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.syncs'),'INSERT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.syncs'),'UPDATE'),false)
  AND coalesce(has_table_privilege(subject.runtime_role,to_regclass('store_observations.records'),'SELECT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.records'),'INSERT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.records'),'UPDATE'),false)
  AND coalesce(has_table_privilege(subject.runtime_role,to_regclass('store_observations.heads'),'SELECT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.heads'),'INSERT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.heads'),'UPDATE'),false)
+ ELSE true END
+ AND CASE WHEN $5 THEN NOT EXISTS(SELECT 1
+   FROM (VALUES('workbench_store_google_oauth_attempts'),('workbench_store_google_oauth_grants')) table_names(name)
+   CROSS JOIN (VALUES('SELECT'),('INSERT'),('UPDATE')) privileges(privilege)
+   WHERE NOT coalesce(has_table_privilege(subject.runtime_role,to_regclass('public.'||name),privilege),false))
  ELSE true END,
  has_database_privilege(subject.runtime_role,current_database(),'CREATE') OR has_database_privilege(subject.runtime_role,current_database(),'TEMP') OR has_schema_privilege(subject.runtime_role,'public','CREATE')
  OR EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname !~ '^pg_' AND has_schema_privilege(subject.runtime_role,n.oid,'CREATE'))
@@ -367,11 +385,11 @@ const storeRuntimePermissionQuery = `SELECT current_user,
  OR (n.nspname='public' AND r.relname IN ('workbench_store_browser_operations','workbench_store_browser_reports') AND p.privilege_type IN ('SELECT','INSERT'))
  OR ($1 AND n.nspname='store_observations' AND ((r.relname='commands' AND p.privilege_type IN ('SELECT','INSERT')) OR (r.relname IN ('syncs','records','heads') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))))
  OR ($2 AND n.nspname='operations_cockpit' AND ((r.relname IN ('facts','fact_versions','goal_heads','goal_versions','commands') AND p.privilege_type IN ('SELECT','INSERT')) OR (r.relname IN ('facts','goal_heads') AND p.privilege_type='UPDATE')))
- OR ($3 AND n.nspname='public' AND ((r.relname IN ('workbench_store_tiktok_oauth_grants','workbench_store_tiktok_oauth_attempts','workbench_store_tiktok_shop_bindings','workbench_store_tiktok_oauth_refresh_operations') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')) OR (r.relname='workbench_store_tiktok_authorization_events' AND p.privilege_type IN ('SELECT','INSERT')))) OR ($4 AND n.nspname='public' AND r.relname IN ('workbench_store_walmart_oauth_grants','workbench_store_walmart_oauth_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')))) FROM (SELECT current_user::text AS runtime_role) subject`
+ OR ($3 AND n.nspname='public' AND ((r.relname IN ('workbench_store_tiktok_oauth_grants','workbench_store_tiktok_oauth_attempts','workbench_store_tiktok_shop_bindings','workbench_store_tiktok_oauth_refresh_operations') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')) OR (r.relname='workbench_store_tiktok_authorization_events' AND p.privilege_type IN ('SELECT','INSERT')))) OR ($4 AND n.nspname='public' AND r.relname IN ('workbench_store_walmart_oauth_grants','workbench_store_walmart_oauth_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')) OR (n.nspname='public' AND to_regclass('public.workbench_store_google_oauth_grants') IS NOT NULL AND r.relname IN ('workbench_store_google_oauth_grants','workbench_store_google_oauth_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')))) FROM (SELECT current_user::text AS runtime_role) subject`
 
 // RuntimeCapabilities admits only explicitly enabled feature tables.
 // The default Store boundary continues to reject every additional privilege.
-type RuntimeCapabilities struct{ Observations, OperationsCockpit, TikTokShop, WalmartUS bool }
+type RuntimeCapabilities struct{ Observations, OperationsCockpit, TikTokShop, WalmartUS, GoogleMerchant bool }
 
 func VerifyRuntimePermissions(ctx context.Context, db *gorm.DB) error {
 	return VerifyRuntimePermissionsForCapabilities(ctx, db, RuntimeCapabilities{})
@@ -387,7 +405,7 @@ func VerifyRuntimePermissionsForCapabilities(ctx context.Context, db *gorm.DB, c
 	}
 	var role string
 	var required, forbidden bool
-	if err := sqlDB.QueryRowContext(ctx, storeRuntimePermissionQuery, capabilities.Observations, capabilities.OperationsCockpit, capabilities.TikTokShop, capabilities.WalmartUS).Scan(&role, &required, &forbidden); err != nil {
+	if err := sqlDB.QueryRowContext(ctx, storeRuntimePermissionQuery, capabilities.Observations, capabilities.OperationsCockpit, capabilities.TikTokShop, capabilities.WalmartUS, capabilities.GoogleMerchant).Scan(&role, &required, &forbidden); err != nil {
 		return err
 	}
 	if role != "store_center_runtime" || !required || forbidden {

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/googlemerchant"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/googlemerchant"
 	"google.golang.org/api/googleapi"
 	accountapi "google.golang.org/api/merchantapi/accounts/v1"
 	sourceapi "google.golang.org/api/merchantapi/datasources/v1"
@@ -83,7 +83,11 @@ func (t boundedTransport) RoundTrip(request *http.Request) (*http.Response, erro
 // and supplies a current grant for the reserved source and offer ID namespace.
 // A preflight 404 cannot make the upstream write conditional.
 func (c *Client) InsertNew(ctx context.Context, token string, target domain.Target, offer domain.Offer) (domain.Receipt, error) {
-	if ctx == nil || !offer.ValidFor(target) {
+	return c.InsertConfirmed(ctx, token, target, offer, func(context.Context) error { return nil })
+}
+
+func (c *Client) InsertConfirmed(ctx context.Context, token string, target domain.Target, offer domain.Offer, beforeSend func(context.Context) error) (domain.Receipt, error) {
+	if ctx == nil || beforeSend == nil || !offer.ValidFor(target) {
 		return domain.Receipt{}, domain.ErrInvalid
 	}
 	ctx, cancel := context.WithTimeout(ctx, productTimeout)
@@ -96,6 +100,9 @@ func (c *Client) InsertNew(ctx context.Context, token string, target domain.Targ
 	case err == nil:
 		return domain.Receipt{}, domain.ErrOfferExists
 	case !errors.Is(err, domain.ErrNotObserved):
+		return domain.Receipt{}, err
+	}
+	if err := beforeSend(ctx); err != nil {
 		return domain.Receipt{}, err
 	}
 	call := c.products.Accounts.ProductInputs.Insert(account(target), productInput(target, offer)).DataSource(dataSource(target)).Context(ctx)

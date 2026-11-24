@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/googlemerchant"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/googlemerchant"
 	sourceapi "google.golang.org/api/merchantapi/datasources/v1"
 )
 

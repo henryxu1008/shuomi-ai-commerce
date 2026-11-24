@@ -259,10 +259,23 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 		return empty, err
 	}
 	binder := productReviewCapabilityBinder{now: time.Now}
-	return listingModule{app: app, worker: currentWorker, routes: listinghttp.ListingRoutes(app, binder.Bind), executionAuthorization: executionAuth}, nil
+	routes := listinghttp.ListingRoutes(app, binder.Bind)
+	google, err := apps.GoogleConnections(storeRepo)
+	if err != nil {
+		return empty, err
+	}
+	if google != nil {
+		plans, err := submissionstore.NewGooglePlanStore(ctx, productDB)
+		if err != nil {
+			return empty, err
+		}
+		publication := &listingapp.GooglePublication{Authorization: auth, Sources: sources, Assets: assets, Stores: google, Plans: plans, Kernel: kernel}
+		routes = append(routes, listinghttp.GoogleRoutes(publication, binder.Bind)...)
+	}
+	return listingModule{app: app, worker: currentWorker, routes: routes, executionAuthorization: executionAuth}, nil
 }
 func validateListingDescriptor(route httproute.Descriptor) error {
-	for _, expected := range append(listinghttp.ListingRoutes(nil, nil), listinghttp.SourceMaterialRoutes(nil, nil)...) {
+	for _, expected := range append(append(listinghttp.ListingRoutes(nil, nil), listinghttp.SourceMaterialRoutes(nil, nil)...), listinghttp.GoogleRoutes(nil, nil)...) {
 		if route.Method == expected.Method && route.Path == expected.Path {
 			if route.Module != expected.Module || route.Permission != expected.Permission || route.AuthPolicy != expected.AuthPolicy || route.OrganizationAccessPolicy != expected.OrganizationAccessPolicy || route.OrganizationTargetResolver != nil || route.RequestTimeout != expected.RequestTimeout || route.RejectUnreadRequestBody != expected.RejectUnreadRequestBody || route.Handler == nil {
 				return errors.New("supply route loses live private source boundary")

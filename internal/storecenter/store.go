@@ -36,10 +36,11 @@ var (
 type Platform string
 
 const (
-	PlatformShein      Platform = "shein"
-	PlatformTemu       Platform = "temu"
-	PlatformTikTokShop Platform = "tiktokshop"
-	PlatformWalmart    Platform = "walmart"
+	PlatformShein          Platform = "shein"
+	PlatformTemu           Platform = "temu"
+	PlatformTikTokShop     Platform = "tiktokshop"
+	PlatformWalmart        Platform = "walmart"
+	PlatformGoogleMerchant Platform = "googlemerchant"
 )
 
 // Store is the Organization-scoped Store Center aggregate. Its state is kept
@@ -510,7 +511,7 @@ func normalizePlatform(value string) (Platform, error) {
 		return "", errors.New("platform is invalid")
 	}
 	normalized := strings.ToLower(strings.TrimSpace(value))
-	if Platform(normalized) != PlatformShein && Platform(normalized) != PlatformTemu && Platform(normalized) != PlatformTikTokShop && Platform(normalized) != PlatformWalmart {
+	if Platform(normalized) != PlatformShein && Platform(normalized) != PlatformTemu && Platform(normalized) != PlatformTikTokShop && Platform(normalized) != PlatformWalmart && Platform(normalized) != PlatformGoogleMerchant {
 		return "", errors.New("platform is unsupported")
 	}
 	return Platform(normalized), nil
