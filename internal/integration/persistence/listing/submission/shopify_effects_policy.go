@@ -82,6 +82,18 @@ func (r *Repository) VerifyShopifySend(ctx context.Context, claim submission.Exe
 		if err := r.requireShopifyEffect(ctx, tx, attempt); err != nil {
 			return mutation{}, err
 		}
+		intent, err := readOfficialAttemptIntent(ctx, tx, attempt)
+		if err != nil {
+			return mutation{}, err
+		}
+		err = shopifyguard.AdmitDispatch(tx, shopifyguard.Dispatch{Organization: attempt.OrganizationID, ShopKey: intent.Binding.Shopify.ShopKey,
+			Generation: intent.Binding.ConnectionRevision, AttemptID: attempt.AttemptID, Epoch: attempt.FenceEpoch})
+		if errors.Is(err, shopifyguard.ErrConflict) {
+			return mutation{}, submission.ErrExecutionClaimRejected
+		}
+		if err != nil {
+			return mutation{}, submission.ErrExecutionUnavailable
+		}
 		return mutation{attempt: attempt}, nil
 	})
 	return err

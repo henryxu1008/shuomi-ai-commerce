@@ -32,7 +32,7 @@ func (shopifyRestoreMember) AuthorizeStoreMember(_ context.Context, org string) 
 // The Product half exercises the real guard's command loader, lock and replay
 // against its actual Product schema. The Store half uses the real Store schema
 // but substitutes test ownership of the exact old generation and apply receipt.
-func prepareShopifyGuardRestore(t *testing.T, ctx context.Context, instance *tcpostgres.PostgresContainer, product *gorm.DB, binding storecenter.ProductMerchantBinding) func(shopifyguard.Command) {
+func prepareShopifyGuardRestore(t *testing.T, ctx context.Context, instance *tcpostgres.PostgresContainer, product *gorm.DB, live *shopifyguard.LiveIsolation, binding storecenter.ProductMerchantBinding) func(shopifyguard.Command) {
 	t.Helper()
 	dsn, err := instance.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
@@ -106,11 +106,21 @@ func prepareShopifyGuardRestore(t *testing.T, ctx context.Context, instance *tcp
 		require.False(t, verified(mixedProduct, expected, raw))
 		require.NoError(t, applyShopifyRestoreStore(restoreStore, replay))
 		require.True(t, verified(mixedProduct, expected, raw))
+		resealed, err := shopifyguard.SealIsolated(ctx, mixedProduct, command)
+		require.NoError(t, err)
+		copiedDrain, err := shopifyguard.DrainReadyIsolated(ctx, mixedProduct, live, resealed)
+		require.NoError(t, err)
+		require.False(t, copiedDrain, "resealing a restored, drained scope cannot create live coverage")
+		_, err = shopifyguard.InstallIsolated(ctx, mixedProduct)
+		require.ErrorIs(t, err, shopifyguard.ErrConflict, "an existing Shopify attempt prevents retroactive coverage")
 		require.False(t, verified(restoreProduct, expected, raw), "Store alone cannot release recovery")
 		require.NoError(t, applyShopifyRestoreStore(restoreStore, replay), "original Store receipt can be retried after losing its acknowledgement")
 		require.NoError(t, shopifyguard.ReplayIsolated(ctx, restoreProduct, replay))
 		require.NoError(t, shopifyguard.ReplayIsolated(ctx, restoreProduct, replay))
 		require.True(t, verified(restoreProduct, expected, raw))
+		ready, err := shopifyguard.DrainReadyIsolated(ctx, restoreProduct, live, replay)
+		require.NoError(t, err)
+		require.False(t, ready, "a recovered command does not prove dispatch observation coverage")
 		require.False(t, verified(restoreProduct, "", raw))
 		require.False(t, verified(restoreProduct, expected, nil))
 		changed := replay

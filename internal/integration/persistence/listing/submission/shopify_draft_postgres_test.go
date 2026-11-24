@@ -50,7 +50,8 @@ func TestPostgresShopifyDraftRetainsOriginalAttemptAndBlocksDuplicate(t *testing
 	require.NoError(t, recordstore.VerifyShopifySchema(ctx, db))
 	require.NoError(t, effectsstore.InstallGooglePlanSchema(ctx, db))
 	require.NoError(t, effectsstore.VerifyShopifySchema(ctx, db))
-	require.NoError(t, shopifyguard.InstallIsolated(ctx, db))
+	live, err := shopifyguard.InstallIsolated(ctx, db)
+	require.NoError(t, err)
 	db = shopifyguard.RequireIsolated(db)
 	saved, inventory := temuEffectRecordFixture(t, ctx, db, db)
 	prior := saved.Merchant
@@ -69,7 +70,7 @@ func TestPostgresShopifyDraftRetainsOriginalAttemptAndBlocksDuplicate(t *testing
 	saved.Temu, saved.TemuRuleSnapshot, saved.TemuImageObservations = nil, nil, nil
 	saved.Shopify, saved.RulesHash, saved.InventoryHash = &draft, collection.Digest(saved.Merchant.Shopify), collection.Digest(inventory)
 	replaceEffectFixtureRecord(t, db, saved)
-	verifyRestored := prepareShopifyGuardRestore(t, ctx, container, db, saved.Merchant)
+	verifyRestored := prepareShopifyGuardRestore(t, ctx, container, db, live, saved.Merchant)
 	scope := collection.Scope{OrganizationID: prior.OrganizationID, ActorID: "actor-a", MemberID: "member-a"}
 	executionScope := submission.ExecutionScope{OrganizationID: scope.OrganizationID}
 	repository, err := effectsstore.NewOfficialEffectsRepository(db)
@@ -112,14 +113,14 @@ func TestPostgresShopifyDraftRetainsOriginalAttemptAndBlocksDuplicate(t *testing
 	intent := seedIntent()
 	prepared, err = kernel.PrepareShopifyExecution(ctx, command)
 	require.NoError(t, err)
-	claim := submission.ExecutionClaim{Scope: executionScope, AttemptID: prepared.Attempt.AttemptID,
-		FenceEpoch: prepared.Attempt.FenceEpoch, OwnerID: prepared.Attempt.ClaimOwnerID, Token: liveClaimToken}
-	require.NoError(t, repository.VerifyShopifySend(ctx, claim))
+	permit, err := kernel.BeginShopifySend(ctx, prepared.Preparation)
+	require.NoError(t, err)
+	require.NotNil(t, permit)
+	claim := submission.ExecutionClaim{Scope: executionScope, AttemptID: permit.AttemptID, FenceEpoch: permit.FenceEpoch, OwnerID: permit.ClaimOwnerID, Token: permit.ClaimToken}
+	require.ErrorIs(t, repository.VerifyShopifySend(ctx, claim), submission.ErrExecutionClaimRejected, "the original permit cannot be durably admitted twice")
 	lost, err := kernel.MarkUnknown(ctx, claim, submission.UnknownResponseLost)
 	require.NoError(t, err)
-	permit, err := kernel.BeginShopifySend(ctx, prepared.Preparation)
-	require.ErrorIs(t, err, submission.ErrExecutionClaimRejected)
-	require.Nil(t, permit, "the locally held preparation cannot override a persisted UNKNOWN")
+	require.ErrorIs(t, repository.VerifyShopifySend(ctx, claim), submission.ErrExecutionClaimRejected, "a persisted UNKNOWN cannot regain permission")
 	seedIntent()
 	_, err = kernel.PrepareShopifyExecution(ctx, command)
 	require.ErrorIs(t, err, submission.ErrExecutionTargetClaimed)
@@ -161,7 +162,14 @@ func TestPostgresShopifyDraftRetainsOriginalAttemptAndBlocksDuplicate(t *testing
 	require.NoError(t, err)
 	require.Equal(t, []string{saved.Source.Source.ProductKey}, restore.Sources)
 	verifyOldOperation()
-	verifyRestored(restore)
+	drained, err := shopifyguard.DrainReadyIsolated(ctx, db, live, restore)
+	require.NoError(t, err)
+	require.False(t, drained, "UNKNOWN and subsequent readback do not prove the original sync response returned")
+	require.ErrorIs(t, repository.VerifyShopifySend(ctx, claim), submission.ErrExecutionNotFound)
+	require.NoError(t, db.Exec("UPDATE "+effectsstore.AttemptTable+" SET lease_expires_at=created_at+interval '1 microsecond' WHERE attempt_id=?", claim.AttemptID).Error)
+	drained, err = shopifyguard.DrainReadyIsolated(ctx, db, live, restore)
+	require.NoError(t, err)
+	require.False(t, drained, "an expired local lease cannot release an admitted dispatch")
 	stage := readStage()[0]
 	require.Empty(t, stage.PublishedRecordID)
 	require.Empty(t, stage.RecordID)
@@ -171,8 +179,26 @@ func TestPostgresShopifyDraftRetainsOriginalAttemptAndBlocksDuplicate(t *testing
 	revision, err := targets.ReadFrozenShopifyRevision(ctx, scope, saved.TargetID)
 	require.NoError(t, err)
 	require.Equal(t, saved.Revision, revision)
+	wrongClaim := claim
+	wrongClaim.Token = "a-different-claim"
+	wrongCompletion, err := submission.NewShopifyDraftCompletion(scope, saved, prepared.Attempt, wrongClaim, payload, observation)
+	require.NoError(t, err)
+	_, err = official.CompleteOfficial(ctx, wrongCompletion)
+	require.ErrorIs(t, err, submission.ErrExecutionNotFound)
+	drained, err = shopifyguard.DrainReadyIsolated(ctx, db, live, restore)
+	require.NoError(t, err)
+	require.False(t, drained)
 	_, err = official.CompleteOfficial(ctx, completion)
 	require.ErrorIs(t, err, submission.ErrExecutionNotFound)
+	drained, err = shopifyguard.DrainReadyIsolated(ctx, db, live, restore)
+	require.NoError(t, err)
+	require.True(t, drained, "the original terminal response ends its dispatch without reopening protected data")
+	_, err = official.CompleteOfficial(ctx, completion)
+	require.ErrorIs(t, err, submission.ErrExecutionNotFound)
+	var retainedHash string
+	require.NoError(t, db.Raw("SELECT body_hash FROM listing_submission_official_receipts WHERE attempt_id=?", claim.AttemptID).Row().Scan(&retainedHash))
+	require.Equal(t, collection.Digest(receipt), retainedHash, "late completion must not rewrite the original receipt")
+	verifyRestored(restore)
 	_, err = kernel.MarkUnknown(ctx, claim, submission.UnknownResponseLost)
 	require.ErrorIs(t, err, submission.ErrExecutionNotFound)
 	_, err = official.ResolveOfficial(ctx, resolution)

@@ -37,11 +37,12 @@ func RequireIsolated(db *gorm.DB) *gorm.DB {
 func ProjectionEnabled(db *gorm.DB) (bool, error) { return installed(db) }
 
 func installed(db *gorm.DB) (bool, error) {
-	var commands, sources bool
+	var commands, sources, dispatches bool
 	err := db.Raw(`SELECT to_regclass('public.listing_shopify_frozen_generations') IS NOT NULL,
-		to_regclass('public.listing_shopify_restricted_sources') IS NOT NULL`).Row().Scan(&commands, &sources)
+		to_regclass('public.listing_shopify_restricted_sources') IS NOT NULL,
+		to_regclass('public.listing_shopify_dispatches') IS NOT NULL`).Row().Scan(&commands, &sources, &dispatches)
 	_, required := db.Get(requiredSetting)
-	if err != nil || commands != sources || required && !commands {
+	if err != nil || commands != sources || commands != dispatches || required && !commands {
 		return false, ErrUnavailable
 	}
 	return commands, nil
@@ -149,15 +150,39 @@ func lock(tx *gorm.DB, parts ...string) error {
 
 // InstallIsolated is used only by disposable verification. No normal owner
 // initializer or serving role is given permission to freeze or clear data.
-func InstallIsolated(ctx context.Context, db *gorm.DB) error {
-	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+func InstallIsolated(ctx context.Context, db *gorm.DB) (*LiveIsolation, error) {
+	pool, err := db.DB()
+	if err != nil {
+		return nil, ErrUnavailable
+	}
+	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("LOCK TABLE public.listing_submission_execution_attempts IN SHARE ROW EXCLUSIVE MODE").Error; err != nil {
+			return ErrUnavailable
+		}
+		var prior bool
+		if err := tx.Raw("SELECT EXISTS(SELECT 1 FROM public.listing_submission_execution_attempts WHERE platform='shopify')").Row().Scan(&prior); err != nil {
+			return ErrUnavailable
+		}
+		if prior {
+			return ErrConflict
+		}
 		return tx.Exec(`CREATE TABLE public.listing_shopify_frozen_generations (
 			id uuid PRIMARY KEY, organization_id text NOT NULL, shop_key uuid NOT NULL, generation bigint NOT NULL CHECK(generation>0),
-			source_keys jsonb NOT NULL CHECK(jsonb_typeof(source_keys)='array'),
+			source_keys jsonb NOT NULL CHECK(jsonb_typeof(source_keys)='array'), sealed_locally boolean NOT NULL,
 			UNIQUE(organization_id,shop_key,generation));
 			CREATE TABLE public.listing_shopify_restricted_sources (
-			organization_id text NOT NULL, source_key text NOT NULL, PRIMARY KEY(organization_id,source_key));`).Error
+			organization_id text NOT NULL, source_key text NOT NULL, PRIMARY KEY(organization_id,source_key));
+			CREATE TABLE public.listing_shopify_dispatches (
+			organization_id text NOT NULL, shop_key uuid NOT NULL, generation bigint NOT NULL CHECK(generation>0),
+			attempt_id uuid NOT NULL, epoch bigint NOT NULL CHECK(epoch>0), response_observed boolean NOT NULL DEFAULT false,
+			PRIMARY KEY(organization_id,attempt_id));
+			CREATE INDEX listing_shopify_dispatches_open ON public.listing_shopify_dispatches(organization_id,shop_key,generation)
+			WHERE NOT response_observed;`).Error
 	})
+	if err != nil {
+		return nil, err
+	}
+	return &LiveIsolation{pool: pool}, nil
 }
 
 // Command uses only local owner identifiers. Installation attribution is a
@@ -214,7 +239,7 @@ func apply(ctx context.Context, db *gorm.DB, command Command, replay bool) (Comm
 				return err
 			}
 		}
-		return insertCommand(tx, command)
+		return insertCommand(tx, command, !replay)
 	})
 	if err != nil {
 		return Command{}, err
@@ -263,7 +288,7 @@ func readCommand(tx *gorm.DB, id string) (Command, error) {
 	return command, nil
 }
 
-func insertCommand(tx *gorm.DB, command Command) error {
+func insertCommand(tx *gorm.DB, command Command, locallySealed bool) error {
 	if command.Sources == nil || !slices.IsSorted(command.Sources) {
 		return ErrConflict
 	}
@@ -282,8 +307,8 @@ func insertCommand(tx *gorm.DB, command Command) error {
 	if err != nil {
 		return ErrUnavailable
 	}
-	res := tx.Exec("INSERT INTO "+commandTable+" (id,organization_id,shop_key,generation,source_keys) VALUES (?,?,?,?,?::jsonb) ON CONFLICT DO NOTHING",
-		command.ID, command.Organization, command.ShopKey, command.Generation, string(raw))
+	res := tx.Exec("INSERT INTO "+commandTable+" (id,organization_id,shop_key,generation,source_keys,sealed_locally) VALUES (?,?,?,?,?::jsonb,?) ON CONFLICT DO NOTHING",
+		command.ID, command.Organization, command.ShopKey, command.Generation, string(raw), locallySealed)
 	if res.Error != nil {
 		return ErrUnavailable
 	}

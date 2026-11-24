@@ -204,12 +204,37 @@ func (r *OfficialRepository) CompleteOfficial(ctx context.Context, proof submiss
 		return submission.OfficialReceipt{}, submission.ErrExecutionUnavailable
 	}
 	defer tx.Rollback()
-	if err := guardShopifyGeneration(tx, body.Target.Platform, body.Owner.OrganizationID, body.Binding.Shopify.ShopKey, body.Binding.ConnectionRevision, true); err != nil {
-		return submission.OfficialReceipt{}, err
+	guardErr := guardShopifyGeneration(tx, body.Target.Platform, body.Owner.OrganizationID, body.Binding.Shopify.ShopKey, body.Binding.ConnectionRevision, true)
+	frozenShopify := body.Shopify != nil && errors.Is(guardErr, submission.ErrExecutionNotFound)
+	if guardErr != nil && !frozenShopify {
+		return submission.OfficialReceipt{}, guardErr
 	}
 	intent, err := readOfficialIntent(tx, body.Owner.OrganizationID, body.IntentKey, true)
 	if err != nil || !receiptMatchesIntent(body, intent) {
 		return submission.OfficialReceipt{}, submission.ErrExecutionEvidenceRequired
+	}
+	if body.Shopify != nil {
+		if tx.Exec("SET LOCAL synchronous_commit=on").Error != nil {
+			return submission.OfficialReceipt{}, submission.ErrExecutionUnavailable
+		}
+		err = shopifyguard.ObserveDispatchEnd(tx, shopifyguard.Dispatch{Organization: body.Owner.OrganizationID, ShopKey: body.Binding.Shopify.ShopKey,
+			Generation: body.Binding.ConnectionRevision, AttemptID: claim.AttemptID, Epoch: claim.FenceEpoch},
+			claim.OwnerID, submission.ExecutionClaimTokenHash(claim.Token))
+		if frozenShopify {
+			if err == nil && tx.Commit().Error != nil {
+				return submission.OfficialReceipt{}, submission.ErrExecutionOutcomeUnknown
+			}
+			if err != nil && !errors.Is(err, shopifyguard.ErrConflict) {
+				return submission.OfficialReceipt{}, submission.ErrExecutionUnavailable
+			}
+			return submission.OfficialReceipt{}, submission.ErrExecutionNotFound
+		}
+		if errors.Is(err, shopifyguard.ErrConflict) {
+			return submission.OfficialReceipt{}, submission.ErrExecutionEvidenceRequired
+		}
+		if err != nil {
+			return submission.OfficialReceipt{}, submission.ErrExecutionUnavailable
+		}
 	}
 	if prior, err := readOfficialReceipt(tx, body.Owner.OrganizationID, body.ID); err == nil {
 		if collection.Digest(prior) != collection.Digest(body) {
