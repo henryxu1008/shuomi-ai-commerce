@@ -111,6 +111,23 @@ const order = z
     expectedCollectAt: optionalDate,
   })
   .strict();
+
+const shopifyOrder = z.strictObject({
+  id: z.string().regex(/^[1-9][0-9]{0,19}$/),
+  number: identity,
+  createdAt: date,
+  updatedAt: date,
+  status: z.string().regex(/^[A-Z][A-Z0-9_]{0,63}$/),
+  cancelled: z.boolean(),
+  items: z.array(z.strictObject({
+    id: z.string().regex(/^gid:\/\/shopify\/LineItem\/[1-9][0-9]{0,19}$/),
+    title: text(255).refine(Boolean),
+    sku: text(255),
+    quantity: z.number().int().min(1).max(2147483647),
+  })).max(250),
+});
+export type ShopifyObservedOrder = z.infer<typeof shopifyOrder>;
+
 export const observationRecordSchema = z
   .object({
     storeId: observationID,
@@ -122,12 +139,13 @@ export const observationRecordSchema = z
     temuProduct:temuObservedProductSchema.optional(),
     walmartProduct:walmartObservedProductSchema.optional(),
     order: order.optional(),
+    shopifyOrder: shopifyOrder.optional(),
   })
   .strict()
   .refine(
     (v) =>
-      [v.product,v.temuProduct,v.walmartProduct,v.order].filter(Boolean).length===1 &&
-      (v.product?.id ?? v.temuProduct?.id ?? v.walmartProduct?.sku ?? v.order?.id) === v.id,
+      [v.product,v.temuProduct,v.walmartProduct,v.order,v.shopifyOrder].filter(Boolean).length===1 &&
+      (v.product?.id ?? v.temuProduct?.id ?? v.walmartProduct?.sku ?? v.order?.id ?? v.shopifyOrder?.id) === v.id,
   );
 export const observationKindSchema = z.enum(["products", "orders", "supply-orders"]);
 export type ObservationKind = z.infer<typeof observationKindSchema>;
@@ -148,6 +166,7 @@ export const observationSyncSchema = z
     ]),
     progress: z
       .object({
+        shopifyOrders: z.strictObject({ complete: z.boolean() }).optional(),
         walmartOrders: z.object({partition:z.number().int().min(0).max(3),total:count.optional(),complete:z.boolean()}).strict().optional(),
         tiktokOrders: z.object({total:count.optional(),complete:z.boolean()}).strict().optional(),
         temuOrders: z.object({total:count.optional(),complete:z.boolean()}).strict().optional(),
@@ -243,6 +262,7 @@ export const observationTracksSchema = z
 export const observationCapabilitiesSchema = z
   .object({
     available: z.boolean(),
+    shopifyOrders: z.boolean().optional(),
     canSync: z.boolean(),
     runtimeReady: z.boolean(),
     providerConfigured: z.boolean(),
