@@ -49,6 +49,8 @@ func (orderFixtureIAM) ReadExactServiceProjectAuthorization(_ context.Context, t
 	}
 	member, role := "member-"+org, authz.EnterpriseRoleKey(org, 1)
 	switch {
+	case actor == "order-member-org-a" && org == "org-a":
+		member = actor
 	case actor == "store-member-org-a" && org == "org-a":
 		member, role = actor, authz.EnterpriseRoleKey(org, 2)
 	case actor != "actor-"+org:
@@ -148,7 +150,7 @@ func (orderFixtureStarter) Ensure(context.Context, string, string) error { retur
 
 func orderFixtureIdentity(ctx context.Context, account string, expires time.Time) context.Context {
 	org, actor, member := account, "actor-"+account, "member-"+account
-	if account == "reader-org-a" || account == "store-member-org-a" {
+	if account == "reader-org-a" || account == "store-member-org-a" || account == "order-member-org-a" {
 		org, actor, member = "org-a", account, account
 	}
 	return authidentity.WithAuthenticatedIdentity(ctx, authidentity.AuthenticatedIdentity{

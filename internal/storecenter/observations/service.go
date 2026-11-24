@@ -478,7 +478,11 @@ func (s *Service) Step(ctx context.Context, org, id string) (Sync, error) {
 			records = append(records, Record{StoreID: sync.StoreID, SyncID: sync.ID, ID: p.ID, Product: &product})
 		}
 	} else if sync.Binding.Platform == storecenter.PlatformAmazon {
-		return s.stepAmazonOrders(ctx, sync, merchant)
+		updated, err := s.stepAmazonOrders(ctx, sync, merchant)
+		if err != nil {
+			return stop(err)
+		}
+		return updated, nil
 	} else if sync.Binding.Platform == storecenter.PlatformShopify {
 		updated, err := s.stepShopifyOrders(ctx, sync, merchant)
 		if err != nil {

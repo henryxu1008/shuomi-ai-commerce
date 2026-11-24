@@ -46,7 +46,9 @@ func (a *amazonFixtureAccess) Open(ctx context.Context, scope o.Scope, storeID s
 	if expected != nil && *expected != binding {
 		return nil, o.ErrConflict
 	}
-	merchant := amazonFixtureMerchant{binding: binding, db: a.db}
+	merchant := amazonFixtureMerchant{binding: binding, db: a.db, authorization: a.Authorization,
+		subject: storecenter.ObservationSubject{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID,
+			MemberID: scope.MemberID, Purpose: storecenter.ObservationPurposeOrders, Sync: sync}}
 	if err := merchant.Check(ctx); err != nil {
 		return nil, err
 	}
@@ -62,13 +64,32 @@ func (a *amazonFixtureAccess) ReadAmazonOrders(ctx context.Context, scope o.Scop
 
 type amazonFixtureMerchant struct {
 	o.Merchant
-	binding o.Binding
-	db      *gorm.DB
+	binding       o.Binding
+	db            *gorm.DB
+	authorization app.Authorization
+	subject       storecenter.ObservationSubject
 }
 
 func (m amazonFixtureMerchant) Binding() o.Binding { return m.binding }
 func (m amazonFixtureMerchant) Check(ctx context.Context) error {
-	err := m.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	proof, err := m.authorization.AuthorizeObservation(ctx, m.subject)
+	if errors.Is(err, storecenter.ErrNotFound) {
+		return o.ErrForbidden
+	}
+	if err != nil {
+		return o.ErrUnavailable
+	}
+	if !proof.Allowed {
+		return o.ErrForbidden
+	}
+	err = m.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		stores, err := storecenter.NewMemberScopedStoreRepository(tx, amazonFixtureStoreMember{access: proof.Access})
+		if err != nil {
+			return err
+		}
+		if err := stores.LockRead(ctx, m.binding.OrganizationID, []string{m.binding.StoreID}); err != nil {
+			return err
+		}
 		return storecenter.LockAmazonOrderObservation(tx, m.binding)
 	})
 	if errors.Is(err, storecenter.ErrNotFound) {
@@ -78,6 +99,25 @@ func (m amazonFixtureMerchant) Check(ctx context.Context) error {
 		return o.ErrUnavailable
 	}
 	return nil
+}
+
+type amazonFixtureStoreMember struct{ access storecenter.StoreMemberAccess }
+
+func (a amazonFixtureStoreMember) AuthorizeStoreMember(_ context.Context, org string) (storecenter.StoreMemberAccess, error) {
+	if a.access.OrganizationID != org {
+		return storecenter.StoreMemberAccess{}, storecenter.ErrNotFound
+	}
+	return a.access, nil
+}
+
+type amazonFixtureDirectoryMember struct{}
+
+func (amazonFixtureDirectoryMember) AuthorizeStoreMember(ctx context.Context, org string) (storecenter.StoreMemberAccess, error) {
+	access, err := (orderFixtureMember{}).AuthorizeStoreMember(ctx, org)
+	if access.MemberID == "order-member-org-a" {
+		access.Administrator, access.CanWrite = false, false
+	}
+	return access, err
 }
 
 func TestSyntheticAmazonOrdersHTTPAndCurrentConsent(t *testing.T) {
@@ -93,11 +133,16 @@ func TestSyntheticAmazonOrdersHTTPAndCurrentConsent(t *testing.T) {
 	require.NoError(t, storecenter.InstallIsolatedAmazonOrderConsentTx(ctx, tx))
 	require.NoError(t, tx.Commit())
 	require.NoError(t, owner.Exec(`GRANT SELECT,UPDATE ON workbench_stores,workbench_store_amazon_grants,
- workbench_store_amazon_order_consents TO observation_runtime`).Error)
+ workbench_store_amazon_order_consents,workbench_store_member_grants TO observation_runtime`).Error)
 
 	now := time.Now().UTC().Truncate(time.Second)
-	stores, err := storecenter.NewMemberScopedStoreRepository(owner, orderFixtureMember{})
+	stores, err := storecenter.NewMemberScopedStoreRepository(owner, amazonFixtureDirectoryMember{})
 	require.NoError(t, err)
+	setMemberGrant := func(org, storeID, member string, active bool, version int64) {
+		ctx := orderFixtureIdentity(ctx, org, now.Add(time.Hour))
+		require.NoError(t, stores.SetMemberGrant(ctx, storecenter.MemberStoreGrantCommand{OrganizationID: org,
+			StoreID: storeID, MemberID: member, OperationID: uuid.NewString(), Active: active, ExpectedVersion: version}))
+	}
 	newBinding := func(org string) o.Binding {
 		subject := orderFixtureIdentity(ctx, org, now.Add(time.Hour))
 		boundAt := now.Add(-time.Hour)
@@ -112,6 +157,7 @@ func TestSyntheticAmazonOrdersHTTPAndCurrentConsent(t *testing.T) {
 		require.NoError(t, owner.Exec(`INSERT INTO workbench_store_amazon_grants
  (organization_id,store_id,attempt_id,app_id,app_revision,beta,seller_id,generation,key_id,ciphertext,bound_at)
  VALUES(?,?,?,?,?,TRUE,?,1,'fixture-key','fixture-ciphertext',?)`, org, store.ID(), uuid.NewString(), "fixture-app", "fixture-v1", org+"-seller", boundAt).Error)
+		setMemberGrant(org, store.ID(), "member-"+org, true, 0)
 		return o.Binding{Platform: storecenter.PlatformAmazon, OrganizationID: org, StoreID: store.ID(), Site: "amazon-us",
 			StoreVersion: store.Version(), ConnectionRevision: 1, ApplicationID: "fixture-app", ApplicationRevision: "fixture-v1",
 			AmazonBeta: true, CredentialExpiresAt: boundAt.Add(365 * 24 * time.Hour)}
@@ -126,9 +172,13 @@ func TestSyntheticAmazonOrdersHTTPAndCurrentConsent(t *testing.T) {
 	}
 
 	calls, repeatCursor := 0, false
+	var afterProviderRequest func()
 	const orderID = "111-1111111-1111111"
 	reader, err := wire.NewSyntheticOrderReader(orderFixtureTransport(func(req *http.Request) (*http.Response, error) {
 		calls++
+		if afterProviderRequest != nil {
+			afterProviderRequest()
+		}
 		token := req.Header.Get("X-Amz-Access-Token")
 		require.Contains(t, []string{"org-a-fixture", "org-b-fixture"}, token)
 		q := req.URL.Query()
@@ -161,7 +211,7 @@ func TestSyntheticAmazonOrdersHTTPAndCurrentConsent(t *testing.T) {
 	router := gin.New()
 	for _, route := range routes.Routes(&app.Application{Service: service, Ready: func() bool { return true }}, func(ctx context.Context, bearer string) (context.Context, error) {
 		switch bearer {
-		case "Bearer org-a", "Bearer org-b", "Bearer store-member-org-a":
+		case "Bearer org-a", "Bearer org-b", "Bearer store-member-org-a", "Bearer order-member-org-a":
 			return orderFixtureIdentity(ctx, strings.TrimPrefix(bearer, "Bearer "), now.Add(time.Hour)), nil
 		default:
 			return nil, o.ErrForbidden
@@ -184,13 +234,16 @@ func TestSyntheticAmazonOrdersHTTPAndCurrentConsent(t *testing.T) {
 		router.ServeHTTP(res, req)
 		return res
 	}
-	begin := func(b o.Binding, key string) o.Sync {
-		result := httpCall(b.OrganizationID, http.MethodPost, "/syncs", key, `{"kind":"orders","stores":["`+b.StoreID+`"]}`)
+	beginAs := func(account string, b o.Binding, key string) o.Sync {
+		result := httpCall(account, http.MethodPost, "/syncs", key, `{"kind":"orders","stores":["`+b.StoreID+`"]}`)
 		require.Equal(t, 200, result.Code, result.Body.String())
 		var response struct{ Data o.Command }
 		require.NoError(t, json.Unmarshal(result.Body.Bytes(), &response))
 		require.Len(t, response.Data.Syncs, 1)
 		return response.Data.Syncs[0]
+	}
+	begin := func(b o.Binding, key string) o.Sync {
+		return beginAs(b.OrganizationID, b, key)
 	}
 	complete := func(sync o.Sync, org string) o.Sync {
 		for i := 0; i < 3 && !sync.Terminal(); i++ {
@@ -234,6 +287,36 @@ func TestSyntheticAmazonOrdersHTTPAndCurrentConsent(t *testing.T) {
 	require.NotEqual(t, 200, httpCall("org-b", http.MethodGet, query, "", "").Code)
 	require.NotEqual(t, 200, httpCall("org-b", http.MethodGet, detailPath, "", "").Code)
 	require.Equal(t, 403, httpCall("store-member-org-a", http.MethodGet, query, "", "").Code)
+	require.NotEqual(t, 200, httpCall("order-member-org-a", http.MethodGet, query, "", "").Code)
+	require.NotEqual(t, 200, httpCall("order-member-org-a", http.MethodGet, detailPath, "", "").Code)
+	require.NotEqual(t, 200, httpCall("order-member-org-a", http.MethodGet, "/syncs/"+done.ID, "", "").Code)
+	require.NotEqual(t, 200, httpCall("order-member-org-a", http.MethodPost, "/syncs", uuid.NewString(),
+		`{"kind":"orders","stores":["`+first.StoreID+`"]}`).Code)
+	const orderMember = "order-member-org-a"
+	setMemberGrant("org-a", first.StoreID, orderMember, true, 0)
+	require.Equal(t, 200, httpCall(orderMember, http.MethodGet, detailPath, "", "").Code)
+	memberSync := beginAs(orderMember, first, uuid.NewString())
+	memberSync, err = service.Step(ctx, "org-a", memberSync.ID)
+	require.NoError(t, err)
+	require.Equal(t, "running", memberSync.Status)
+	setMemberGrant("org-a", first.StoreID, orderMember, false, 1)
+	beforeRevoked := calls
+	memberSync, err = service.Step(ctx, "org-a", memberSync.ID)
+	require.NoError(t, err)
+	require.Equal(t, "suspended", memberSync.Status)
+	require.Equal(t, beforeRevoked, calls)
+	require.NotEqual(t, 200, httpCall(orderMember, http.MethodGet, detailPath, "", "").Code)
+
+	setMemberGrant("org-a", first.StoreID, orderMember, true, 2)
+	inFlight := beginAs(orderMember, first, uuid.NewString())
+	afterProviderRequest = func() {
+		setMemberGrant("org-a", first.StoreID, orderMember, false, 3)
+	}
+	inFlight, err = service.Step(ctx, "org-a", inFlight.ID)
+	afterProviderRequest = nil
+	require.NoError(t, err)
+	require.Equal(t, "suspended", inFlight.Status)
+	require.Zero(t, inFlight.Progress.Pages)
 
 	other := complete(begin(second, uuid.NewString()), "org-b")
 	require.Equal(t, "completed", other.Status)
