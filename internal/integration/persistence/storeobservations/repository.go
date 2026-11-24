@@ -10,7 +10,6 @@ import (
 	"errors"
 	"github.com/google/uuid"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
-	shopify "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shopify"
 	temuo "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/observations"
 	walmart "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
@@ -349,7 +348,7 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 			}
 			if v.ShopifyOrder != nil && result.RowsAffected > 0 {
 				var saved struct {
-					Order *shopify.ObservedOrder `json:"shopifyOrder"`
+					Order *o.ShopifyOrder `json:"shopifyOrder"`
 				}
 				if json.Unmarshal(prior.Payload, &saved) != nil || saved.Order == nil || !saved.Order.Valid() || saved.Order.ID != v.ID {
 					return o.ErrUnavailable
@@ -365,15 +364,15 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				next.Note("duplicate_platform_identity")
 			}
 			payload, _ := json.Marshal(struct {
-				ShopifyOrder   *shopify.ObservedOrder `json:"shopifyOrder,omitempty"`
-				SupplyOrder    *o.SupplyOrder         `json:"supplyOrder,omitempty"`
-				TemuOrder      *o.TemuOrder           `json:"temuOrder,omitempty"`
-				TikTokOrder    *o.TikTokOrder         `json:"tiktokOrder,omitempty"`
-				WalmartOrder   *o.WalmartOrder        `json:"walmartOrder,omitempty"`
-				WalmartProduct *walmart.Product       `json:"walmartProduct,omitempty"`
-				Product        *o.Product             `json:"product,omitempty"`
-				TemuProduct    *temuo.Product         `json:"temuProduct,omitempty"`
-				Order          *o.Order               `json:"order,omitempty"`
+				ShopifyOrder   *o.ShopifyOrder  `json:"shopifyOrder,omitempty"`
+				SupplyOrder    *o.SupplyOrder   `json:"supplyOrder,omitempty"`
+				TemuOrder      *o.TemuOrder     `json:"temuOrder,omitempty"`
+				TikTokOrder    *o.TikTokOrder   `json:"tiktokOrder,omitempty"`
+				WalmartOrder   *o.WalmartOrder  `json:"walmartOrder,omitempty"`
+				WalmartProduct *walmart.Product `json:"walmartProduct,omitempty"`
+				Product        *o.Product       `json:"product,omitempty"`
+				TemuProduct    *temuo.Product   `json:"temuProduct,omitempty"`
+				Order          *o.Order         `json:"order,omitempty"`
 			}{v.ShopifyOrder, v.SupplyOrder, v.TemuOrder, v.TikTokOrder, v.WalmartOrder, v.WalmartProduct, v.Product, v.TemuProduct, v.Order})
 			if len(payload) > 262144 {
 				return o.ErrInvalid

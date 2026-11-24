@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	market "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shopify"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 )
 
 const shopifyOrdersPageSize = 10
@@ -34,9 +34,6 @@ const orderLinePageQuery = `query OrderObservationLines($id: ID!, $after: String
 }`
 
 var ErrOrderPageUnavailable = errors.New("Shopify order page unavailable")
-
-type OrderQuery = market.OrderQuery
-type OrderPage = market.OrderPage
 
 // SyntheticOrderReader has no default transport and is only injected into
 // isolated fixtures. No Shopify order credential or transport is configured in
@@ -72,8 +69,8 @@ func validOrderCursor(s string) bool {
 }
 
 type orderLines struct {
-	Page  *orderPageInfo             `json:"pageInfo"`
-	Nodes []market.ObservedOrderItem `json:"nodes"`
+	Page  *orderPageInfo       `json:"pageInfo"`
+	Nodes []o.ShopifyOrderItem `json:"nodes"`
 }
 
 type orderNode struct {
@@ -86,13 +83,13 @@ type orderNode struct {
 	Lines       *orderLines     `json:"lineItems"`
 }
 
-func (r *SyntheticOrderReader) Orders(ctx context.Context, domain, token string, q OrderQuery, authorize func(context.Context) error) (OrderPage, error) {
+func (r *SyntheticOrderReader) Orders(ctx context.Context, domain, token string, q o.ShopifyOrderQuery, authorize func(context.Context) error) (o.ShopifyOrderPage, error) {
 	if r == nil || authorize == nil || q.Start.IsZero() || !q.End.After(q.Start) || q.End.Sub(q.Start) > 30*24*time.Hour ||
 		!validOrderCursor(q.Cursor) || q.Start.Year() < 1 || q.End.Year() > 9999 {
-		return OrderPage{}, ErrInvalidRequest
+		return o.ShopifyOrderPage{}, ErrInvalidRequest
 	}
 	if err := authorize(ctx); err != nil {
-		return OrderPage{}, err
+		return o.ShopifyOrderPage{}, err
 	}
 	window := "created_at:>='" + q.Start.UTC().Format(time.RFC3339Nano) + "' created_at:<'" + q.End.UTC().Format(time.RFC3339Nano) + "'"
 	var after *string
@@ -107,13 +104,13 @@ func (r *SyntheticOrderReader) Orders(ctx context.Context, domain, token string,
 	}
 	if err := r.admin.query(ctx, domain, token, orderPageQuery, map[string]any{"window": window, "after": after}, &data); err != nil || data.Orders == nil ||
 		data.Orders.Nodes == nil || len(data.Orders.Nodes) > shopifyOrdersPageSize {
-		return OrderPage{}, ErrOrderPageUnavailable
+		return o.ShopifyOrderPage{}, ErrOrderPageUnavailable
 	}
 	next, ok := data.Orders.Page.next()
 	if !ok || next != "" && (next == q.Cursor || len(data.Orders.Nodes) == 0) {
-		return OrderPage{Incomplete: true}, nil
+		return o.ShopifyOrderPage{Incomplete: true}, nil
 	}
-	out := OrderPage{Next: next, Orders: make([]market.ObservedOrder, 0, len(data.Orders.Nodes))}
+	out := o.ShopifyOrderPage{Next: next, Orders: make([]o.ShopifyOrder, 0, len(data.Orders.Nodes))}
 	lineReads := 0
 	for _, node := range data.Orders.Nodes {
 		if !validGID(node.ID, "Order") || node.CreatedAt.Before(q.Start) || !node.CreatedAt.Before(q.End) {
@@ -132,9 +129,9 @@ func (r *SyntheticOrderReader) Orders(ctx context.Context, domain, token string,
 			continue
 		}
 		if err != nil {
-			return OrderPage{}, err
+			return o.ShopifyOrderPage{}, err
 		}
-		order := market.ObservedOrder{ID: strings.TrimPrefix(node.ID, "gid://shopify/Order/"), Number: strings.TrimSpace(node.Name), CreatedAt: node.CreatedAt.UTC(),
+		order := o.ShopifyOrder{ID: strings.TrimPrefix(node.ID, "gid://shopify/Order/"), Number: strings.TrimSpace(node.Name), CreatedAt: node.CreatedAt.UTC(),
 			UpdatedAt: node.UpdatedAt.UTC(), Status: node.Status, Cancelled: cancelledAt != nil, Items: items}
 		if !order.Valid() {
 			out.Incomplete = true
@@ -145,12 +142,12 @@ func (r *SyntheticOrderReader) Orders(ctx context.Context, domain, token string,
 	return out, nil
 }
 
-func (r *SyntheticOrderReader) readOrderLines(ctx context.Context, domain, token string, node orderNode, reads *int, authorize func(context.Context) error) ([]market.ObservedOrderItem, error) {
-	items := []market.ObservedOrderItem{}
+func (r *SyntheticOrderReader) readOrderLines(ctx context.Context, domain, token string, node orderNode, reads *int, authorize func(context.Context) error) ([]o.ShopifyOrderItem, error) {
+	items := []o.ShopifyOrderItem{}
 	page := node.Lines
 	seen := map[string]bool{}
 	for {
-		if page == nil || page.Nodes == nil || len(page.Nodes) > shopifyOrderLinePageSize || len(items)+len(page.Nodes) > market.MaxObservedOrderItems {
+		if page == nil || page.Nodes == nil || len(page.Nodes) > shopifyOrderLinePageSize || len(items)+len(page.Nodes) > o.MaxShopifyOrderItems {
 			return nil, ErrOrderPageUnavailable
 		}
 		items = append(items, page.Nodes...)

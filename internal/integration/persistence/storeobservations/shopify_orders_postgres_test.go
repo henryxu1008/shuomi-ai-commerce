@@ -21,7 +21,6 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 	wire "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/shopify"
-	market "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shopify"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"github.com/stretchr/testify/require"
@@ -115,10 +114,10 @@ func (a *shopifyFixtureAuthorization) Open(ctx context.Context, scope o.Scope, s
 	return merchant, nil
 }
 
-func (a *shopifyFixtureAuthorization) ReadShopifyOrders(ctx context.Context, scope o.Scope, binding o.Binding, query market.OrderQuery) (market.OrderPage, error) {
+func (a *shopifyFixtureAuthorization) ReadShopifyOrders(ctx context.Context, scope o.Scope, binding o.Binding, query o.ShopifyOrderQuery) (o.ShopifyOrderPage, error) {
 	m, err := a.Open(ctx, scope, binding.StoreID, o.Orders, true, &binding)
 	if err != nil {
-		return market.OrderPage{}, err
+		return o.ShopifyOrderPage{}, err
 	}
 	return a.reader.Orders(ctx, "fixture.myshopify.com", binding.OrganizationID+"-order-fixture", query, m.Check)
 }

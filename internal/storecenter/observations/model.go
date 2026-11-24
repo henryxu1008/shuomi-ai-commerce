@@ -8,7 +8,6 @@ import (
 	"errors"
 	"github.com/google/uuid"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
-	shopify "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shopify"
 	temuo "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/observations"
 	walmart "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
@@ -288,21 +287,21 @@ func ChildKey(parent, store string, kind Kind) string {
 }
 
 type Record struct {
-	ShopifyOrder   *shopify.ObservedOrder `json:"shopifyOrder,omitempty"`
-	SupplyOrder    *SupplyOrder           `json:"supplyOrder,omitempty"`
-	TemuOrder      *TemuOrder             `json:"temuOrder,omitempty"`
-	TikTokOrder    *TikTokOrder           `json:"tiktokOrder,omitempty"`
-	WalmartOrder   *WalmartOrder          `json:"walmartOrder,omitempty"`
-	WalmartProduct *walmart.Product       `json:"walmartProduct,omitempty"`
-	StoreID        string                 `json:"storeId"`
-	SyncID         string                 `json:"syncId"`
-	ID             string                 `json:"id"`
-	ObservedAt     time.Time              `json:"observedAt"`
-	Stale          bool                   `json:"stale,omitempty"`
-	Product        *Product               `json:"product,omitempty"`
-	TemuProduct    *temuo.Product         `json:"temuProduct,omitempty"`
-	Order          *Order                 `json:"order,omitempty"`
-	WindowKey      string                 `json:"-"`
+	ShopifyOrder   *ShopifyOrder    `json:"shopifyOrder,omitempty"`
+	SupplyOrder    *SupplyOrder     `json:"supplyOrder,omitempty"`
+	TemuOrder      *TemuOrder       `json:"temuOrder,omitempty"`
+	TikTokOrder    *TikTokOrder     `json:"tiktokOrder,omitempty"`
+	WalmartOrder   *WalmartOrder    `json:"walmartOrder,omitempty"`
+	WalmartProduct *walmart.Product `json:"walmartProduct,omitempty"`
+	StoreID        string           `json:"storeId"`
+	SyncID         string           `json:"syncId"`
+	ID             string           `json:"id"`
+	ObservedAt     time.Time        `json:"observedAt"`
+	Stale          bool             `json:"stale,omitempty"`
+	Product        *Product         `json:"product,omitempty"`
+	TemuProduct    *temuo.Product   `json:"temuProduct,omitempty"`
+	Order          *Order           `json:"order,omitempty"`
+	WindowKey      string           `json:"-"`
 }
 type Query struct {
 	Kind       Kind

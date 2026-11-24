@@ -3,6 +3,7 @@ package shopify
 import (
 	"context"
 	"encoding/json"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"net/http"
 	"strings"
 	"testing"
@@ -15,7 +16,7 @@ func TestShopifyOrderReadPaginatesWithoutExposingOtherData(t *testing.T) {
 	start := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	end := start.Add(30 * 24 * time.Hour)
 	var requests, checks int
-	read := func(changed bool) (OrderPage, error) {
+	read := func(changed bool) (o.ShopifyOrderPage, error) {
 		requests, checks = 0, 0
 		reader, err := NewSyntheticOrderReader(transportFunc(func(r *http.Request) (*http.Response, error) {
 			requests++
@@ -43,7 +44,7 @@ func TestShopifyOrderReadPaginatesWithoutExposingOtherData(t *testing.T) {
 			return fixtureResponse(200, response), nil
 		}))
 		require.NoError(t, err)
-		return reader.Orders(context.Background(), "fixture.myshopify.com", "orders-fixture", OrderQuery{Start: start, End: end},
+		return reader.Orders(context.Background(), "fixture.myshopify.com", "orders-fixture", o.ShopifyOrderQuery{Start: start, End: end},
 			func(context.Context) error { checks++; return nil })
 	}
 	page, err := read(false)
@@ -67,7 +68,7 @@ func TestShopifyOrderGraphQLErrorDoesNotMeanEmptyOrders(t *testing.T) {
 	require.NoError(t, err)
 	start := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	_, err = reader.Orders(context.Background(), "fixture.myshopify.com", "orders-fixture",
-		OrderQuery{Start: start, End: start.Add(30 * 24 * time.Hour)}, func(context.Context) error { return nil })
+		o.ShopifyOrderQuery{Start: start, End: start.Add(30 * 24 * time.Hour)}, func(context.Context) error { return nil })
 	require.Error(t, err)
 }
 
@@ -80,7 +81,7 @@ func TestShopifyOrderRequiresAnExplicitCancellationField(t *testing.T) {
 	require.NoError(t, err)
 	start := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	page, err := reader.Orders(context.Background(), "fixture.myshopify.com", "orders-fixture",
-		OrderQuery{Start: start, End: start.Add(30 * 24 * time.Hour)}, func(context.Context) error { return nil })
+		o.ShopifyOrderQuery{Start: start, End: start.Add(30 * 24 * time.Hour)}, func(context.Context) error { return nil })
 	require.NoError(t, err)
 	require.True(t, page.Incomplete)
 	require.Empty(t, page.Orders)

@@ -5,14 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"reflect"
-
-	shopify "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shopify"
 )
 
 const shopifyOrderPageLimit = 2500
 
 type ShopifyOrderReader interface {
-	ReadShopifyOrders(context.Context, Scope, Binding, shopify.OrderQuery) (shopify.OrderPage, error)
+	ReadShopifyOrders(context.Context, Scope, Binding, ShopifyOrderQuery) (ShopifyOrderPage, error)
 }
 
 type ShopifyOrderProgress struct {
@@ -40,7 +38,7 @@ func (s *Service) stepShopifyOrders(ctx context.Context, source Sync, merchant M
 		next.ShopifyOrders = &ShopifyOrderProgress{}
 	}
 	progress := next.ShopifyOrders
-	page, err := s.ShopifyOrders.ReadShopifyOrders(ctx, source.Owner, source.Binding, shopify.OrderQuery{
+	page, err := s.ShopifyOrders.ReadShopifyOrders(ctx, source.Owner, source.Binding, ShopifyOrderQuery{
 		Start: source.Range.Start, End: source.Range.End, Cursor: progress.Cursor,
 	})
 	if err != nil {
