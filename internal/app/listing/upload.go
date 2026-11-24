@@ -210,6 +210,9 @@ func (s *UploadService) Upload(ctx context.Context, scope collection.Scope, key,
 	if saved.Merchant.Platform == storecenter.PlatformWalmart {
 		return s.uploadWalmart(ctx, scope, key, saved)
 	}
+	if saved.Merchant.Platform == storecenter.PlatformAmazon {
+		return UploadResult{}, record.ErrForbidden
+	}
 	if _, err = s.dependencies.Stores.ExecutionMerchant(ctx, scope, saved.Merchant.StoreID, storecenter.ProductPurposePublish, &saved.Merchant); err != nil {
 		return UploadResult{}, err
 	}

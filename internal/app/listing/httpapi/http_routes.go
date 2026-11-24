@@ -107,6 +107,11 @@ func ListingRoutes(app *listingapp.Application, bind func(context.Context, strin
 		{"POST", "/shein-publication/prepare", "shein-shelf-prepare", preparation.PermissionSubmit},
 		{"POST", "/shein-publication/confirm", "shein-shelf-confirm", preparation.PermissionSubmit},
 		{"POST", "/shein-publication/result", "shein-shelf-result", preparation.PermissionRead},
+		{"POST", "/amazon-listings/review", "amazon-review", preparation.PermissionManage},
+		{"POST", "/amazon-listings/details", "amazon-details", preparation.PermissionRead},
+		{"POST", "/amazon-listings/confirm", "amazon-confirm", preparation.PermissionSubmit},
+		{"POST", "/amazon-listings/result", "amazon-result", preparation.PermissionRead},
+		{"POST", "/amazon-listings/check", "amazon-check", preparation.PermissionRead},
 		{"GET", "/sources/:source_id/targets/:store_id", "target", preparation.PermissionRead}, {"POST", "/targets", "save-target", preparation.PermissionManage}, {"POST", "/target-rules", "rules", preparation.PermissionRead}, {"GET", "/target-commands/:key", "target-command", preparation.PermissionRead}, {"GET", "/records/:record_id", "record", preparation.PermissionRead},
 		{"POST", "/uploads/resolve", "resolve-upload", preparation.PermissionManage},
 		{"GET", "/uploads/:record_id/:attempt_id", "upload-attempt", preparation.PermissionRead},
@@ -115,9 +120,15 @@ func ListingRoutes(app *listingapp.Application, bind func(context.Context, strin
 	}
 	result := []httproute.Descriptor{}
 	for _, spec := range specs {
+		if strings.HasPrefix(spec.path, "/amazon-listings/") && (app == nil || app.Amazon == nil) {
+			continue
+		}
 		budget := 20 * time.Second
 		if strings.HasPrefix(spec.path, "/shein-publication/") || strings.Contains(spec.path, "/status") {
 			budget = 30 * time.Second
+		}
+		if strings.HasPrefix(spec.path, "/amazon-listings/") {
+			budget = 100 * time.Second
 		}
 		result = append(result, httproute.Descriptor{Method: spec.method, Path: ListingBasePath + spec.path, Module: "supply-chain", Permission: spec.permission, AuthPolicy: httproute.AuthPolicyVerifiedIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: budget, Handler: httproute.WithRequestBodyReadTimeout(3e9, func(c *gin.Context) {
 			c.Header("Cache-Control", "no-store")
@@ -142,6 +153,8 @@ func ListingRoutes(app *listingapp.Application, bind func(context.Context, strin
 				return
 			}
 			switch spec.action {
+			case "amazon-review", "amazon-details", "amazon-confirm", "amazon-result", "amazon-check":
+				output, err = handleAmazonListing(ctx, app, spec.action, c.Request)
 			case "submission-overview-metrics", "cockpit-metrics", "walmart-feed-metrics", "tiktok-publish-metrics", "shein-publish-metrics", "temu-create-metrics":
 				now := time.Now()
 				filter, e := workbenchmetrics.Parse(c.Request.URL.RawQuery, now)

@@ -17,6 +17,9 @@ import (
 // ValidPlatformRecord rejects ambiguous payloads at persistence boundaries.
 // The current qualified SHEIN path and the TEMU variant stay explicit.
 func ValidPlatformRecord(value TargetRecord) bool {
+	if value.Input.Amazon != nil || value.Amazon != nil || value.Merchant.Platform == storecenter.PlatformAmazon {
+		return validAmazonTarget(value)
+	}
 	if value.LocalTrial != nil || value.Input.LocalTrial != nil {
 		return validLocalRecord(value)
 	}
@@ -56,6 +59,9 @@ func PublicationReady(value TargetRecord) bool {
 	if value.Input.ColorPartition != nil || !ValidPlatformRecord(value) {
 		return false
 	}
+	if value.Merchant.Platform == storecenter.PlatformAmazon {
+		return value.Amazon.ValidUntil.After(value.CreatedAt)
+	}
 	if value.Merchant.Platform == storecenter.PlatformWalmart {
 		return value.Walmart.ValidateWire() == nil
 	}
@@ -69,6 +75,7 @@ func PublicationReady(value TargetRecord) bool {
 }
 
 type preparedPlatform struct {
+	amazon        *AmazonTarget
 	walmart       *walmart.Draft
 	walmartRules  *walmart.RuleSnapshot
 	walmartImages []walmart.ImageObservation
@@ -87,6 +94,19 @@ type preparedPlatform struct {
 }
 
 func (s *TargetService) preparePlatform(ctx context.Context, scope collection.Scope, input TargetInput, inventory asset.ApprovedAssetInventory, product catalog.PublishedSnapshot) (preparedPlatform, error) {
+	if input.Amazon != nil {
+		if s.dependencies.Amazon == nil {
+			return preparedPlatform{}, ErrUnavailable
+		}
+		binding, amazon, err := s.dependencies.Amazon.PrepareAmazon(ctx, scope, input.StoreID, *input.Amazon, product, inventory)
+		if err != nil {
+			return preparedPlatform{}, err
+		}
+		if !binding.ValidAmazonApplication() || binding.OrganizationID != scope.OrganizationID || binding.StoreID != input.StoreID {
+			return preparedPlatform{}, ErrNotReady
+		}
+		return preparedPlatform{merchant: binding, rulesHash: amazon.Draft.RuleHash, amazon: &amazon}, nil
+	}
 	if input.Walmart != nil {
 		if s.dependencies.WalmartRules == nil {
 			return preparedPlatform{}, ErrUnavailable

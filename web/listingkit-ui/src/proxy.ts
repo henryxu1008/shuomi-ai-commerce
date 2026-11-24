@@ -3,6 +3,10 @@ import type { Session } from "next-auth";
 
 import { serverAuth } from "@/auth";
 import {
+  AMAZON_AUTHORIZATION_PRIVACY_HEADERS,
+  isAmazonAuthorizationCallback,
+} from "@/lib/contracts/amazon-store-authorization";
+import {
   isZitadelAuthConfigured,
   normalizeReturnTo,
   readZitadelIdentityFromSession,
@@ -23,6 +27,11 @@ export { authenticatedProxy as proxy };
 export default authenticatedProxy;
 
 async function handleProxy(request: AuthenticatedProxyRequest) {
+  if (isAmazonAuthorizationCallback(request.nextUrl.pathname)) {
+    // Callback parameters must never be carried into a general login return URL.
+    if (request.method === "GET") return NextResponse.next({ headers: AMAZON_AUTHORIZATION_PRIVACY_HEADERS });
+    return new Response(null, { status: 405, headers: { ...AMAZON_AUTHORIZATION_PRIVACY_HEADERS, Allow: "GET" } });
+  }
   if (!isProtectedPagePath(request.nextUrl.pathname)) {
     return NextResponse.next();
   }

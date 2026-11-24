@@ -43,6 +43,23 @@ func TestSheinRoutesBudgetsAndKernelErrors(t *testing.T) {
 	}
 }
 
+func TestAmazonListingRoutesAreAbsentFromDefaultComposition(t *testing.T) {
+	for _, app := range []*listingapp.Application{nil, {}, {Amazon: &listingapp.AmazonListingService{}}} {
+		var count int
+		for _, route := range ListingRoutes(app, nil) {
+			if strings.HasPrefix(route.Path, ListingBasePath+"/amazon-listings/") {
+				count++
+				require.Equal(t, http.MethodPost, route.Method)
+			}
+		}
+		if app == nil || app.Amazon == nil {
+			require.Zero(t, count)
+		} else {
+			require.Equal(t, 5, count)
+		}
+	}
+}
+
 func TestUploadPlanRoutesRequireFullSupplyAndOriginalPrivateBoundary(t *testing.T) {
 	found := 0
 	for _, route := range ListingRoutes(nil, nil) {

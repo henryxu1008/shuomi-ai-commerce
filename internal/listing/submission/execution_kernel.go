@@ -74,6 +74,7 @@ type ExecutionTarget struct {
 }
 
 type AcquireExecutionCommand struct {
+	Amazon       *AmazonSendAuthorization
 	Scope        ExecutionScope
 	IntentKey    string
 	Target       ExecutionTarget
@@ -113,6 +114,7 @@ type ExecutionEvidence struct {
 }
 
 type ExecutionReservation struct {
+	Amazon         *AmazonSendAuthorization
 	Attempt        ExecutionAttempt
 	ClaimTokenHash string
 }
@@ -135,9 +137,10 @@ type SendPermit struct {
 }
 
 type ExecutionAcquisition struct {
-	Attempt  ExecutionAttempt
-	Permit   *SendPermit
-	Replayed bool
+	AmazonPermit *AmazonWritePermit
+	Attempt      ExecutionAttempt
+	Permit       *SendPermit
+	Replayed     bool
 }
 
 func NewExecutionReservation(command AcquireExecutionCommand, attemptID, claimToken string, now time.Time) (ExecutionReservation, error) {
@@ -159,8 +162,18 @@ func NewExecutionReservation(command AcquireExecutionCommand, attemptID, claimTo
 	}
 	now = canonicalExecutionTime(now)
 	payloadFingerprint := digestExecutionParts(target.Platform, target.StoreID, target.SubjectID, action, string(command.Payload))
+	if target.Platform == "amazon" {
+		if command.Amazon == nil || command.Amazon.intent.Target != target ||
+			command.Amazon.intent.Owner.OrganizationID != organizationID || command.Amazon.intent.Key != intentKey ||
+			command.Amazon.intent.PayloadFingerprint != payloadFingerprint || action != AmazonSubmitAction {
+			return ExecutionReservation{}, ErrExecutionEvidenceRequired
+		}
+	} else if command.Amazon != nil {
+		return ExecutionReservation{}, ErrExecutionInvalid
+	}
 	providerKey := "subk1_v1_" + digestExecutionParts(providerExecutionDomain, organizationID, intentKey)
 	return ExecutionReservation{
+		Amazon: command.Amazon,
 		Attempt: ExecutionAttempt{
 			OrganizationID: organizationID, AttemptID: attemptID, IntentKey: intentKey,
 			Target: target, Action: action, PayloadFingerprint: payloadFingerprint,

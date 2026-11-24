@@ -64,6 +64,7 @@ type TikTokMerchantBinding struct {
 // ProductMerchantBinding is a public reference to current Store authority. It
 // contains no credential and never grants durable execution on its own.
 type ProductMerchantBinding struct {
+	AmazonBeta           bool                      `json:"amazon_beta,omitempty"`
 	Walmart              WalmartMerchantBinding    `json:"walmart,omitempty,omitzero"`
 	TikTok               TikTokMerchantBinding     `json:"tiktok,omitempty,omitzero"`
 	Platform             Platform                  `json:"platform,omitempty"`
@@ -86,6 +87,12 @@ type ProductMerchantBinding struct {
 }
 
 func (b ProductMerchantBinding) ValidApplication() bool {
+	if b.Platform == PlatformAmazon {
+		return b.ValidAmazonApplication()
+	}
+	if b.AmazonBeta {
+		return false
+	}
 	if b.Platform == PlatformWalmart {
 		return b.ValidWalmartApplication()
 	}
@@ -102,6 +109,17 @@ func (b ProductMerchantBinding) ValidApplication() bool {
 		return b.ValidTemuApplication()
 	}
 	return b.ApplicationType.Valid() && authidentity.IsBoundedIdentifier(b.ApplicationID) && authidentity.IsBoundedIdentifier(b.ApplicationRevision) && strings.HasSuffix(b.ApplicationRevision, ":"+string(b.ApplicationType))
+}
+
+// Amazon Target is keyed by the local Store and grant generation. Seller
+// identifiers and their derived hashes are excluded from the immutable record.
+func (b ProductMerchantBinding) ValidAmazonApplication() bool {
+	return b.Platform == PlatformAmazon && b.Site == "amazon-us" && uuid.Validate(b.StoreID) == nil &&
+		b.StoreVersion > 0 && b.ConnectionRevision > 0 && b.SupplierIdentityHash == "" && b.ApplicationType == "" &&
+		b.IdentityPartition == "" && b.MerchantMode == "" && b.RegionID == 0 && b.VerificationRevision == "" && b.ScopesHash == "" &&
+		b.TikTok == (TikTokMerchantBinding{}) && b.Walmart == (WalmartMerchantBinding{}) &&
+		authidentity.IsBoundedIdentifier(b.ApplicationID) && authidentity.IsBoundedIdentifier(b.ApplicationRevision) &&
+		b.ServiceExpiresAt.IsZero() && !b.CredentialExpiresAt.IsZero()
 }
 
 func (b ProductMerchantBinding) ValidTikTokApplication() bool {

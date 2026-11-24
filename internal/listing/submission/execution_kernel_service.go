@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"reflect"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -138,6 +139,9 @@ func (k *ExecutionKernel) Acquire(ctx context.Context, command AcquireExecutionC
 	result.Permit = &SendPermit{
 		AttemptID: attempt.AttemptID, FenceEpoch: attempt.FenceEpoch, ClaimToken: claimToken,
 		ClaimOwnerID: attempt.ClaimOwnerID, ProviderExecutionKey: attempt.ProviderExecutionKey, LeaseExpiresAt: attempt.LeaseExpiresAt,
+	}
+	if command.Amazon != nil {
+		result.AmazonPermit = &AmazonWritePermit{intent: command.Amazon.intent, expiresAt: attempt.LeaseExpiresAt, sent: new(atomic.Bool)}
 	}
 	return result, nil
 }
