@@ -250,11 +250,15 @@ func (s *GooglePublication) load(ctx context.Context, sourceID, id string, write
 	if err != nil {
 		return submission.GooglePlan{}, err
 	}
-	if plan.SourceID != sourceID || write && (plan.Version != product.Version ||
-		plan.ProductHash != collection.Digest(product.Snapshot) || plan.InventoryHash != collection.Digest(inventory)) {
+	if plan.SourceID != sourceID || write && !googlePlanMatchesSource(plan, product, inventory) {
 		return submission.GooglePlan{}, record.ErrConflict
 	}
 	return plan, nil
+}
+
+func googlePlanMatchesSource(plan submission.GooglePlan, product catalog.PublishedSnapshot, inventory asset.ApprovedAssetInventory) bool {
+	return plan.Version == product.Version && plan.ProductHash == collection.Digest(product.Snapshot) &&
+		plan.InventoryHash == collection.Digest(inventory)
 }
 
 func (s *GooglePublication) Confirm(ctx context.Context, sourceID, id string) (GooglePublicationResult, error) {
@@ -307,9 +311,15 @@ func (s *GooglePublication) send(ctx context.Context, plan submission.GooglePlan
 	}
 	var permit *submission.SendPermit
 	remote, sendErr := s.Stores.Publish(ctx, scope.OrganizationID, plan.StoreID, binding, offer, func(sendCtx context.Context) error {
-		current, err := s.Authorization.Authorize(sendCtx, preparation.PermissionSubmit)
-		if err != nil || current != plan.Owner {
+		current, product, inventory, err := s.source(sendCtx, plan.SourceID, true, true)
+		if err != nil {
+			return err
+		}
+		if current != plan.Owner {
 			return preparation.ErrForbidden
+		}
+		if !googlePlanMatchesSource(plan, product, inventory) {
+			return record.ErrConflict
 		}
 		permit, err = s.Kernel.BeginGoogleSend(sendCtx, a.Preparation)
 		return err
@@ -318,8 +328,11 @@ func (s *GooglePublication) send(ctx context.Context, plan submission.GooglePlan
 	defer cancel()
 	if permit == nil {
 		reason := submission.NoSendPreflightUnavailable
-		if errors.Is(sendErr, preparation.ErrForbidden) {
+		switch {
+		case errors.Is(sendErr, preparation.ErrForbidden):
 			reason = submission.NoSendAccessRecheckFailed
+		case errors.Is(sendErr, record.ErrConflict):
+			reason = submission.NoSendFactsChanged
 		}
 		stopped, err := s.Kernel.StopGoogleBeforeSend(finish, a.Preparation, reason)
 		if err != nil {

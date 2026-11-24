@@ -79,6 +79,7 @@ func TestGoogleMockAuthorizationPublicationAndSavedResult(t *testing.T) {
 	var insertions atomic.Int32
 	var processed atomic.Bool
 	var failPreflight, loseResponse atomic.Bool
+	var replaceImageDuringPreflight, imageReplaced atomic.Bool
 	var challenge atomic.Value
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -115,6 +116,9 @@ func TestGoogleMockAuthorizationPublicationAndSavedResult(t *testing.T) {
 			key := body.ContentLanguage + "~" + body.FeedLabel + "~" + body.OfferID
 			_ = json.NewEncoder(w).Encode(map[string]string{"name": "accounts/123/productInputs/" + key, "product": "accounts/123/products/" + key})
 		case strings.HasPrefix(r.URL.Path, "/products/v1/accounts/123/products/"):
+			if replaceImageDuringPreflight.Swap(false) {
+				imageReplaced.Store(true)
+			}
 			if failPreflight.Load() {
 				w.WriteHeader(http.StatusServiceUnavailable)
 				return
@@ -172,6 +176,7 @@ func TestGoogleMockAuthorizationPublicationAndSavedResult(t *testing.T) {
 	kernel, err := submission.NewExecutionKernel(effects)
 	require.NoError(t, err)
 	service := &listingapp.GooglePublication{Authorization: authorize, Sources: selector, Assets: googleAssets{
+		replaced: &imageReplaced,
 		inventory: asset.ApprovedAssetInventory{Scope: asset.InventoryScope{TenantID: scope.OrganizationID, ProductKey: "product-a", TargetPlatform: "product", SourceSnapshotVersion: 1},
 			Assets: []asset.ApprovedAsset{{ID: "approved-main", URL: "https://seller.example.org/desk.jpg", Role: asset.RoleMain}}},
 	}, Stores: connections, Plans: planRepo, Kernel: kernel}
@@ -210,6 +215,19 @@ func TestGoogleMockAuthorizationPublicationAndSavedResult(t *testing.T) {
 	require.Equal(t, submission.ExecutionNotSent, stopped.Items[0].Status)
 	require.Zero(t, insertions.Load())
 	failPreflight.Store(false)
+
+	staleImage, err := service.Prepare(ctx, uuid.NewString(), input)
+	require.NoError(t, err)
+	replaceImageDuringPreflight.Store(true)
+	stopped, err = service.Confirm(ctx, source.ID, staleImage.ID)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionNotSent, stopped.Items[0].Status)
+	require.Zero(t, insertions.Load(), "a changed approved image must not be sent")
+	saved, err := service.Result(ctx, source.ID, staleImage.ID)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionNotSent, saved.Items[0].Status)
+	imageReplaced.Store(false)
+
 	plan, err := service.Prepare(ctx, uuid.NewString(), input)
 	require.NoError(t, err)
 	require.Equal(t, int32(0), insertions.Load(), "preview must not send")
@@ -226,7 +244,7 @@ func TestGoogleMockAuthorizationPublicationAndSavedResult(t *testing.T) {
 	require.Equal(t, int32(1), insertions.Load(), "the processed product still returns 404, but the original accepted write blocks a fresh plan")
 	options, err = service.Options(ctx, source.ID)
 	require.NoError(t, err)
-	require.Len(t, options.Records, 3)
+	require.Len(t, options.Records, 4)
 	processed.Store(true)
 	observed, err := service.Result(ctx, source.ID, plan.ID)
 	require.NoError(t, err)
@@ -317,10 +335,17 @@ func (c googleCatalog) GetSnapshot(context.Context, catalog.SnapshotIdentity, ui
 	return c.snapshot, nil
 }
 
-type googleAssets struct{ inventory asset.ApprovedAssetInventory }
+type googleAssets struct {
+	inventory asset.ApprovedAssetInventory
+	replaced  *atomic.Bool
+}
 
 func (a googleAssets) GetApprovedInventory(context.Context, asset.InventoryScope) (asset.ApprovedAssetInventory, error) {
-	return a.inventory, nil
+	inventory := a.inventory
+	if a.replaced.Load() {
+		inventory.Assets = []asset.ApprovedAsset{{ID: "new-main", URL: "https://seller.example.org/new-desk.jpg", Role: asset.RoleMain}}
+	}
+	return inventory, nil
 }
 
 func runGoogleWorkbenchBrowser(
