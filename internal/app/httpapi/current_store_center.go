@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	zitadelruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
@@ -34,6 +36,28 @@ func WithStoreOfficialApplications(applications *storeapp.OfficialApplicationReg
 		o.officialStoreApplications = applications
 	}
 }
+
+// WithIsolatedAmazonStoreAuthorization supplies a Store authorization service
+// for isolated application assembly. It has no runtime manifest or deployed
+// service configuration until Amazon rollout admission is implemented.
+func WithIsolatedAmazonStoreAuthorization(service storehttp.AmazonAuthorizationService) CurrentApplicationOption {
+	return func(o *currentApplicationOptions) {
+		o.amazonStoreAuthorizationCount++
+		o.amazonStoreAuthorization = service
+	}
+}
+
+func currentAmazonSessionProof(ctx context.Context) [32]byte {
+	token := zitadelruntime.BearerTokenFromContext(ctx)
+	if token == "" {
+		return [32]byte{}
+	}
+	// Only the already verified Workbench bearer is available here. The
+	// digest is scoped to this flow, and credential rotation requires new
+	// consent rather than allowing the old callback to cross sessions.
+	return sha256.Sum256([]byte("storecenter/amazon/workbench-session/v1\x00" + token))
+}
+
 func buildCurrentStoreCenterModule(ctx context.Context, records *gorm.DB, authorizer *authz.ListingKitAuthorizer, charges orgresource.ConsumerChargePort, applications *storeapp.OfficialApplicationRegistry, capabilities storecenter.RuntimeCapabilities) (kernelmodule.Module, error) {
 	if records == nil {
 		return nil, errors.New("store center requires its native record pool")
@@ -190,6 +214,19 @@ func validateCurrentStoreDescriptor(d httproute.Descriptor) error {
 		d.AuthPolicy == httproute.AuthPolicyCurrentIdentity && d.OrganizationAccessPolicy == httproute.OrganizationAccessPolicyLiveWrite &&
 		d.OrganizationTargetResolver == nil && d.Handler != nil {
 		return nil
+	}
+	if storehttp.IsAmazonAuthorizationPath(d.Path) {
+		method, permission, timeout := http.MethodPost, authz.PermissionWorkbenchStoreUpdate, 35*time.Second
+		if d.Path == storehttp.AmazonAuthorizationStatusPath {
+			method, permission, timeout = http.MethodGet, authz.PermissionWorkbenchStoreRead, 5*time.Second
+		}
+		if d.Module == storehttp.ModuleName && d.Method == method &&
+			d.AuthPolicy == httproute.AuthPolicyCurrentIdentity && d.OrganizationAccessPolicy == httproute.OrganizationAccessPolicyLiveWrite &&
+			d.Permission == permission && d.OrganizationTargetResolver == nil &&
+			d.RequestTimeout == timeout && d.RejectUnreadRequestBody && d.Handler != nil {
+			return nil
+		}
+		return errors.New("Amazon Store route loses callback session or live write authority")
 	}
 	for _, expected := range currentStoreBrowserRoutes {
 		if d.Method == expected.method && d.Path == expected.path && d.Permission == expected.permission && d.AuthPolicy == httproute.AuthPolicyCurrentIdentity && d.OrganizationAccessPolicy == expected.policy && d.OrganizationTargetResolver == nil && d.Module == storehttp.ModuleName && d.Handler != nil && d.RequestTimeout == 15*time.Second && d.RejectUnreadRequestBody == (d.Method == http.MethodGet) {

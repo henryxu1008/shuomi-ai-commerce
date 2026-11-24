@@ -56,6 +56,7 @@ type Handler struct {
 	service             StoreService
 	serviceLifecycle    ServiceLifecycleService
 	officialConnections OfficialConnectionService
+	amazonAuthorization *amazonAuthorizationHTTP
 }
 
 type OfficialConnectionService interface {

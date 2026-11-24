@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	amazonmarket "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/amazonus"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
 	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
 	temumodel "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
@@ -24,6 +25,7 @@ var ErrTargetUnknown = errors.New("listing target command outcome is unknown; re
 // Target records use the current private source selection. They neither wrap
 // the older local draft service nor accept ProductKey as read authority.
 type TargetInput struct {
+	Amazon            *amazonmarket.DraftInput  `json:"amazon,omitempty"`
 	LocalTrial        *LocalTrial               `json:"localTrial,omitempty"`
 	TargetID          string                    `json:"targetId,omitempty"`
 	ColorPartition    *ColorPartition           `json:"colorPartition,omitempty"`
@@ -44,6 +46,7 @@ type TargetInput struct {
 	SheinImport       *SheinImport              `json:"sheinImport,omitempty"`
 }
 type TargetRecord struct {
+	Amazon                   *AmazonTarget                         `json:"amazon,omitempty"`
 	LocalTrial               *LocalTrial                           `json:"localTrial,omitempty"`
 	ID                       string                                `json:"id"`
 	TargetID                 string                                `json:"targetId"`
@@ -191,6 +194,7 @@ type TargetRepository interface {
 	SaveTarget(context.Context, TargetPrepared) (TargetReceipt, error)
 }
 type TargetDependencies struct {
+	Amazon                 AmazonTargetPreparer
 	Sources                TargetSourceSelector
 	Products               EffectiveTargetProductReader
 	Assets                 ApprovedAssetReader
@@ -296,6 +300,9 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 		return TargetReceipt{}, ErrForbidden
 	}
 	if !ValidColorPartition(scope, input) {
+		return TargetReceipt{}, ErrInvalid
+	}
+	if input.Amazon != nil && !validAmazonInput(input) {
 		return TargetReceipt{}, ErrInvalid
 	}
 	if input.SheinSalesMapping != nil && (input.SheinImport != nil || input.CompletionDraft != nil || input.ColorPartition != nil || input.Temu != nil || input.TikTok != nil || input.Walmart != nil || input.TemuRules != nil || input.TikTokRules != nil || input.WalmartRules != nil) {
@@ -408,6 +415,10 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	if input.Walmart != nil {
 		platform = "walmart"
 	}
+	if input.Amazon != nil {
+		// Existing human-approved product images can be reused for this listing.
+		platform = "product"
+	}
 	inventoryScope := asset.InventoryScope{TenantID: scope.OrganizationID, ProductKey: source.Source.ProductKey, TargetPlatform: platform, SourceSnapshotVersion: product.Version}
 	inventory, err := s.dependencies.Assets.GetApprovedInventory(ctx, inventoryScope)
 	if errors.Is(err, asset.ErrApprovedAssetsNotReady) {
@@ -444,6 +455,7 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	value.TemuImageObservations = prepared.temuImages
 	value.TikTok, value.TikTokRuleSnapshot, value.TikTokImageObservations = prepared.tiktok, prepared.tiktokRules, prepared.tiktokImages
 	value.Walmart, value.WalmartRuleSnapshot, value.WalmartImageObservations = prepared.walmart, prepared.walmartRules, prepared.walmartImages
+	value.Amazon = prepared.amazon
 	// Merchant reads can outlast the five-second source proof. Obtain fresh
 	// current source authority before committing the same immutable reference.
 	selected, err = selectSource(ctx, input.SourceID)

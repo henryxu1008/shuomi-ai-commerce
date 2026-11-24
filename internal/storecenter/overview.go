@@ -86,9 +86,9 @@ func (c *Catalog) VisibleOverview(ctx context.Context, identity OverviewIdentity
 	}
 	out := VisibleStoreOverview{Platforms: map[string]int64{}, Statuses: map[string]int64{}, ActivePlatforms: map[string]int64{}, ReadStartedAt: readStartedAt}
 	for _, row := range records {
-		platform, platformErr := normalizePlatform(row.Platform)
+		platform := Platform(row.Platform)
 		status := RecordStatus(row.RecordStatus)
-		if platformErr != nil || string(platform) != row.Platform || !validRecordStatus(status) {
+		if !validStoredStorePlatform(platform) || !validRecordStatus(status) {
 			return empty, dependencyError(errors.New("invalid store overview fact"))
 		}
 		if scope == OverviewActive && status != RecordStatusActive {

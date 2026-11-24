@@ -6,10 +6,10 @@ import (
 	"errors"
 )
 
-const googleStorePlatformCheck = "CHECK (platform IN ('shein','temu','tiktokshop','walmart','googlemerchant'))"
+const googleStorePlatformDefinition = `CHECK ((platform = ANY (ARRAY['shein'::text, 'temu'::text, 'tiktokshop'::text, 'walmart'::text, 'googlemerchant'::text])))`
+const amazonGoogleStorePlatformDefinition = `CHECK ((platform = ANY (ARRAY['shein'::text, 'temu'::text, 'tiktokshop'::text, 'walmart'::text, 'amazon'::text, 'googlemerchant'::text])))`
 
 var googleMerchantSchemaStatements = []string{
-	"ALTER TABLE public.workbench_stores DROP CONSTRAINT store_platform, ADD CONSTRAINT store_platform " + googleStorePlatformCheck,
 	`CREATE TABLE public.workbench_store_google_oauth_attempts (
 		organization_id VARCHAR(200) NOT NULL,
 		store_id CHAR(36) NOT NULL,
@@ -64,12 +64,29 @@ func InstallGoogleMerchantSchemaTx(ctx context.Context, tx *sql.Tx) error {
 	if tx == nil {
 		return errors.New("Google Merchant Store schema requires its owner transaction")
 	}
-	var installed bool
-	if err := tx.QueryRowContext(ctx, "SELECT to_regclass('public.workbench_store_google_oauth_grants') IS NOT NULL OR to_regclass('public.workbench_store_google_oauth_attempts') IS NOT NULL").Scan(&installed); err != nil {
+	if _, err := tx.ExecContext(ctx, "LOCK TABLE public.workbench_stores IN ACCESS EXCLUSIVE MODE"); err != nil {
 		return err
 	}
-	if installed {
-		return verifyGoogleSchema(ctx, tx)
+	var amazonInstalled bool
+	if err := tx.QueryRowContext(ctx, `SELECT to_regclass('public.workbench_store_amazon_attempts') IS NOT NULL
+		OR to_regclass('public.workbench_store_amazon_grants') IS NOT NULL`).Scan(&amazonInstalled); err != nil {
+		return err
+	}
+	if err := verifyCurrentSchema(ctx, tx, RuntimeCapabilities{
+		TikTokShop: true, WalmartUS: true, AmazonAuthorization: amazonInstalled,
+	}); err != nil {
+		return err
+	}
+	installed, err := googleMerchantSchemaPresent(ctx, tx)
+	if err != nil || installed {
+		return err
+	}
+	next := googleStorePlatformDefinition
+	if amazonInstalled {
+		next = amazonGoogleStorePlatformDefinition
+	}
+	if _, err := tx.ExecContext(ctx, "ALTER TABLE public.workbench_stores DROP CONSTRAINT store_platform, ADD CONSTRAINT store_platform "+next); err != nil {
+		return err
 	}
 	for _, statement := range googleMerchantSchemaStatements {
 		if _, err := tx.ExecContext(ctx, statement); err != nil {
@@ -77,6 +94,13 @@ func InstallGoogleMerchantSchemaTx(ctx context.Context, tx *sql.Tx) error {
 		}
 	}
 	return nil
+}
+
+func googleMerchantSchemaPresent(ctx context.Context, db coreSchemaQueryer) (bool, error) {
+	var installed bool
+	err := db.QueryRowContext(ctx, `SELECT to_regclass('public.workbench_store_google_oauth_grants') IS NOT NULL
+		OR to_regclass('public.workbench_store_google_oauth_attempts') IS NOT NULL`).Scan(&installed)
+	return installed, err
 }
 
 func verifyGoogleSchema(ctx context.Context, db coreSchemaQueryer) error {

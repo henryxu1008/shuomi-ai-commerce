@@ -116,3 +116,27 @@ func TestGoogleStoreRuntimeRequiresNarrowGrants(t *testing.T) {
 	require.NoError(t, db.Exec("SET ROLE store_center_runtime").Error)
 	require.ErrorContains(t, storecenter.VerifyRuntimePermissionsForCapabilities(ctx, db, googleEnabled), "store runtime permissions do not match the admitted boundary")
 }
+
+func TestGoogleStoreSchemaPreservesIsolatedAmazonAuthorization(t *testing.T) {
+	ctx := context.Background()
+	db := newTikTokStoreDatabase(t)
+	pool, err := db.DB()
+	require.NoError(t, err)
+	tx, err := pool.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	defer tx.Rollback()
+	require.NoError(t, storecenter.InstallAmazonAuthorizationSchemaTx(ctx, tx))
+	require.NoError(t, storecenter.InstallGoogleMerchantSchemaTx(ctx, tx))
+	require.NoError(t, storecenter.InstallGoogleMerchantSchemaTx(ctx, tx), "owner replay preserves both installed platform contracts")
+	require.NoError(t, tx.Commit())
+
+	require.NoError(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, storecenter.RuntimeCapabilities{
+		AmazonAuthorization: true, GoogleMerchant: true,
+	}))
+	require.NoError(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, storecenter.RuntimeCapabilities{
+		AmazonAuthorization: true,
+	}))
+	require.Error(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, storecenter.RuntimeCapabilities{
+		GoogleMerchant: true,
+	}), "an isolated Amazon schema still requires explicit admission")
+}

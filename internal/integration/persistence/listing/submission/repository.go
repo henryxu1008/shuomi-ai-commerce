@@ -178,6 +178,17 @@ func (r *Repository) Acquire(ctx context.Context, reservation submission.Executi
 				return mutation{}, err
 			}
 		}
+		if attempt.Target.Platform == "amazon" {
+			if !r.immutableOfficialEffects || reservation.Amazon == nil {
+				return mutation{}, submission.ErrExecutionEvidenceRequired
+			}
+			if found && fence.CurrentStatus == string(submission.ExecutionSucceeded) {
+				return mutation{}, submission.ErrExecutionTargetSucceeded
+			}
+			if err := requireAmazonEffect(ctx, tx, reservation); err != nil {
+				return mutation{}, err
+			}
+		}
 		if found && fence.CurrentStatus == string(submission.ExecutionSucceeded) && r.immutableOfficialEffects && attempt.Target.Platform == "temu" {
 			if attempt.Action == submission.TemuPublishAction {
 				return mutation{}, submission.ErrExecutionTargetSucceeded

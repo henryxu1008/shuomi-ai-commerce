@@ -351,9 +351,6 @@ func installGoogleMerchant(path, confirmed string) error {
 		return errors.New("open private Store role database failed")
 	}
 	defer platformdatabase.Close(db)
-	if err := storecenter.VerifyCurrentSchema(ctx, db); err != nil {
-		return err
-	}
 	pool, err := db.DB()
 	if err != nil {
 		return err
