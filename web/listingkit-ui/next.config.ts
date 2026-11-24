@@ -3,8 +3,29 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   output: "standalone",
-  logging:{incomingRequests:{ignore:[/^\/workbench\/stores\/(?:shein|tiktokshop|walmart)\/callback(?:\?|$)/]}},
-  async headers(){return ["shein","tiktokshop","walmart"].map(platform=>({source:`/workbench/stores/${platform}/callback`,headers:[{key:"Referrer-Policy",value:"no-referrer"},{key:"Cache-Control",value:"private, no-store"},{key:"X-Content-Type-Options",value:"nosniff"}]}));},
+  logging: {
+    incomingRequests: {
+      ignore: [
+        /^\/workbench\/stores\/(?:shein|tiktokshop|walmart)\/callback(?:\?|$)/,
+        /^\/workbench\/stores\/amazon\/(?:login|redirect)\/?(?:\?|$)/,
+      ],
+    },
+  },
+  async headers() {
+    const callbacks = [
+      ...["shein", "tiktokshop", "walmart"].map((platform) => `/workbench/stores/${platform}/callback`),
+      "/workbench/stores/amazon/login",
+      "/workbench/stores/amazon/redirect",
+    ];
+    return callbacks.map((source) => ({
+      source,
+      headers: [
+        { key: "Referrer-Policy", value: "no-referrer" },
+        { key: "Cache-Control", value: "private, no-store" },
+        { key: "X-Content-Type-Options", value: "nosniff" },
+      ],
+    }));
+  },
   images: {
     remotePatterns: [
       {

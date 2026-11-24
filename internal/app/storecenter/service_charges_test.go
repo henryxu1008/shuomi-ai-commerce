@@ -356,7 +356,7 @@ func TestShopifyServiceReleasesOriginalReservationWhenVerificationFailsAfterRese
 	request := storecenter.ServiceLifecycleApplicationRequest{StoreID: f.store.ID(), OperationID: uuid.NewString(), ExpectedStoreVersion: f.store.Version()}
 
 	_, err := app.Activate(f.member, request)
-	require.ErrorIs(t, err, storecenter.ErrConnectionNotFresh)
+	require.ErrorIs(t, err, storecenter.ErrShopifyServiceChargeRejected)
 	require.Len(t, connection.calls, 2)
 	receipt, err := f.ledger.Lookup(f.member, storeServiceChargeIdentity(request.OperationID))
 	require.NoError(t, err)
@@ -369,7 +369,7 @@ func TestShopifyServiceReleasesOriginalReservationWhenVerificationFailsAfterRese
 
 	connection.err = nil
 	_, err = app.Activate(f.member, request)
-	require.ErrorIs(t, err, storecenter.ErrConnectionNotFresh, "reauthorization cannot revive the failed operation")
+	require.ErrorIs(t, err, storecenter.ErrShopifyServiceChargeRejected, "reauthorization cannot revive the failed operation")
 	require.Len(t, connection.calls, 2)
 	store, err := f.repo.Get(f.member, "org-a", request.StoreID)
 	require.NoError(t, err)
@@ -393,7 +393,7 @@ func TestShopifyServiceRecoversOriginalReservationAfterInterruptedRequest(t *tes
 	require.Equal(t, orgresource.ReservationReserved, original.State)
 	connection.err = storecenter.ErrConnectionUnavailable
 	_, err = app.Activate(f.member, request)
-	require.ErrorIs(t, err, storecenter.ErrConnectionNotFresh)
+	require.ErrorIs(t, err, storecenter.ErrShopifyServiceChargeRejected)
 	terminal, err := f.ledger.Lookup(f.member, storeServiceChargeIdentity(request.OperationID))
 	require.NoError(t, err)
 	require.Equal(t, original.ReservationID, terminal.ReservationID)
@@ -419,7 +419,7 @@ func TestShopifyServiceRejectsSameShopRebindAfterLiveCheck(t *testing.T) {
 	request := storecenter.ServiceLifecycleApplicationRequest{StoreID: f.store.ID(), OperationID: uuid.NewString(), ExpectedStoreVersion: f.store.Version()}
 
 	_, err = app.Activate(f.member, request)
-	require.ErrorIs(t, err, storecenter.ErrConnectionNotFresh)
+	require.ErrorIs(t, err, storecenter.ErrShopifyServiceChargeRejected)
 	require.Len(t, connection.calls, 2)
 	store, err := f.repo.Get(f.member, "org-a", request.StoreID)
 	require.NoError(t, err)
@@ -428,6 +428,26 @@ func TestShopifyServiceRejectsSameShopRebindAfterLiveCheck(t *testing.T) {
 	receipt, err := f.ledger.Lookup(f.member, storeServiceChargeIdentity(request.OperationID))
 	require.NoError(t, err)
 	require.Equal(t, orgresource.ReservationReleased, receipt.State)
+}
+
+func TestShopifyServiceRejectsPreviousVersionAfterReauthorization(t *testing.T) {
+	f := newServiceChargeFixtureForPlatform(t, storecenter.PlatformShopify)
+	connection := &shopifyServiceConnectionFixture{binding: f.shopify, afterRead: func() {
+		renewed := pairShopifyChargeStore(t, f.repo, f.member, f.store, f.shopify.ShopifyInstallation)
+		require.Equal(t, f.shopify.ShopKey, renewed.ShopKey)
+		require.Greater(t, renewed.Generation, f.shopify.Generation)
+	}}
+	app := serviceApplicationWithConnections(t, f, f.ledger, connection)
+	request := storecenter.ServiceLifecycleApplicationRequest{StoreID: f.store.ID(), OperationID: uuid.NewString(), ExpectedStoreVersion: f.store.Version()}
+
+	_, err := app.Activate(f.member, request)
+	require.ErrorIs(t, err, storecenter.ErrShopifyServiceChargeRejected)
+	receipt, err := f.ledger.Lookup(f.member, storeServiceChargeIdentity(request.OperationID))
+	require.NoError(t, err)
+	require.Equal(t, orgresource.ReservationReleased, receipt.State)
+	_, err = app.Activate(f.member, request)
+	require.ErrorIs(t, err, storecenter.ErrShopifyServiceChargeRejected)
+	require.Len(t, connection.calls, 2, "the original terminal result supersedes another verification")
 }
 
 type shopifyServiceTransport func(*http.Request) (*http.Response, error)

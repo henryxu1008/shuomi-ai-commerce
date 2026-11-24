@@ -19,6 +19,7 @@ vi.mock("@/lib/server/zitadel-server-token", () => ({
   readZitadelServerAccessToken: vi.fn(() => mockedServerToken.accessToken),
 }));
 
+import nextConfig from "../next.config";
 import { config, proxy } from "./proxy";
 
 type NextRequestInit = ConstructorParameters<typeof NextRequest>[1];
@@ -58,6 +59,37 @@ describe("Workbench ZITADEL proxy", () => {
     mockedServerToken.accessToken = "";
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
+  });
+
+  it("keeps Amazon authorization query strings out of the Next request log", () => {
+    const logging = nextConfig.logging;
+    const incoming = logging && logging.incomingRequests;
+    const ignore = typeof incoming === "object" ? incoming.ignore ?? [] : [];
+    for (const phase of ["login", "redirect"]) {
+      for (const suffix of ["?state=secret", "/?spapi_oauth_code=secret"]) {
+        expect(ignore.some((rule) => rule.test(`/workbench/stores/amazon/${phase}${suffix}`))).toBe(true);
+      }
+    }
+    expect(ignore.some((rule) => rule.test("/workbench/stores/amazon/result?reason=restart"))).toBe(false);
+  });
+  it.each(["login", "redirect"])("passes Amazon %s callbacks to their handler without a login return URL", async (phase) => {
+    configureZitadel();
+    const path = `/workbench/stores/amazon/${phase}?spapi_oauth_code=private-code&state=private-state&selling_partner_id=private-id`;
+    for (const hasExpiredSession of [false, true]) {
+      if (hasExpiredSession) {
+        setCanonicalSession();
+        mockedAuthState.session!.error = "expired";
+      }
+      const response = await callProxy(path);
+      expect(response.headers.get("x-middleware-next")).toBe("1");
+      expect(response.headers.get("location")).toBeNull();
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    }
+    const denied = await callProxy(path, { method: "POST" });
+    expect(denied.status).toBe(405);
+    expect(denied.headers.get("location")).toBeNull();
+    expect(await denied.text()).toBe("");
   });
 
   it("retains the configured loopback login origin when NextURL normalizes the request host", async () => {

@@ -7,7 +7,7 @@ import {
 } from "@/lib/api/workbench-context";
 import {
   workbenchStoreCreateSchema,
-  workbenchStorePlatformSchema,
+  workbenchStoreResponsePlatformSchema,
   workbenchStoreListFiltersSchema,
   workbenchStoreUpdateSchema,
   type WorkbenchStoreCreateInput,
@@ -54,7 +54,7 @@ export const workbenchStoreSchema = z
   .object({
     id: canonicalUUIDSchema,
     name: normalizedPublicString(1, 120),
-    platform: workbenchStorePlatformSchema,
+    platform: workbenchStoreResponsePlatformSchema,
     region: normalizedPublicString(1, 64),
     externalStoreId: normalizedPublicString(0, 128),
     recordStatus: z.enum([
@@ -164,6 +164,7 @@ export type WorkbenchStoreErrorCode =
   | "STORE_SERVICE_STATE_CORRUPT"
   | "STORE_CONNECTION_UNAVAILABLE"
   | "STORE_CONNECTION_NOT_CONNECTED"
+  | "SHOPIFY_SERVICE_CHARGE_REJECTED"
   | "RESOURCE_QUANTITY_INVALID"
   | "RESOURCE_INSUFFICIENT_BALANCE"
   | "IDEMPOTENCY_KEY_CONFLICT"

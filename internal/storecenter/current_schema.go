@@ -5,10 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
+	"maps"
 	"slices"
 	"strings"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 	"gorm.io/gorm"
 )
 
@@ -166,7 +167,7 @@ func VerifyCurrentSchema(ctx context.Context, db *gorm.DB) error {
 }
 
 // VerifyCurrentSchemaForCapabilities keeps the core Store contract mandatory.
-// Optional TikTok persistence is consumed only by its configured runtime.
+// Optional persistence is consumed only by its configured runtime.
 func VerifyCurrentSchemaForCapabilities(ctx context.Context, db *gorm.DB, capabilities RuntimeCapabilities) error {
 	if db == nil || db.Dialector == nil || db.Dialector.Name() != "postgres" {
 		return errors.New("store center requires installed PostgreSQL schema")
@@ -188,7 +189,19 @@ func VerifyCurrentSchemaTx(ctx context.Context, tx *sql.Tx) error {
 }
 
 func verifyCurrentSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilities RuntimeCapabilities) error {
-	if err := verifyCoreSchema(ctx, sqlDB, capabilities, currentConstraintDefinitions); err != nil {
+	definitions := currentConstraintDefinitions
+	if capabilities.AmazonAuthorization || capabilities.Shopify {
+		definitions = maps.Clone(definitions)
+		switch {
+		case capabilities.AmazonAuthorization && capabilities.Shopify:
+			definitions["store_platform"] = amazonShopifyStorePlatformDefinition
+		case capabilities.AmazonAuthorization:
+			definitions["store_platform"] = amazonStorePlatformDefinition
+		case capabilities.Shopify:
+			definitions["store_platform"] = shopifyStorePlatformDefinition
+		}
+	}
+	if err := verifyCoreSchema(ctx, sqlDB, capabilities, definitions); err != nil {
 		return err
 	}
 	if _, err := VerifyBrowserSchemaIfPresent(ctx, sqlDB); err != nil {
@@ -205,7 +218,12 @@ func verifyCurrentSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilit
 		}
 	}
 	if capabilities.WalmartUS {
-		return verifyWalmartSchema(ctx, sqlDB)
+		if err := verifyWalmartSchema(ctx, sqlDB); err != nil {
+			return err
+		}
+	}
+	if capabilities.AmazonAuthorization {
+		return verifyAmazonAuthorizationSchema(ctx, sqlDB)
 	}
 	return nil
 }
@@ -218,7 +236,12 @@ type coreSchemaQueryer interface {
 }
 
 func verifyCoreSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilities RuntimeCapabilities, definitions map[string]string) error {
-	for table, want := range currentColumnNames {
+	columnNames := currentColumnNames
+	if capabilities.AmazonAuthorization {
+		columnNames = maps.Clone(columnNames)
+		maps.Copy(columnNames, amazonAuthorizationColumnNames)
+	}
+	for table, want := range columnNames {
 		if !capabilities.TikTokShop && isTikTokSchemaTable(table) {
 			continue
 		}
@@ -266,7 +289,7 @@ func verifyCoreSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilities
 			return errors.New("store schema state constraints unavailable")
 		}
 		matches := pgschema.SchemaConstraintEqual(definition, want)
-		if name == "store_platform" && want == currentConstraintDefinitions["store_platform"] && (capabilities.Shopify || !matches) {
+		if name == "store_platform" && !matches && want == currentConstraintDefinitions["store_platform"] {
 			matches = pgschema.SchemaConstraintEqual(definition, shopifyStorePlatformDefinition)
 		}
 		if !matches {
@@ -376,14 +399,17 @@ const storeRuntimePermissionQuery = `SELECT current_user,
  OR (n.nspname='public' AND r.relname IN ('workbench_store_browser_operations','workbench_store_browser_reports') AND p.privilege_type IN ('SELECT','INSERT'))
  OR ($1 AND n.nspname='store_observations' AND ((r.relname='commands' AND p.privilege_type IN ('SELECT','INSERT')) OR (r.relname IN ('syncs','records','heads') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))))
  OR ($2 AND n.nspname='operations_cockpit' AND ((r.relname IN ('facts','fact_versions','goal_heads','goal_versions','commands') AND p.privilege_type IN ('SELECT','INSERT')) OR (r.relname IN ('facts','goal_heads') AND p.privilege_type='UPDATE')))
- OR ($3 AND n.nspname='public' AND ((r.relname IN ('workbench_store_tiktok_oauth_grants','workbench_store_tiktok_oauth_attempts','workbench_store_tiktok_shop_bindings','workbench_store_tiktok_oauth_refresh_operations') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')) OR (r.relname='workbench_store_tiktok_authorization_events' AND p.privilege_type IN ('SELECT','INSERT')))) OR ($4 AND n.nspname='public' AND r.relname IN ('workbench_store_walmart_oauth_grants','workbench_store_walmart_oauth_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')) OR ($5 AND n.nspname='public' AND r.relname IN ('workbench_store_shopify_shops','workbench_store_shopify_authorizations','workbench_store_shopify_pairings') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')))) FROM (SELECT current_user::text AS runtime_role) subject`
+ OR ($3 AND n.nspname='public' AND ((r.relname IN ('workbench_store_tiktok_oauth_grants','workbench_store_tiktok_oauth_attempts','workbench_store_tiktok_shop_bindings','workbench_store_tiktok_oauth_refresh_operations') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')) OR (r.relname='workbench_store_tiktok_authorization_events' AND p.privilege_type IN ('SELECT','INSERT'))))
+ OR ($4 AND n.nspname='public' AND r.relname IN ('workbench_store_walmart_oauth_grants','workbench_store_walmart_oauth_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))
+ OR ($5 AND n.nspname='public' AND r.relname IN ('workbench_store_amazon_grants','workbench_store_amazon_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))
+ OR ($6 AND n.nspname='public' AND r.relname IN ('workbench_store_shopify_shops','workbench_store_shopify_authorizations','workbench_store_shopify_pairings') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')))) FROM (SELECT current_user::text AS runtime_role) subject`
 
 // RuntimeCapabilities admits only explicitly enabled feature tables.
 // The default Store boundary continues to reject every additional privilege.
-type RuntimeCapabilities struct{ Observations, OperationsCockpit, TikTokShop, WalmartUS, Shopify bool }
+type RuntimeCapabilities struct{ Observations, OperationsCockpit, TikTokShop, WalmartUS, AmazonAuthorization, Shopify bool }
 
 func (c RuntimeCapabilities) permissionQueryArgs() []any {
-	return []any{c.Observations, c.OperationsCockpit, c.TikTokShop, c.WalmartUS, c.Shopify}
+	return []any{c.Observations, c.OperationsCockpit, c.TikTokShop, c.WalmartUS, c.AmazonAuthorization, c.Shopify}
 }
 
 func VerifyRuntimePermissions(ctx context.Context, db *gorm.DB) error {
@@ -447,6 +473,13 @@ func VerifyRuntimePermissionsForCapabilities(ctx context.Context, db *gorm.DB, c
 			return errors.New("Store cockpit required grants unavailable")
 		}
 	}
+	if capabilities.AmazonAuthorization {
+		var complete bool
+		err := sqlDB.QueryRowContext(ctx, `SELECT NOT EXISTS(SELECT 1 FROM (VALUES ('workbench_store_amazon_grants'),('workbench_store_amazon_attempts')) t(name) WHERE NOT coalesce(has_table_privilege(current_user,to_regclass('public.'||name),'SELECT') AND has_table_privilege(current_user,to_regclass('public.'||name),'INSERT') AND has_table_privilege(current_user,to_regclass('public.'||name),'UPDATE'),false))`).Scan(&complete)
+		if err != nil || !complete {
+			return errors.New("Amazon authorization required Store grants unavailable")
+		}
+	}
 	return nil
 }
 
@@ -456,6 +489,20 @@ type schemaColumnType struct {
 }
 
 func currentColumnType(table, name string) schemaColumnType {
+	if strings.HasPrefix(table, "workbench_store_amazon_") {
+		switch name {
+		case "beta":
+			return schemaColumnType{kind: "boolean"}
+		case "session_digest", "flow_digest", "state_digest", "code_digest", "seller_id":
+			return schemaColumnType{kind: "character varying", length: 64}
+		case "redirect_uri":
+			return schemaColumnType{kind: "character varying", length: 1024}
+		case "phase":
+			return schemaColumnType{kind: "character varying", length: 32}
+		case "started_at", "bound_at":
+			return schemaColumnType{kind: "timestamp with time zone"}
+		}
+	}
 	if strings.HasPrefix(table, "workbench_store_walmart_") {
 		switch name {
 		case "environment":

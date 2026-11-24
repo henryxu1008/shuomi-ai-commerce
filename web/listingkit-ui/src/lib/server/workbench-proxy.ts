@@ -2,7 +2,7 @@ import { isCockpitMetricsQuery } from "@/lib/contracts/cockpit-metrics";
 import { catalogVersionSchema, COMPLETION_MAX_BYTES, SUPPLY_MAX_BYTES, supplyRouteMethods, supplyPath, supplyRequestSchema, supplyUsesKey, supplyMutates, parseSupplyResponse, type SupplyRoute } from "@/lib/contracts/supply-chain";
 import {completionRevision} from "@/lib/contracts/completion-draft-navigation";
 import {materialsErrorStatuses} from "@/lib/contracts/listing-materials";
-import { hasValidStoreServiceFacts, workbenchStorePlatformSchema } from "@/lib/validation/workbench-store";
+import { hasValidStoreServiceFacts, workbenchStorePlatformSchema, workbenchStoreResponsePlatformSchema } from "@/lib/validation/workbench-store";
 import { planPath, planMethods, planRequestSchema, planResponseSchema, type PlanRoute } from "@/lib/contracts/acquisition-plan";
 import {officialConnectionViewSchema,officialConnectionBeginSchema,officialConnectionCompleteSchema,officialConnectionQuerySchema,officialConnectionRefreshSchema,officialApplicationListSchema,officialConnectionStartSchema,officialConnectionInstallSchema} from "@/lib/contracts/store-connection";
 import { BROWSER_CAPTURE_MAX_BYTES, browserCaptureSchema } from "@/lib/contracts/browser-capture";
@@ -191,7 +191,7 @@ const storeResponseSchema = z
   .object({
     id: canonicalUUIDSchema,
     name: normalizedPublicString(1, 120),
-    platform: workbenchStorePlatformSchema,
+    platform: workbenchStoreResponsePlatformSchema,
     region: normalizedPublicString(1, 64),
     externalStoreId: normalizedPublicString(0, 128),
     recordStatus: z.enum([
@@ -293,6 +293,7 @@ const documentedWorkbenchErrorStatuses: Readonly<Record<string, number>> = {
   STORE_OFFICIAL_SETUP_UNAVAILABLE: 503,
   STORE_AUTHORIZATION_REJECTED: 422,
   STORE_CONNECTION_NOT_CONNECTED: 422,
+  SHOPIFY_SERVICE_CHARGE_REJECTED: 422,
   RESOURCE_QUANTITY_INVALID: 422,
   RESOURCE_INSUFFICIENT_BALANCE: 409,
   IDEMPOTENCY_KEY_CONFLICT: 409,
@@ -578,6 +579,7 @@ export async function buildWorkbenchUpstreamRequest(
       query = url.search;
     } else if (supplyContract) {
       const action=route.requestContract.slice(7) as SupplyRoute;
+      if(action.startsWith("amazon-") && process.env.LISTINGKIT_ISOLATED_AMAZON_LISTING_ENABLED!=="true")return protocolError(404,"NOT_FOUND","Amazon listing unavailable");
       if(!authenticatedActorSubject || request.headers.get(EXPECTED_USER_ID_HEADER)!==authenticatedActorSubject)return protocolError(409,"IDENTITY_CONTEXT_CHANGED","Identity context changed");
       const url=new URL(request.url);
       const schema=supplyRequestSchema(action);
@@ -585,7 +587,7 @@ export async function buildWorkbenchUpstreamRequest(
       if(schema){
         const key=readCanonicalUUIDHeader(request.headers,"Idempotency-Key");
         if(url.search || request.headers.get("content-type")!=="application/json" || request.headers.has("content-encoding") || (supplyUsesKey(action)?!key:request.headers.has("Idempotency-Key")))return protocolError(400,"INVALID_REQUEST","Supply command invalid");
-        const raw=await readRequestBody(request,action.startsWith("materials-")?8192:action==="save-completion-draft"?COMPLETION_MAX_BYTES:SUPPLY_MAX_BYTES,"INPUT_TOO_LARGE");if(raw instanceof Response)return raw;
+        const raw=await readRequestBody(request,action.startsWith("amazon-")?16384:action.startsWith("materials-")?8192:action==="save-completion-draft"?COMPLETION_MAX_BYTES:SUPPLY_MAX_BYTES,"INPUT_TOO_LARGE");if(raw instanceof Response)return raw;
         const parsed=parseJSONBody(raw);const checked=schema.safeParse(parsed?.payload);
         if(!parsed || !checked.success)return protocolError(400,"INVALID_REQUEST","Supply command invalid");
         if(action==="approve" && "actionId" in checked.data && checked.data.actionId && checked.data.actionId!==key)return protocolError(400,"INVALID_REQUEST","Approval action differs from its original key");
@@ -1069,6 +1071,7 @@ export async function buildWorkbenchUpstreamRequest(
     },
     responseContract: route.responseContract,
     expectedStoreId:analysisContract?JSON.stringify(analysisBinding(path,headers.get("Idempotency-Key")??undefined)):route.requestContract==="ai-subject-read"?`${path[2]}:${path[3]}`: imageSetContract ? JSON.stringify(imageSetResponseBinding(path,route.requestContract.slice(10) as ImageSetRoute)) : expectedCollectionMedia ?? (
+      route.requestContract.startsWith("supply-amazon-")&&typeof body==="string"?body:
       route.requestContract.startsWith("supply-shein-")&&route.requestContract!=="supply-shein-completion-preview"&&route.requestContract!=="supply-shein-sales-mapping-preview"&&typeof body==="string"?JSON.stringify({...JSON.parse(body),key:headers.get("Idempotency-Key")??JSON.parse(body).key}):
       route.requestContract==="supply-local-context"?`${new URL(request.url).searchParams.get("sourceId")}:${new URL(request.url).searchParams.get("completionRecordId")}:${new URL(request.url).searchParams.get("revision")}`:
       route.requestContract==="supply-color-split-list"?`${path[2]}:${path[4]}`:
@@ -2300,3 +2303,5 @@ function safeJSONHeaders() {
 export class BodyTooLargeError extends Error {}
 class BodyReadTimeoutError extends Error {}
 class InvalidUpstreamBodyError extends Error {}
+
+export { getServiceRoot as getWorkbenchServiceRoot, readSourceSelectedOrganization as readStrictWorkbenchOrganization };

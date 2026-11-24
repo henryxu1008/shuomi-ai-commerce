@@ -11,6 +11,30 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestShopifyAndAmazonStoreSchemasComposeOnEmptyStore(t *testing.T) {
+	for _, order := range []string{"Amazon first", "Shopify first"} {
+		t.Run(order, func(t *testing.T) {
+			ctx := context.Background()
+			db := newTikTokStoreDatabase(t)
+			pool, err := db.DB()
+			require.NoError(t, err)
+			tx, err := pool.BeginTx(ctx, nil)
+			require.NoError(t, err)
+			defer tx.Rollback()
+			if order == "Amazon first" {
+				require.NoError(t, storecenter.InstallAmazonAuthorizationSchemaTx(ctx, tx))
+				require.NoError(t, storecenter.InstallShopifySchemaTx(ctx, tx))
+			} else {
+				require.NoError(t, storecenter.InstallShopifySchemaTx(ctx, tx))
+				require.NoError(t, storecenter.InstallAmazonAuthorizationSchemaTx(ctx, tx))
+			}
+			require.NoError(t, tx.Commit())
+			require.NoError(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, db,
+				storecenter.RuntimeCapabilities{TikTokShop: true, WalmartUS: true, AmazonAuthorization: true, Shopify: true}))
+		})
+	}
+}
+
 func TestShopifyPairingIsConsumedOnceAndShopRemainsExclusive(t *testing.T) {
 	ctx := context.Background()
 	db := newTikTokStoreDatabase(t)

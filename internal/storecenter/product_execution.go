@@ -66,6 +66,7 @@ type TikTokMerchantBinding struct {
 // contains no credential and never grants durable execution on its own.
 type ProductMerchantBinding struct {
 	Shopify              ShopifyMerchantBinding    `json:"shopify,omitempty,omitzero"`
+	AmazonBeta           bool                      `json:"amazon_beta,omitempty"`
 	Walmart              WalmartMerchantBinding    `json:"walmart,omitempty,omitzero"`
 	TikTok               TikTokMerchantBinding     `json:"tiktok,omitempty,omitzero"`
 	Platform             Platform                  `json:"platform,omitempty"`
@@ -94,7 +95,7 @@ type ShopifyMerchantBinding struct {
 
 func (b ProductMerchantBinding) ValidShopifyApplication() bool {
 	return b.Platform == PlatformShopify && b.Site == "shopify" && shopifyAppID.MatchString(b.ApplicationID) &&
-		b.ApplicationRevision == "shopify-admin-2026-10" && uuid.Validate(b.Shopify.ShopKey) == nil && shopifyCurrencyCode.MatchString(b.Shopify.Currency) &&
+		b.ApplicationRevision == "shopify-admin-2026-10" && uuid.Validate(b.Shopify.ShopKey) == nil && shopifyCurrencyCode.MatchString(b.Shopify.Currency) && !b.AmazonBeta &&
 		b.ConnectionRevision > 0 && b.StoreVersion > 0 && shopifyDigest.MatchString(b.SupplierIdentityHash) && b.TikTok == (TikTokMerchantBinding{}) &&
 		b.Walmart == (WalmartMerchantBinding{}) && b.IdentityPartition == "" && b.ApplicationType == "" && b.MerchantMode == "" && b.RegionID == 0 &&
 		b.CredentialExpiresAt.IsZero() && b.VerificationRevision == "" && b.ScopesHash == ""
@@ -104,7 +105,10 @@ func (b ProductMerchantBinding) ValidApplication() bool {
 	if b.Platform == PlatformShopify {
 		return b.ValidShopifyApplication()
 	}
-	if b.Shopify != (ShopifyMerchantBinding{}) {
+	if b.Platform == PlatformAmazon {
+		return b.ValidAmazonApplication()
+	}
+	if b.Shopify != (ShopifyMerchantBinding{}) || b.AmazonBeta {
 		return false
 	}
 	if b.Platform == PlatformWalmart {
@@ -123,6 +127,17 @@ func (b ProductMerchantBinding) ValidApplication() bool {
 		return b.ValidTemuApplication()
 	}
 	return b.ApplicationType.Valid() && authidentity.IsBoundedIdentifier(b.ApplicationID) && authidentity.IsBoundedIdentifier(b.ApplicationRevision) && strings.HasSuffix(b.ApplicationRevision, ":"+string(b.ApplicationType))
+}
+
+// Amazon Target is keyed by the local Store and grant generation. Seller
+// identifiers and their derived hashes are excluded from the immutable record.
+func (b ProductMerchantBinding) ValidAmazonApplication() bool {
+	return b.Platform == PlatformAmazon && b.Site == "amazon-us" && b.Shopify == (ShopifyMerchantBinding{}) && uuid.Validate(b.StoreID) == nil &&
+		b.StoreVersion > 0 && b.ConnectionRevision > 0 && b.SupplierIdentityHash == "" && b.ApplicationType == "" &&
+		b.IdentityPartition == "" && b.MerchantMode == "" && b.RegionID == 0 && b.VerificationRevision == "" && b.ScopesHash == "" &&
+		b.TikTok == (TikTokMerchantBinding{}) && b.Walmart == (WalmartMerchantBinding{}) &&
+		authidentity.IsBoundedIdentifier(b.ApplicationID) && authidentity.IsBoundedIdentifier(b.ApplicationRevision) &&
+		b.ServiceExpiresAt.IsZero() && !b.CredentialExpiresAt.IsZero()
 }
 
 func (b ProductMerchantBinding) ValidTikTokApplication() bool {

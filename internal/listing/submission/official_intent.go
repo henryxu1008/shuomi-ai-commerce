@@ -3,6 +3,8 @@ package submission
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 )
 
 type OfficialIntent struct {
+	Amazon             *AmazonIntent                      `json:"amazon,omitempty"`
 	Key                string                             `json:"key"`
 	Owner              collection.Scope                   `json:"owner"`
 	Kind               string                             `json:"kind"`
@@ -40,6 +43,20 @@ type OfficialIntentCommit struct {
 	source preparation.AuthorizedSource
 	intent OfficialIntent
 	hash   string
+}
+
+// EncodeOfficialIntent returns the immutable document and its fingerprint
+// for persistence adapters working inside a Submission transaction.
+func EncodeOfficialIntent(value OfficialIntent) (body []byte, bodyHash string, err error) {
+	if err := ValidateOfficialIntent(value); err != nil {
+		return nil, "", err
+	}
+	body, err = json.Marshal(value)
+	if err != nil || len(body) > MaxExecutionPayloadBytes {
+		return nil, "", ErrExecutionEvidenceRequired
+	}
+	sum := sha256.Sum256(body)
+	return body, hex.EncodeToString(sum[:]), nil
 }
 
 func (p OfficialIntentCommit) Read(ctx context.Context) (OfficialIntent, error) {
@@ -102,6 +119,9 @@ func PrepareOfficialIntent(ctx context.Context, sourceProof preparation.Authoriz
 	return OfficialIntentCommit{source: sourceProof, intent: body, hash: collection.Digest(body)}, nil
 }
 func OfficialIntentInputHash(value OfficialIntent) string {
+	if value.Target.Platform == "amazon" {
+		return collection.Digest([]any{value.Kind, value.Owner, value.RecordID, value.RecordHash, value.Source, value.Target, value.Binding, value.PayloadFingerprint, value.Amazon})
+	}
 	if value.Shelf != nil {
 		return collection.Digest(ShelfPayload(value))
 	}
@@ -124,8 +144,14 @@ func OfficialIntentInputHash(value OfficialIntent) string {
 func ValidateOfficialIntent(value OfficialIntent) error {
 	if !authidentity.IsBoundedIdentifier(value.Key) || value.Owner.Validate() != nil || !collection.ValidID(value.RecordID) || !isExecutionDigest(value.RecordHash) || !collection.ValidID(value.Source.ID) ||
 		!validOfficialBindingForTarget(value.Binding, value.Target) || !collection.ValidID(value.Target.StoreID) || value.Binding.OrganizationID != value.Owner.OrganizationID ||
-		value.Binding.StoreVersion < 1 || value.Binding.ConnectionRevision < 1 || !value.Binding.ValidApplication() || !isExecutionDigest(value.Binding.SupplierIdentityHash) || value.Binding.ServiceExpiresAt.IsZero() ||
+		value.Binding.StoreVersion < 1 || value.Binding.ConnectionRevision < 1 || !value.Binding.ValidApplication() ||
 		!isExecutionDigest(value.PayloadFingerprint) || value.CreatedAt.IsZero() || OfficialIntentInputHash(value) != value.InputHash {
+		return ErrExecutionEvidenceRequired
+	}
+	if value.Target.Platform == "amazon" {
+		return validateAmazonIntent(value)
+	}
+	if value.Amazon != nil || !isExecutionDigest(value.Binding.SupplierIdentityHash) || value.Binding.ServiceExpiresAt.IsZero() {
 		return ErrExecutionEvidenceRequired
 	}
 	if value.Shelf != nil || value.Kind == "shelf_on" {

@@ -32,6 +32,9 @@ func validOfficialBindingForTarget(b storecenter.ProductMerchantBinding, t Execu
 	if t.Platform == "walmart" {
 		return b.ValidWalmartApplication()
 	}
+	if t.Platform == "amazon" {
+		return b.ValidAmazonApplication()
+	}
 	if t.Platform == "temu" {
 		return b.ValidTemuApplication()
 	}

@@ -106,11 +106,11 @@ func (r *OfficialRepository) PrepareOfficial(ctx context.Context, proof submissi
 	if err != nil || actual.ID != body.RecordID || collection.Digest(actual) != body.RecordHash || actual.Source != body.Source || actual.Merchant != body.Binding || !record.PublicationReady(actual) {
 		return submission.OfficialIntent{}, submission.ErrExecutionIntentConflict
 	}
-	raw, err := json.Marshal(body)
-	if err != nil || len(raw) > submission.MaxExecutionPayloadBytes {
+	raw, bodyHash, err := submission.EncodeOfficialIntent(body)
+	if err != nil {
 		return submission.OfficialIntent{}, submission.ErrExecutionInvalid
 	}
-	row := officialIntentRow{OrganizationID: body.Owner.OrganizationID, ActorID: body.Owner.ActorID, MemberID: body.Owner.MemberID, IntentKey: body.Key, RecordID: body.RecordID, Kind: body.Kind, InputHash: body.InputHash, BodyHash: collection.Digest(body), BodyJSON: raw}
+	row := officialIntentRow{OrganizationID: body.Owner.OrganizationID, ActorID: body.Owner.ActorID, MemberID: body.Owner.MemberID, IntentKey: body.Key, RecordID: body.RecordID, Kind: body.Kind, InputHash: body.InputHash, BodyHash: bodyHash, BodyJSON: raw}
 	created := tx.Create(&row)
 	if created.Error != nil || created.RowsAffected != 1 {
 		return submission.OfficialIntent{}, submission.ErrExecutionUnavailable

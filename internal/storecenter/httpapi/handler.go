@@ -56,6 +56,7 @@ type Handler struct {
 	serviceLifecycle    ServiceLifecycleService
 	officialConnections OfficialConnectionService
 	shopifyConnections  ShopifyConnectionService
+	amazonAuthorization *amazonAuthorizationHTTP
 }
 
 type OfficialConnectionService interface {

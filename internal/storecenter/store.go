@@ -41,6 +41,7 @@ const (
 	PlatformTikTokShop Platform = "tiktokshop"
 	PlatformWalmart    Platform = "walmart"
 	PlatformShopify    Platform = "shopify"
+	PlatformAmazon     Platform = "amazon"
 )
 
 // Store is the Organization-scoped Store Center aggregate. Its state is kept
@@ -223,6 +224,9 @@ func (s *Store) EditBasic(name, region, actorSubject string, occurredAt time.Tim
 	if err != nil {
 		return false, err
 	}
+	if s.platform == PlatformAmazon && normalizedRegion != "US" {
+		return false, errors.New("Amazon region must be US")
+	}
 	if (s.platform == PlatformTikTokShop || s.platform == PlatformWalmart) && normalizedRegion != "US" {
 		return false, errors.New("TikTok Shop region must be US")
 	}
@@ -309,8 +313,10 @@ func newStoreFromSnapshot(snapshot StoreSnapshot) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	platform, err := normalizePlatform(string(snapshot.Platform))
-	if err != nil || platform != snapshot.Platform {
+	platform := snapshot.Platform
+	// Amazon records can be read in an explicitly prepared Store database.
+	// The ordinary create entry still admits only currently open platforms.
+	if !validStoredStorePlatform(platform) {
 		return nil, errors.New("platform must be normalized and supported")
 	}
 	region, err := validateNormalizedUserValue("region", snapshot.Region, MaxStoreRegionCodePoints, true)
@@ -323,6 +329,9 @@ func newStoreFromSnapshot(snapshot StoreSnapshot) (*Store, error) {
 	}
 	if platform == PlatformShopify && externalStoreID != "" {
 		return nil, errors.New("Shopify shop identity must come from the owner authorization")
+	}
+	if platform == PlatformAmazon && region != "US" {
+		return nil, errors.New("Amazon region must be US")
 	}
 	if platform == PlatformWalmart && region != "US" {
 		return nil, errors.New("Walmart region must be US")
@@ -507,6 +516,11 @@ func normalizeUserValue(field, value string, maxCodePoints int, required bool) (
 		return "", fmt.Errorf("%s exceeds %d Unicode code points", field, maxCodePoints)
 	}
 	return normalized, nil
+}
+
+func validStoredStorePlatform(platform Platform) bool {
+	normalized, err := normalizePlatform(string(platform))
+	return platform == PlatformAmazon || err == nil && normalized == platform
 }
 
 func normalizePlatform(value string) (Platform, error) {

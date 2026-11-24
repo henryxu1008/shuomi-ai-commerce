@@ -196,6 +196,10 @@ type currentApplicationOptions struct {
 	localTrialDB                 *gorm.DB
 	officialStoreApplications    *storeapp.OfficialApplicationRegistry
 	officialStoreConfigs         int
+
+	amazonStoreAuthorizationCount int
+	amazonStoreAuthorization      storehttp.AmazonAuthorizationService
+
 	runtimeContext               context.Context
 	commercialOwnerDB            *gorm.DB
 	moneyOwnerDB                 *gorm.DB
@@ -458,13 +462,20 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if supplied.collectionSourceMedias > 1 || cfg.ProductCollectionSourceMedia.Enabled != (supplied.collectionSourceMedias == 1) || supplied.collectionSourceMedias == 1 && (supplied.productCollections != 1 || supplied.collectionSourceMedia == nil || supplied.collectionSourceMedia.Storage == nil) {
 		return nil, errors.New("source media requires its explicit current storage port and collections")
 	}
+	if supplied.amazonStoreAuthorizationCount > 1 || supplied.amazonStoreAuthorizationCount == 1 && (supplied.storeCenters != 1 || supplied.amazonStoreAuthorization == nil) {
+		return nil, errors.New("Amazon Store authorization requires one explicitly configured current Store module")
+	}
 	if supplied.storeObservations > 0 && (supplied.storeCenters != 1 || supplied.storeObservationDependencies == nil || supplied.storeObservationDependencies.Starter == nil || supplied.storeObservationDependencies.NewWorker == nil || supplied.storeObservationDependencies.Lifecycle == nil || supplied.storeObservationDependencies.PreparationOnly && supplied.officialStoreApplications != nil || !supplied.storeObservationDependencies.PreparationOnly && supplied.officialStoreApplications == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "") {
 		return nil, errors.New("Store observations require current Store, official registry, exact authorization and worker lifecycle")
 	}
 	if supplied.operationsCockpits > 0 && (supplied.storeCenters != 1 || supplied.storeCenterDB == nil) {
 		return nil, errors.New("operations cockpit requires current Store owner")
 	}
-	storeCapabilities := storecenter.RuntimeCapabilities{Observations: supplied.storeObservations == 1, OperationsCockpit: supplied.operationsCockpits == 1, TikTokShop: supplied.officialStoreApplications.TikTokConfigured(), WalmartUS: supplied.officialStoreApplications.WalmartConfigured(), Shopify: supplied.officialStoreApplications.ShopifyConfigured()}
+	storeCapabilities := storecenter.RuntimeCapabilities{
+		Observations: supplied.storeObservations == 1, OperationsCockpit: supplied.operationsCockpits == 1,
+		TikTokShop: supplied.officialStoreApplications.TikTokConfigured(), WalmartUS: supplied.officialStoreApplications.WalmartConfigured(),
+		AmazonAuthorization: supplied.amazonStoreAuthorization != nil, Shopify: supplied.officialStoreApplications.ShopifyConfigured(),
+	}
 	if err := validateDataServicesDependencies(supplied, sourceAccountDB, cfg); err != nil {
 		return nil, err
 	}
@@ -750,6 +761,17 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			return nil, errors.New("current store center unavailable")
 		}
 		modules = append(modules, stores)
+		if supplied.amazonStoreAuthorization != nil {
+			configurable, ok := stores.(interface {
+				ConfigureAmazonAuthorizations(storehttp.AmazonAuthorizationService, func(context.Context) [32]byte) error
+			})
+			if !ok {
+				return nil, errors.New("current Store module cannot configure Amazon authorization")
+			}
+			if err := configurable.ConfigureAmazonAuthorizations(supplied.amazonStoreAuthorization, currentAmazonSessionProof); err != nil {
+				return nil, err
+			}
+		}
 		storeCatalogModule = stores
 		if configurable, ok := stores.(interface {
 			ConfigureBrowser(*storecenter.BrowserOperations) error
@@ -1625,6 +1647,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		OwnedModelUsage:      includeResources && usageObjects != nil && usageObjects.ownedModels != nil,
 		SubjectVerification:  factories.buildSubjectVerification != nil,
 
+		AmazonStoreAuthorization:  supplied.amazonStoreAuthorization != nil,
 		ResearchPaginationFixture: supplied.researchFixture != nil && supplied.researchFixture.PaginationEnabled,
 	}
 	if err := validateCurrentApplicationRoutesInternal(bundle.routes, factories.buildAccountAudit != nil, factories.buildAcquisition != nil, cfg.Referrals.Enabled, factories.buildMembership != nil, includeAccountProfile, includeAccountAllocation, factories.buildBrowserCapture != nil, routeFeatures); err != nil {
@@ -1771,6 +1794,7 @@ type currentApplicationOptionalRoutes struct {
 	MemberPoints         bool
 	MemberResources      bool
 
+	AmazonStoreAuthorization  bool
 	ResearchPaginationFixture bool
 }
 
@@ -1964,6 +1988,18 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		}
 		for _, r := range currentStoreBrowserRoutes {
 			admitted = append(admitted, currentApplicationRoute{Method: r.method, Path: r.path})
+		}
+	}
+	if optional.AmazonStoreAuthorization {
+		if !optional.StoreCenter {
+			return errors.New("Amazon authorization requires current Store owner")
+		}
+		for _, path := range storehttp.AmazonAuthorizationPaths() {
+			method := http.MethodPost
+			if path == storehttp.AmazonAuthorizationStatusPath {
+				method = http.MethodGet
+			}
+			admitted = append(admitted, currentApplicationRoute{Method: method, Path: path})
 		}
 	}
 	if optional.TikTokShop {
@@ -2498,6 +2534,14 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				return errors.New("Store observation feature not admitted")
 			}
 			if err := validateCurrentObservationDescriptor(descriptor); err != nil {
+				return err
+			}
+		}
+		if storehttp.IsAmazonAuthorizationPath(descriptor.Path) {
+			if !optional.AmazonStoreAuthorization {
+				return errors.New("Amazon authorization feature not admitted")
+			}
+			if err := validateCurrentStoreDescriptor(descriptor); err != nil {
 				return err
 			}
 		}

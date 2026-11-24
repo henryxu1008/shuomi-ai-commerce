@@ -123,7 +123,9 @@ export function StoreServiceActions({
       : action === "renew"
         ? "续费服务"
         : "恢复服务";
+  const canStart = action !== "activate" || connected;
   const valid =
+    canStart &&
     pending.ready &&
     /^[1-9][0-9]?$/.test(periods) &&
     Number(periods) <= 12 &&
@@ -132,6 +134,7 @@ export function StoreServiceActions({
   async function write(command: Command) {
     if (busy.current) return;
     const recovering = pending.command !== null;
+    if (!recovering && command.action === "activate" && !connected) return;
     try {
       pending.persist(command);
     } catch {
@@ -194,11 +197,11 @@ export function StoreServiceActions({
         (error.status === 0 ||
           error.status >= 500 ||
           error.code === "INVALID_WORKBENCH_RESPONSE");
-      const shopifyAuthorizationBlocked =
+      const shopifyRejected =
         store.platform === "shopify" &&
         error instanceof WorkbenchAPIError &&
-        error.code === "STORE_CONNECTION_NOT_CONNECTED";
-      if (!shopifyAuthorizationBlocked && (recovering || unknown)) {
+        error.code === "SHOPIFY_SERVICE_CHARGE_REJECTED";
+      if (!shopifyRejected && (recovering || unknown)) {
         setOperation({ command, unknown: true });
         setMessage("续费结果未确认；预留保持，不能另建操作。请核验原操作。");
       } else {
@@ -209,14 +212,16 @@ export function StoreServiceActions({
           setOperation({ command, unknown: true });
         }
         setMessage(
-          shopifyAuthorizationBlocked
-            ? "无法核实 Shopify 授权。请检查店铺连接后重新确认服务操作。"
+          shopifyRejected
+            ? "原操作未扣减期数。请核对 Shopify 店铺与连接后重新确认。"
             : error instanceof WorkbenchAPIError &&
                 error.code === "RESOURCE_INSUFFICIENT_BALANCE"
               ? "可用续费期数不足。"
               : error instanceof WorkbenchAPIError &&
                   error.code === "STORE_CONNECTION_NOT_CONNECTED"
-                ? "开通前必须完成平台官方连接。"
+                ? (store.platform === "shopify"
+                  ? "无法核实 Shopify 授权。请检查店铺连接后重新确认服务操作。"
+                  : "开通前必须完成平台官方连接。")
                 : "服务操作未完成，请刷新店铺并确认权限后重试。",
         );
       }
@@ -237,7 +242,7 @@ export function StoreServiceActions({
       {canWrite &&
       store.recordStatus !== "deleting" ? (
         <Button
-          disabled={action === "activate" && !connected}
+          disabled={!canStart && !(store.platform === "shopify" && operation?.unknown)}
           onClick={() => {
             setOpen(true);
             setMessage("");

@@ -19,6 +19,7 @@ import (
 )
 
 type Application struct {
+	Amazon                  *AmazonListingService
 	CockpitSubmissionStores func(context.Context, collection.Scope, []string) ([]CockpitSubmissionStore, error)
 	TemuCreateSource        TemuCreateMetricsSource
 	TemuCreateMerchant      func(context.Context, collection.Scope, string) (storecenter.ProductMerchantBinding, error)

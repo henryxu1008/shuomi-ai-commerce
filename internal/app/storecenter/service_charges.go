@@ -190,11 +190,11 @@ func (s *ServiceLifecycleExecutor) settle(ctx context.Context, proof storecenter
 	return storecenter.ServiceOperationResult{Snapshot: snapshot}, nil
 }
 func (s *ServiceLifecycleExecutor) settledServiceFailure(ctx context.Context, proof storecenter.ServiceChargeProof) error {
-	if proof.FailureCode == "CONNECTION_CHANGED" {
+	if proof.ReservationID != "" && (proof.FailureCode == "CONNECTION_CHANGED" || proof.FailureCode == "STORE_CHANGED") {
 		e := proof.Intent.Execution
 		store, err := s.stores.Get(ctx, e.OrganizationID, e.StoreID)
 		if err == nil && store != nil && store.Platform() == storecenter.PlatformShopify {
-			return storecenter.ErrConnectionNotFresh
+			return storecenter.ErrShopifyServiceChargeRejected
 		}
 	}
 	return serviceFailure(proof.FailureCode)

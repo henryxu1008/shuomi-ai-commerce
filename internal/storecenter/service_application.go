@@ -14,6 +14,7 @@ import (
 var (
 	ErrServiceLifecycleIdentityRequired = errors.New("verified Store lifecycle identity is required")
 	ErrServiceLifecyclePermissionDenied = errors.New("Store lifecycle permission is denied")
+	ErrShopifyServiceChargeRejected     = errors.New("Shopify service charge was rejected and the reservation was released")
 )
 
 // ServiceLifecycleApplicationRequest contains only caller-owned, stable

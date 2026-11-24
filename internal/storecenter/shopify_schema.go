@@ -4,12 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 )
 
 const shopifyStorePlatformDefinition = `CHECK ((platform = ANY (ARRAY['shein'::text, 'temu'::text, 'tiktokshop'::text, 'walmart'::text, 'shopify'::text])))`
 
+const amazonShopifyStorePlatformDefinition = `CHECK ((platform = ANY (ARRAY['shein'::text, 'temu'::text, 'tiktokshop'::text, 'walmart'::text, 'amazon'::text, 'shopify'::text])))`
+
 var shopifySchemaStatements = []string{
-	`ALTER TABLE public.workbench_stores DROP CONSTRAINT store_platform, ADD CONSTRAINT store_platform CHECK (platform IN ('shein','temu','tiktokshop','walmart','shopify'))`,
 	`CREATE TABLE public.workbench_store_shopify_shops (
  organization_id VARCHAR(200) NOT NULL, shop_key CHAR(36) NOT NULL, store_id CHAR(36) NOT NULL,
  app_id VARCHAR(128) NOT NULL, shop_id VARCHAR(128) NOT NULL, generation BIGINT NOT NULL,
@@ -66,14 +69,30 @@ func InstallShopifySchemaTx(ctx context.Context, tx *sql.Tx) error {
 	if err := tx.QueryRowContext(ctx, `SELECT to_regclass('public.workbench_store_shopify_shops') IS NOT NULL, EXISTS (SELECT 1 FROM public.workbench_stores)`).Scan(&installed, &hasStores); err != nil {
 		return err
 	}
+	var definition string
+	if err := tx.QueryRowContext(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint
+		WHERE conrelid='public.workbench_stores'::regclass AND contype='c' AND conname='store_platform' AND convalidated`).Scan(&definition); err != nil {
+		return err
+	}
 	capabilities := RuntimeCapabilities{TikTokShop: true, WalmartUS: true, Shopify: true}
+	capabilities.AmazonAuthorization = pgschema.SchemaConstraintEqual(definition, amazonStorePlatformDefinition) ||
+		pgschema.SchemaConstraintEqual(definition, amazonShopifyStorePlatformDefinition)
 	if installed {
 		return verifyCurrentSchema(ctx, tx, capabilities)
 	}
 	if hasStores {
 		return errors.New("Store Shopify schema requires an empty Store database")
 	}
-	if err := VerifyCurrentSchemaTx(ctx, tx); err != nil {
+	before := capabilities
+	before.Shopify = false
+	if err := verifyCurrentSchema(ctx, tx, before); err != nil {
+		return err
+	}
+	platformConstraint := shopifyStorePlatformDefinition
+	if capabilities.AmazonAuthorization {
+		platformConstraint = amazonShopifyStorePlatformDefinition
+	}
+	if _, err := tx.ExecContext(ctx, `ALTER TABLE public.workbench_stores DROP CONSTRAINT store_platform, ADD CONSTRAINT store_platform `+platformConstraint); err != nil {
 		return err
 	}
 	for _, statement := range shopifySchemaStatements {

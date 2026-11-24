@@ -14,7 +14,7 @@ type ShopifyTargetStore interface {
 }
 
 func validShopifyTargetInput(input TargetInput) bool {
-	return input.Shopify != nil && input.LocalTrial == nil && input.ColorPartition == nil && input.WalmartRules == nil &&
+	return input.Shopify != nil && input.Amazon == nil && input.LocalTrial == nil && input.ColorPartition == nil && input.WalmartRules == nil &&
 		input.TemuRules == nil && input.TikTokRules == nil && input.Temu == nil && input.TikTok == nil && input.Walmart == nil &&
 		input.CompletionDraft == nil && input.SheinSalesMapping == nil && input.SheinImport == nil &&
 		reflect.DeepEqual(input.Draft, goods.OfficialDraftInput{})
@@ -29,7 +29,7 @@ func validShopifyRecord(value TargetRecord) bool {
 	return validShopifyTargetInput(value.Input) && value.Shopify != nil && value.Merchant.ValidShopifyApplication() &&
 		value.Merchant.StoreID == value.Input.StoreID && value.Shopify.Currency == value.Merchant.Shopify.Currency &&
 		value.Shopify.Title != "" && value.Shopify.SourceKey == "" && len(value.Shopify.Variants) > 0 &&
-		value.RulesHash == collection.Digest(value.Merchant.Shopify) && value.LocalTrial == nil &&
+		value.RulesHash == collection.Digest(value.Merchant.Shopify) && value.LocalTrial == nil && value.Amazon == nil &&
 		value.Temu == nil && value.TikTok == nil && value.Walmart == nil &&
 		value.TemuRuleSnapshot == nil && value.TikTokRuleSnapshot == nil && value.WalmartRuleSnapshot == nil &&
 		len(value.TemuImageObservations) == 0 && len(value.TikTokImageObservations) == 0 && len(value.WalmartImageObservations) == 0 &&
