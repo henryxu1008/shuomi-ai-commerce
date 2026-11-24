@@ -38,6 +38,8 @@ func TestPrepareManagedChannelsPreservesRouteOwnerBoundary(t *testing.T) {
 	verified, err := PrepareOwnedGRSaiProductImage(ctx, f.db)
 	require.NoError(t, err)
 	require.Equal(t, "VERIFIED", verified.Outcome)
+	runtime := f.role(t, "product_agent_runtime")
+	require.True(t, channelstore.GRSaiImageRegistrationEnabled(ctx, runtime))
 	protection, err := channelstore.NewProtection("synthetic-key", bytes.Repeat([]byte{1}, 32))
 	require.NoError(t, err)
 	channels, err := channelstore.New(f.role(t, "title_credential_writer"), protection)
@@ -51,6 +53,7 @@ func TestPrepareManagedChannelsPreservesRouteOwnerBoundary(t *testing.T) {
 	require.NoError(t, f.db.Exec(`ALTER TABLE public.ai_channel_registrations
 DROP CONSTRAINT ai_channel_registrations_template_check,
 ADD CONSTRAINT ai_channel_registrations_template_check CHECK (template IN ('openai-mini-v1','openai-compatible-mini-v1'))`).Error)
+	require.False(t, channelstore.GRSaiImageRegistrationEnabled(ctx, runtime))
 	owned, err := credential.NewRegistrationCommand("org-one", "actor", "second", credential.RegistrationInput{
 		Template: credential.GRSaiImageTemplate, Name: "enterprise image", APIKey: "synthetic-provider-key",
 	})
@@ -60,6 +63,7 @@ ADD CONSTRAINT ai_channel_registrations_template_check CHECK (template IN ('open
 	updated, err := PrepareOwnedGRSaiProductImage(ctx, f.db)
 	require.NoError(t, err)
 	require.Equal(t, "UPDATED", updated.Outcome)
+	require.True(t, channelstore.GRSaiImageRegistrationEnabled(ctx, runtime))
 	preserved, err := channels.Registration(ctx, existing.Registration.OrganizationID, existing.Registration.ConnectionID)
 	require.NoError(t, err)
 	require.Equal(t, existing.Registration, preserved)

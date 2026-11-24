@@ -73,20 +73,16 @@ func EnableGRSaiImageRegistration(ctx context.Context, db *gorm.DB) (bool, error
 	if ctx == nil || ctx.Err() != nil || db == nil || db.Dialector.Name() != "postgres" {
 		return false, credential.ErrUnavailable
 	}
-	var definition string
-	q := db.WithContext(ctx).Raw(`SELECT pg_get_constraintdef(c.oid) FROM pg_constraint c
-JOIN pg_class t ON t.oid=c.conrelid
-WHERE current_user='product_agent_owner' AND current_schema()='public'
-AND t.oid=to_regclass('public.ai_channel_registrations') AND t.relkind='r' AND t.relpersistence='p'
-AND t.relowner=(SELECT oid FROM pg_roles WHERE rolname=current_user)
-AND c.conname='ai_channel_registrations_template_check' AND c.contype='c' AND c.convalidated AND NOT c.connoinherit
-AND c.conkey=ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid=t.oid AND attname='template' AND NOT attisdropped)]`).Scan(&definition)
-	if q.Error != nil || q.RowsAffected != 1 {
+	var owner bool
+	if err := db.WithContext(ctx).Raw(`SELECT current_user='product_agent_owner' AND current_schema()='public'`).Scan(&owner).Error; err != nil || !owner {
 		return false, credential.ErrUnavailable
 	}
-	normalized := strings.NewReplacer("::character varying", "", "::text[]", "", "::text", "", "(", "", ")", "", " ", "").Replace(definition)
-	switch normalized {
-	case "CHECKtemplate=ANYARRAY['openai-mini-v1','openai-compatible-mini-v1','grsai-product-image-v1']":
+	definition, err := registrationTemplateConstraint(ctx, db)
+	if err != nil {
+		return false, err
+	}
+	switch definition {
+	case ownedImageRegistrationTemplates:
 		return false, nil
 	case "CHECKtemplate=ANYARRAY['openai-mini-v1','openai-compatible-mini-v1']":
 		err := db.WithContext(ctx).Exec(`ALTER TABLE public.ai_channel_registrations
@@ -97,6 +93,32 @@ CHECK (template IN ('openai-mini-v1','openai-compatible-mini-v1','grsai-product-
 	default:
 		return false, credential.ErrUnavailable
 	}
+}
+
+const ownedImageRegistrationTemplates = "CHECKtemplate=ANYARRAY['openai-mini-v1','openai-compatible-mini-v1','grsai-product-image-v1']"
+
+// GRSaiImageRegistrationEnabled is a read-only preflight for the bounded
+// application role. Schema edits remain with the explicit Run DB owner.
+func GRSaiImageRegistrationEnabled(ctx context.Context, db *gorm.DB) bool {
+	definition, err := registrationTemplateConstraint(ctx, db)
+	return err == nil && definition == ownedImageRegistrationTemplates
+}
+
+func registrationTemplateConstraint(ctx context.Context, db *gorm.DB) (string, error) {
+	if ctx == nil || ctx.Err() != nil || db == nil || db.Dialector.Name() != "postgres" {
+		return "", credential.ErrUnavailable
+	}
+	var definition string
+	q := db.WithContext(ctx).Raw(`SELECT pg_get_constraintdef(c.oid) FROM pg_constraint c
+JOIN pg_class t ON t.oid=c.conrelid
+WHERE t.oid=to_regclass('public.ai_channel_registrations') AND t.relkind='r' AND t.relpersistence='p'
+AND pg_get_userbyid(t.relowner)='product_agent_owner'
+AND c.conname='ai_channel_registrations_template_check' AND c.contype='c' AND c.convalidated AND NOT c.connoinherit
+AND c.conkey=ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid=t.oid AND attname='template' AND NOT attisdropped)]`).Scan(&definition)
+	if q.Error != nil || q.RowsAffected != 1 {
+		return "", credential.ErrUnavailable
+	}
+	return strings.NewReplacer("::character varying", "", "::text[]", "", "::text", "", "(", "", ")", "", " ", "").Replace(definition), nil
 }
 
 func (s *Store) CreateRegistration(ctx context.Context, command credential.RegistrationCommand) (credential.RegistrationResult, error) {

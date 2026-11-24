@@ -1090,6 +1090,10 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		}
 
 	}
+	if cfg.ImageAgent != nil && cfg.ImageAgent.Generation.OwnedGRSaiProductImage &&
+		(credentialManager == nil || !credentialManager.CanRegister() || !channelstore.GRSaiImageRegistrationEnabled(startupContext, agentDB)) {
+		return errors.New("enterprise GRSai product images require prepared managed-channel registration")
+	}
 	var operator *http.Server
 	var registerOperator func(http.Handler)
 	var verifyOperator func(context.Context) error
