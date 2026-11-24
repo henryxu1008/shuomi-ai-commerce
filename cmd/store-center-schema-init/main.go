@@ -280,6 +280,11 @@ func installShopifyStoreSchema(ctx context.Context, records *gorm.DB) error {
 	if _, err := tx.ExecContext(ctx, `GRANT SELECT,INSERT,UPDATE ON public.workbench_store_shopify_shops, public.workbench_store_shopify_authorizations, public.workbench_store_shopify_pairings TO store_center_runtime`); err != nil {
 		return err
 	}
+	if _, err := tx.ExecContext(ctx, `DO $$ BEGIN IF to_regclass('public.workbench_store_shopify_installs') IS NOT NULL THEN
+		GRANT SELECT,INSERT,UPDATE,DELETE ON public.workbench_store_shopify_installs TO store_center_runtime;
+	END IF; END $$`); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 

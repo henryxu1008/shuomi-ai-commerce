@@ -94,6 +94,12 @@ Legacy decision 为 **EXTRACT**。复用现行 Store 角色、授权和绑定 se
 - 从「店铺中心 → 我的店铺」创建 Shopify 店铺并完成官方授权。在「商品刊登」选择该店铺，填写当前店铺币种下的售价并选择素材，保存资料，再在上传计划核对后确认。回到商品行可查看 Shopify 商品编号、图片状态或核实原操作。核实到账户店铺的商品后，可以直接打开 Shopify 后台的对应商品。开发店安装、商品写入、图片导入和重装待实际验证。
 - 公共商家试用仍须接通 Shopify 端发起的安装恢复、关系撤销与合规清除处理，并走 Shopify 审核。开发店候选保持正式店拦截。
 
+### 从 Shopify 发起安装的隔离候选
+
+开发应用继续使用现有启动及回调地址。配置 `storeCenter.shopify.startedInstallation` 后，同一地址也能接收没有预选店铺的 Shopify 签名请求。店主先完成 Shopify OAuth，再回到硕米工作台登录并在店铺中心选择一条已有 Shopify 店铺记录。工作台确认界面从 Store Center 读取已核实的 Shopify 域名。确认时固定当前企业、成员、店铺和版本，在提交事务中消费原证明并连接店铺。同一原确认可读回已保存的结果。
+
+此候选使用 `store-center-schema-init --shopify` 在空白隔离 Store 安装短期安装证明表。服务只接受经过核实的开发店。工作台会在证明过期后清除该记录和密文。公开分发、撤销通知、合规数据清除、实际应用审核和客户试用继续单独验证。
+
 ## 独立架构评审
 
 第 1 轮独立检查绑定 `189fbbc6178a23044476d42c78b94fef987eba66`，结论 `NOT_READY`。2026-11-24，原独立评审者对 [PR #1615](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1615) 的修订 `ced51c5dfba09664ad13c12eb828f298d049dae4` 增量复核，三个实施级 BLOCKER 已解除，结论为 `IMPLEMENTATION_READY`。生产开放仍须满足受控试用和平台前置。

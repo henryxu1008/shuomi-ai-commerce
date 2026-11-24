@@ -14,12 +14,13 @@ import (
 )
 
 type ShopifyApplication struct {
-	AppID      string
-	InstallURL string
-	OAuth      *wire.OAuthClient
-	Admin      *wire.AdminClient
-	Issuer     *wire.AppTokenIssuer
-	Protection *wire.PairingProtection
+	AppID               string
+	InstallURL          string
+	StartedInstallation bool
+	OAuth               *wire.OAuthClient
+	Admin               *wire.AdminClient
+	Issuer              *wire.AppTokenIssuer
+	Protection          *wire.PairingProtection
 }
 
 type ShopifyConnections struct {

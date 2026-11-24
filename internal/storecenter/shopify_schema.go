@@ -8,6 +8,30 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 )
 
+const shopifyInstallSchema = `CREATE TABLE public.workbench_store_shopify_installs (
+ attempt_id CHAR(36) NOT NULL, app_id VARCHAR(128) NOT NULL, domain VARCHAR(253) NOT NULL,
+ session_digest CHAR(64) NOT NULL, state_digest CHAR(64) NOT NULL, code_digest VARCHAR(64) NOT NULL, state VARCHAR(16) NOT NULL,
+ shop_id VARCHAR(128) NOT NULL, installation_id VARCHAR(128) NOT NULL, currency VARCHAR(3) NOT NULL,
+ generation BIGINT NOT NULL, key_id VARCHAR(128) NOT NULL, ciphertext TEXT NOT NULL,
+ organization_id VARCHAR(200) NOT NULL, store_id VARCHAR(36) NOT NULL, actor_id VARCHAR(200) NOT NULL,
+ member_id VARCHAR(200) NOT NULL, store_version BIGINT NOT NULL, shop_key VARCHAR(36) NOT NULL,
+ created_at TIMESTAMPTZ NOT NULL, expires_at TIMESTAMPTZ NOT NULL,
+ CONSTRAINT shopify_install_pk PRIMARY KEY (attempt_id),
+ CONSTRAINT shopify_install_bounds CHECK (app_id <> '' AND generation >= 0 AND octet_length(ciphertext) <= 16384
+  AND ((state IN ('created','confirmed') AND code_digest = '') OR (state IN ('exchanging','staged','selected') AND length(code_digest) = 64))
+  AND expires_at > created_at AND expires_at <= created_at + INTERVAL '10 minutes'),
+ CONSTRAINT shopify_install_selection CHECK (
+  (state IN ('selected','confirmed') AND organization_id <> '' AND store_id <> '' AND actor_id <> '' AND member_id <> '' AND store_version > 0)
+  OR (state IN ('created','exchanging','staged') AND organization_id = '' AND store_id = '' AND actor_id = '' AND member_id = '' AND store_version = 0)),
+ CONSTRAINT shopify_install_state CHECK (
+  (state IN ('created','exchanging') AND domain <> '' AND shop_id = '' AND installation_id = '' AND currency = ''
+   AND generation = 0 AND shop_key = '' AND key_id = '' AND ciphertext = '')
+  OR (state IN ('staged','selected') AND domain <> '' AND shop_id <> '' AND installation_id <> '' AND length(currency) = 3
+   AND shop_key = '' AND key_id <> '' AND ciphertext <> '')
+  OR (state = 'confirmed' AND domain = '' AND shop_id = '' AND installation_id = '' AND currency = ''
+   AND generation > 0 AND shop_key <> '' AND key_id = '' AND ciphertext = ''))
+)`
+
 var shopifySchemaStatements = []string{
 	`CREATE TABLE public.workbench_store_shopify_shops (
  organization_id VARCHAR(200) NOT NULL, shop_key CHAR(36) NOT NULL, store_id CHAR(36) NOT NULL,
@@ -50,6 +74,8 @@ var shopifySchemaStatements = []string{
  (state='staged' AND shop_key IS NULL AND key_id<>'' AND ciphertext<>'' AND shop_id<>'' AND installation_id<>'' AND domain<>'' AND length(currency)=3) OR
  (state='confirmed' AND shop_key IS NOT NULL AND generation>0 AND key_id='' AND ciphertext='' AND shop_id='' AND installation_id='' AND domain='' AND currency=''))
 )`,
+	shopifyInstallSchema,
+	`CREATE INDEX shopify_install_expiry ON public.workbench_store_shopify_installs(expires_at)`,
 }
 
 // InstallShopifySchemaTx admits the optional Shopify capability on an empty Store
@@ -97,7 +123,22 @@ func InstallShopifySchemaTx(ctx context.Context, tx *sql.Tx) error {
 			return err
 		}
 	}
+	capabilities.ShopifyStartedInstallation = true
 	return verifyCurrentSchema(ctx, tx, capabilities)
+}
+
+func verifyShopifyStartedInstallSchema(ctx context.Context, db coreSchemaQueryer) error {
+	var ready bool
+	err := db.QueryRowContext(ctx, `SELECT count(*) = 4 FROM pg_catalog.pg_constraint c
+ JOIN pg_catalog.pg_class r ON r.oid=c.conrelid
+ WHERE c.conrelid=to_regclass('public.workbench_store_shopify_installs') AND r.relkind='r'
+ AND NOT r.relrowsecurity AND r.relpersistence='p' AND c.convalidated AND NOT c.condeferrable
+ AND ((c.conname='shopify_install_pk' AND c.contype='p' AND pg_get_constraintdef(c.oid)='PRIMARY KEY (attempt_id)')
+  OR (c.conname IN ('shopify_install_bounds','shopify_install_selection','shopify_install_state') AND c.contype='c'))`).Scan(&ready)
+	if err != nil || !ready {
+		return errors.New("Store Shopify-started installation schema unavailable")
+	}
+	return nil
 }
 
 func verifyShopifySchema(ctx context.Context, db coreSchemaQueryer) error {

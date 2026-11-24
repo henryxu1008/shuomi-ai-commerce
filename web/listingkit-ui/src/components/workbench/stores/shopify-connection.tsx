@@ -2,9 +2,16 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import type { MemberResourceScope } from "@/lib/api/member-resources";
 import type { WorkbenchStore } from "@/lib/api/workbench-stores";
+
+const pendingInstall = z.object({
+  domain: z.string(),
+  attempt: z.uuid().optional(),
+  version: z.number().int().min(1).optional(),
+});
 
 export function ShopifyConnection({store, scope, canWrite, onChanged}: {
   store: WorkbenchStore;
@@ -19,16 +26,20 @@ export function ShopifyConnection({store, scope, canWrite, onChanged}: {
     queryKey: ["shopify-pairing", scope.expectedUserId, scope.expectedOrganizationId, store.id],
     queryFn: async ({signal}) => {
       const response = await fetch(`/api/shopify/pending?store=${store.id}`, {signal, cache: "no-store"});
-      if (!response.ok) return "";
-      const result = await response.json();
-      return typeof result.domain === "string" ? result.domain : "";
+      if (!response.ok) return null;
+      const result = pendingInstall.safeParse(await response.json());
+      return result.success ? result.data : null;
     },
     retry: false,
     gcTime: 0,
   });
   const issue = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("shopify");
-  async function run(action: "begin" | "confirm") {
+  async function run() {
     if (working) return;
+    const selection = pending.data;
+    const action = selection?.attempt ? "confirm-install" : selection ? "confirm" : "begin";
+    const body = action === "begin" ? { store: store.id, version: store.version } : action === "confirm-install"
+      ? { store: store.id, attempt: selection?.attempt, version: selection?.version } : { store: store.id };
     setWorking(true);
     setMessage("");
     try {
@@ -39,7 +50,7 @@ export function ShopifyConnection({store, scope, canWrite, onChanged}: {
           "X-Expected-User-ID": scope.expectedUserId,
           "X-Expected-Organization-ID": scope.expectedOrganizationId,
         },
-        body: JSON.stringify(action === "begin" ? {store: store.id, version: store.version} : {store: store.id}),
+        body: JSON.stringify(body),
       });
       if (!response.ok) {
         setMessage(action === "begin" ? "暂时无法连接 Shopify，请稍后重试。" : "无法确认这次授权。请重新连接 Shopify。");
@@ -64,9 +75,9 @@ export function ShopifyConnection({store, scope, canWrite, onChanged}: {
     <p>{store.connectionStatus === "connected" ? "Shopify 店铺已连接。" : "请由 Shopify 店主授权，然后回到这里确认店铺。"}</p>
     {issue === "owner" ? <p role="alert">请让具备商品管理权限的 Shopify 店主重新授权。</p> : null}
     {issue === "restart" ? <p role="alert">这次授权未完成，请重新连接 Shopify。</p> : null}
-    {pending.data ? <p>请确认连接 Shopify 店铺 <strong>{pending.data}</strong>。</p> : null}
+    {pending.data ? <p>请确认连接 Shopify 店铺 <strong>{pending.data.domain}</strong>。</p> : null}
     {canWrite && store.recordStatus === "active" ? <div>
-      <Button disabled={working || pending.isPending} onClick={() => void run(pending.data ? "confirm" : "begin")}>
+      <Button disabled={working || pending.isPending} onClick={() => void run()}>
         {pending.data ? "确认连接店铺" : store.connectionStatus === "connected" ? "重新连接 Shopify" : "连接 Shopify"}
       </Button>
     </div> : null}

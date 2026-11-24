@@ -36,6 +36,14 @@ func (m routeModule) ConfigureAmazonAuthorizations(service AmazonAuthorizationSe
 	return m.handler.SetAmazonAuthorizations(service, proof)
 }
 
+func (m routeModule) ExpireStartedShopifyInstallations(ctx context.Context) error {
+	service, ok := m.handler.shopifyConnections.(shopifyStartedInstallationService)
+	if !ok || !service.StartedInstallationEnabled() {
+		return storecenter.ErrOfficialConnectionUnavailable
+	}
+	return service.ExpireStartedInstallationProofs(ctx)
+}
+
 func (routeModule) Name() string { return ModuleName }
 
 func (m routeModule) Enabled(cfg *config.Config) bool {
@@ -48,6 +56,9 @@ func (m routeModule) Register(registry *kernelmodule.Registry) error {
 		// Pairing reads authenticated JSON through the Store body deadline.
 		pairing.RequestTimeout = ShopifyPairingTimeout
 		registry.AddRoutes(pairing)
+	}
+	if installation := m.handler.shopifyStartedInstallationRoute(); installation != nil {
+		registry.AddRoutes(*installation)
 	}
 	registry.AddRoutes(m.handler.amazonAuthorizationRoutes()...)
 	if m.handler.google != nil {

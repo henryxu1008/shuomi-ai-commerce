@@ -233,6 +233,11 @@ func verifyCurrentSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilit
 			return err
 		}
 	}
+	if capabilities.ShopifyStartedInstallation {
+		if err := verifyShopifyStartedInstallSchema(ctx, sqlDB); err != nil {
+			return err
+		}
+	}
 	if capabilities.WalmartUS {
 		if err := verifyWalmartSchema(ctx, sqlDB); err != nil {
 			return err
@@ -419,11 +424,15 @@ const storeRuntimePermissionQuery = `SELECT current_user,
  OR ($4 AND n.nspname='public' AND r.relname IN ('workbench_store_walmart_oauth_grants','workbench_store_walmart_oauth_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))
  OR ($5 AND n.nspname='public' AND r.relname IN ('workbench_store_amazon_grants','workbench_store_amazon_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))
  OR ($6 AND n.nspname='public' AND r.relname IN ('workbench_store_shopify_shops','workbench_store_shopify_authorizations','workbench_store_shopify_pairings') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))
+ OR ($6 AND n.nspname='public' AND r.relname='workbench_store_shopify_installs' AND p.privilege_type IN ('SELECT','INSERT','UPDATE','DELETE'))
  OR (n.nspname='public' AND to_regclass('public.workbench_store_google_oauth_grants') IS NOT NULL AND r.relname IN ('workbench_store_google_oauth_grants','workbench_store_google_oauth_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')))) FROM (SELECT current_user::text AS runtime_role) subject`
 
 // RuntimeCapabilities admits only explicitly enabled feature tables.
 // The default Store boundary continues to reject every additional privilege.
-type RuntimeCapabilities struct{ Observations, OperationsCockpit, TikTokShop, WalmartUS, AmazonAuthorization, Shopify, GoogleMerchant bool }
+type RuntimeCapabilities struct {
+	Observations, OperationsCockpit, TikTokShop, WalmartUS, AmazonAuthorization, Shopify, GoogleMerchant bool
+	ShopifyStartedInstallation                                                                           bool
+}
 
 func (c RuntimeCapabilities) permissionQueryArgs() []any {
 	return []any{c.Observations, c.OperationsCockpit, c.TikTokShop, c.WalmartUS, c.AmazonAuthorization, c.Shopify}
@@ -479,6 +488,16 @@ func VerifyRuntimePermissionsForCapabilities(ctx context.Context, db *gorm.DB, c
  WHERE NOT coalesce(has_table_privilege(current_user,to_regclass('public.'||name),'SELECT') AND has_table_privilege(current_user,to_regclass('public.'||name),'INSERT') AND has_table_privilege(current_user,to_regclass('public.'||name),'UPDATE'),false))`).Scan(&complete)
 		if err != nil || !complete {
 			return errors.New("Store Shopify authorization grants unavailable")
+		}
+	}
+	if capabilities.ShopifyStartedInstallation {
+		var complete bool
+		err := sqlDB.QueryRowContext(ctx, `SELECT coalesce(has_table_privilege(current_user,to_regclass('public.workbench_store_shopify_installs'),'SELECT')
+ AND has_table_privilege(current_user,to_regclass('public.workbench_store_shopify_installs'),'INSERT')
+ AND has_table_privilege(current_user,to_regclass('public.workbench_store_shopify_installs'),'UPDATE')
+ AND has_table_privilege(current_user,to_regclass('public.workbench_store_shopify_installs'),'DELETE'),false)`).Scan(&complete)
+		if err != nil || !complete {
+			return errors.New("Store Shopify-started installation grants unavailable")
 		}
 	}
 	if capabilities.GoogleMerchant {

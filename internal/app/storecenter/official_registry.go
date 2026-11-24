@@ -99,6 +99,10 @@ func (r *OfficialApplicationRegistry) ShopifyConfigured() bool {
 	return r != nil && r.shopify != nil
 }
 
+func (r *OfficialApplicationRegistry) ShopifyStartedInstallationConfigured() bool {
+	return r.ShopifyConfigured() && r.shopify.StartedInstallation
+}
+
 func (r *OfficialApplicationRegistry) ShopifyConnections(repo *storecenter.MemberScopedStoreRepository) (*ShopifyConnections, error) {
 	if !r.ShopifyConfigured() {
 		return nil, nil

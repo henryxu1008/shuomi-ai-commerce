@@ -119,6 +119,59 @@ func TestShopifyPairingRouteUsesCurrentStoreAdmission(t *testing.T) {
 	}
 }
 
+type startedShopifyRoutes struct {
+	*storeapp.ShopifyConnections
+}
+
+func (startedShopifyRoutes) StartedInstallationEnabled() bool { return true }
+
+func TestShopifyStartedInstallationPublicRouteAdmission(t *testing.T) {
+	h, err := storehttp.NewHandlerWithServiceLifecycle(inertStoreService{}, &storecenter.ServiceLifecycleApplication{})
+	require.NoError(t, err)
+	require.NoError(t, h.SetOfficialConnections(&storeapp.OfficialConnections{}))
+	require.NoError(t, h.SetShopifyConnections(startedShopifyRoutes{}))
+	module := storehttp.NewModule(h)
+	module.(interface {
+		ConfigureCatalog(*storecenter.Catalog, *storecenter.MetadataRepository)
+	}).ConfigureCatalog(&storecenter.Catalog{}, &storecenter.MetadataRepository{})
+	require.NoError(t, module.(interface {
+		ConfigureBrowser(*storecenter.BrowserOperations) error
+	}).ConfigureBrowser(&storecenter.BrowserOperations{}))
+	registry := kernelmodule.NewRegistry()
+	require.NoError(t, module.Register(registry))
+
+	var all []httproute.Descriptor
+	for _, r := range currentWorkbenchApplicationRoutes {
+		all = append(all, httproute.Descriptor{Method: r.Method, Path: r.Path})
+	}
+	all = append(all, registry.Routes()...)
+	validate := func(routes []httproute.Descriptor, startEnabled bool) error {
+		return validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false,
+			currentApplicationOptionalRoutes{StoreCenter: true, Shopify: true, ShopifyInstall: startEnabled})
+	}
+	require.NoError(t, validate(all, true))
+	require.Error(t, validate(all, false))
+	found := false
+	for i, r := range all {
+		if r.Path == storehttp.ShopifyStartedInstallationPath {
+			found = true
+			for _, mutate := range []func(*httproute.Descriptor){
+				func(d *httproute.Descriptor) { d.Method = http.MethodGet },
+				func(d *httproute.Descriptor) { d.AuthPolicy = httproute.AuthPolicyCurrentIdentity },
+				func(d *httproute.Descriptor) {
+					d.OrganizationAccessPolicy = httproute.OrganizationAccessPolicyLiveWrite
+				},
+				func(d *httproute.Descriptor) { d.RequestTimeout = 0 },
+			} {
+				changed := append([]httproute.Descriptor(nil), all...)
+				mutate(&changed[i])
+				require.Error(t, validate(changed, true))
+			}
+		}
+	}
+	require.True(t, found)
+}
+
 type inertGoogleStoreConnection struct {
 	storehttp.GoogleConnectionService
 }
