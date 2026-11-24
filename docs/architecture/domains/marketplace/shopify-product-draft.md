@@ -41,6 +41,14 @@
 - 只请求 `write_products`，其包括商品读取。产品写入和回查在现有 Store Purpose 授权通过后用 Shopify client assertion 换取 application-only token。令牌限当前有界服务端调用，不能持久化。发放写入句柄前，用这枚令牌核实 Shopify 的 AppInstallation GID、Shop GID、有效范围和当前 store currency，Store 按当前本地连接代次复核；同一令牌执行唯一 mutation，授权错误、卸载或代次变化时不重新签券再发送。回查需当前同一 canonical shop 的有效连接。应用密钥、签名私钥沿当前秘密管理，声明签名使用已有 JWT 库，Dev 和正式应用配置独立。Dev Store 证实重装、旧令牌失效及 installation identity 行为，若不能区分新旧安装，待设计澄清和复核后才开该能力。[权限管理](https://shopify.dev/docs/apps/build/authentication-authorization/manage-access-scopes) · [Application-only token](https://shopify.dev/docs/apps/build/authentication-authorization/application-only-access-tokens)
 - 每个本地授权代次固定一个已验证的 Shopify 安装和一次店主确认。卸载、scope 改变和合规事件走独立的 topic 路径，以原始有界正文验证 HMAC，结合应用路由、严格正文类型及店铺身份去重。事件头及供应商时间仅作校验和排查，不能独立用于开通、复活授权或决定不可逆清除。已知撤销在 Store 事务内停止该代次的新句柄并作废相关未消费证明；身份或前后顺序不明时暂停使用并只读向 Shopify 核实。实时核对和同一令牌发送保证迟到事件不能放行新安装。重装要求新的 Shopify 店主授权及硕米确认，旧已知结果只可按原企业和 canonical shop 回查。[Webhook 验证](https://shopify.dev/docs/apps/build/webhooks/verify-deliveries) · [Webhook 传递](https://shopify.dev/docs/apps/build/webhooks/delivery-structure)
 
+### 卸载和商品权限撤销通知
+
+- 两条固定 POST 分别接收 `app/uninstalled` 和 `app/scopes_update`。按本地应用配置用固定 client secret 校验有界原始正文的 HMAC；验签后解析各主题的独立字段形状。主体分别取已签名的 Shop 数值 ID 或 Shop GID；对权限变更只有从有 `write_products` 变为无该权限时进入撤销核实。忽略正文中的联系资料，店铺域头不选目标、不用于外部请求。按可信应用、签名 Shop 身份、主题和事件标识去重，核对正文摘要；同一事件标识的不同正文不得改变已受理事件。Header 与平台时间不给予代次或身份授权。[通知样本](https://shopify.dev/docs/api/webhooks/latest#app-uninstalled) · [HTTPS 验签与响应](https://shopify.dev/docs/apps/build/webhooks/verify-deliveries)
+- Store Center 在同一事务内受理事件并固定当前 Shop 和授权代次。当前有本地授权时，待核实状态使该代次的商品、回查和服务期数入口暂不可用；无本地授权时只记录去重和确认边界，无远端调用。只在数据库受理成功后返回成功。去重、受理及暂停均不产生扣费、退费、远端变更或清除命令。
+- 恢复使用现有运行周期任务。Store 以原事件身份、当前尝试版本、可恢复的到期认领和持久退避驱动。锁外只用原绑定域名对 Shopify 执行安装与权限读取。只有精确应用、店铺与安装且明确保留权限时可完成该待核实项而不撤销。安装已更换，或同一安装明确缺少商品权限，才撤销固定的旧代次。令牌拒绝、网络、响应不完整等只记录待核实并重试。Shopify 的通用令牌失败不能证明卸载。写结论时复核原事件尝试、绑定归属和代次；旧事件或回执不影响新代次。一个事件的核实成功不能放行另一件未核实的有效事件。
+- 安装确认沿用在线店主令牌复核。两条安装路径在查询 Shopify 前读取各自 canonical app+Shop 最新的本地受理版本，在确认事务中重新核对。首次绑定也通过该身份的事务锁和受理记录与通知序列化。确认前发生了新受理时，原核实结果作废，必须重新读取 Shopify 后才能确认。已撤销安装的旧证明不能提交，临时证明沿原到期机制清理。事件不得反向锁定安装证明；新授权只能通过原店主和企业确认产生。运行配置及隔离验收保持开发阶段范围。
+- 本切片用官方形状及合成验证覆盖验签、两主题、不同企业、首绑和重装时序、同键重放、数据库故障、代次与重试。真实平台拒绝与最终卸载表现，留待获准开发店确认；隐私事件、清除命令和发布审核沿原设计单独跟踪。
+
 ### 店铺服务扣减前核实 Shopify 授权
 
 独立增量设计复核为 `IMPLEMENTATION_READY`，绑定基线 `e5bcc655c81eb346b2ac3d251bee97a335426313` 和受审设计对象 `3af56454435d27de4755e34545ad9323e5e92d7d`。同店换绑与未撤销代次的事务核对关闭了复核发现的阻塞。
