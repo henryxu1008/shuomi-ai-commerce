@@ -109,6 +109,9 @@ function ScopedPreparations({ scope, initialPreparation,completionAvailable,sour
             {source.source.kind==="own" && !synthetic && process.env.NEXT_PUBLIC_GOOGLE_MERCHANT_ENABLED==="true" && <Button asChild variant="outline">
               <Link href={"/workbench/listing/google/"+source.id+"?preparation="+source.preparationId}>上传到 Google Shopping</Link>
             </Button>}
+            {source.source.kind==="own" && !synthetic && process.env.NEXT_PUBLIC_META_CATALOG_SIMULATION==="true" && <Button asChild variant="outline">
+              <Link href={"/workbench/listing/meta-catalog/"+source.id+"?preparation="+source.preparationId}>上传到 Meta 商品目录</Link>
+            </Button>}
             {!synthetic && completionAvailable && <Button asChild variant="outline">
               <Link href={`/workbench/listing/missing?preparation=${source.preparationId}&source=${source.id}`}>创建 / 编辑待补全草稿</Link>
             </Button>}

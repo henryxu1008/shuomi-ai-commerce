@@ -1,3 +1,4 @@
+import { metaContracts, metaUpstreamPath, type MetaAction, type MetaRouteContract } from "@/lib/contracts/meta-catalog";
 import { googleContracts, googleUpstreamPath, type GoogleAction, type GoogleRouteContract } from "@/lib/contracts/google-merchant";
 import { isCockpitMetricsQuery } from "@/lib/contracts/cockpit-metrics";
 import { catalogVersionSchema, COMPLETION_MAX_BYTES, SUPPLY_MAX_BYTES, supplyRouteMethods, supplyPath, supplyRequestSchema, supplyUsesKey, supplyMutates, parseSupplyResponse, type SupplyRoute } from "@/lib/contracts/supply-chain";
@@ -58,7 +59,7 @@ const REQUEST_ID_MAX_BYTES = 128;
 const imageErrorStatuses: Readonly<Record<string, number>> = { INVALID_IMAGE_REQUEST: 400, FORBIDDEN: 403, IMAGE_NOT_FOUND: 404, IMAGE_CONFLICT: 409, IMAGE_BLOCKED: 409, IMAGE_UNAVAILABLE: 503 };
 
 export type WorkbenchResponseContract =
-  | GoogleRouteContract
+  | GoogleRouteContract | MetaRouteContract
   | `product-acquisition-plan-${PlanRoute}`
   | `image-set-${ImageSetRoute}`
   | `collection-${CollectionRoute}`
@@ -90,7 +91,7 @@ export type WorkbenchResponseContract =
   | "source-account-mutation";
 
 type WorkbenchRequestContract =
-  | GoogleRouteContract
+  | GoogleRouteContract | MetaRouteContract
   | `product-acquisition-plan-${PlanRoute}`
   | `image-set-${ImageSetRoute}`
   | `collection-${CollectionRoute}`
@@ -420,6 +421,9 @@ const workbenchRouteAllowlist = [
   routeDefinition("POST","store-service-activate","store-service-lifecycle",path=>storeActionPath(path,"activate")),
   routeDefinition("POST","store-service-renew","store-service-lifecycle",path=>storeActionPath(path,"renew")),
   routeDefinition("POST","store-service-reactivate","store-service-lifecycle",path=>storeActionPath(path,"reactivate")),
+  ...(Object.keys(metaContracts) as MetaAction[]).map(action =>
+    routeDefinition(metaContracts[action].method, ("meta-"+action) as MetaRouteContract, ("meta-"+action) as MetaRouteContract,
+      path => process.env.NEXT_PUBLIC_META_CATALOG_SIMULATION==="true" ? metaUpstreamPath(action,path) : null)),
   ...(Object.keys(googleContracts) as GoogleAction[]).map(action =>
     routeDefinition(googleContracts[action].method, ("google-"+action) as GoogleRouteContract, ("google-"+action) as GoogleRouteContract, path => googleUpstreamPath(action,path))),
   routeDefinition("GET","store-connection-applications","store-connection-applications",path=>path.length===4&&path[0]==="stores"&&isAcquisitionUUID(path[1]!)&&path[2]==="connection"&&path[3]==="applications" ? `stores/${path[1]}/connection/applications`:null),
@@ -466,12 +470,14 @@ export async function buildWorkbenchUpstreamRequest(
     );
   }
   const googleContract = route.requestContract.startsWith("google-");
+  const metaContract = route.requestContract.startsWith("meta-");
+  const catalogContract = googleContract || metaContract;
   const collectionContract = route.requestContract.startsWith("collection-");
   const supplyContract = route.requestContract.startsWith("supply-");
   const imageSetContract = route.requestContract.startsWith("image-set-");
   const analysisContract = route.requestContract.startsWith("product-agent-image-analysis-");
   if (
-    (googleContract || supplyContract || collectionContract || route.requestContract.startsWith("store-") ||
+    (catalogContract || supplyContract || collectionContract || route.requestContract.startsWith("store-") ||
       route.requestContract.startsWith("source-account-") ||
       (route.requestContract.startsWith("product-acquisition-") || route.requestContract.startsWith("browser-capture-") || (imageSetContract || route.requestContract.startsWith("acquisition-image-")) || route.requestContract.startsWith("product-agent-") || route.requestContract.startsWith("ai-"))) &&
     new URL(request.url).pathname !==
@@ -505,12 +511,12 @@ export async function buildWorkbenchUpstreamRequest(
     headers.set("Content-Type", "application/json");
     headers.set("X-Requested-Organization-ID", organizationId);
   } else {
-    const selectedOrganization = (googleContract || supplyContract || collectionContract || route.requestContract.startsWith("source-account-") || (route.requestContract.startsWith("product-acquisition-") || route.requestContract.startsWith("browser-capture-") || (imageSetContract || route.requestContract.startsWith("acquisition-image-")) || route.requestContract.startsWith("product-agent-") || route.requestContract.startsWith("ai-")))
+    const selectedOrganization = (catalogContract || supplyContract || collectionContract || route.requestContract.startsWith("source-account-") || (route.requestContract.startsWith("product-acquisition-") || route.requestContract.startsWith("browser-capture-") || (imageSetContract || route.requestContract.startsWith("acquisition-image-")) || route.requestContract.startsWith("product-agent-") || route.requestContract.startsWith("ai-")))
       ? readSourceSelectedOrganization(request)
       : readSelectedOrganization(request);
     if (selectedOrganization instanceof Response) return selectedOrganization;
     if (
-      googleContract || supplyContract || collectionContract || route.requestContract.startsWith("store-") ||
+      catalogContract || supplyContract || collectionContract || route.requestContract.startsWith("store-") ||
       route.requestContract.startsWith("source-account-") || (route.requestContract.startsWith("product-acquisition-") || route.requestContract.startsWith("browser-capture-") || (imageSetContract || route.requestContract.startsWith("acquisition-image-")) || route.requestContract.startsWith("product-agent-") || route.requestContract.startsWith("ai-"))
     ) {
       const expectedOrganization = readExpectedOrganizationAssertion(
@@ -532,9 +538,9 @@ export async function buildWorkbenchUpstreamRequest(
       headers.set("X-Requested-Organization-ID", selectedOrganization);
     }
 
-    if (googleContract) {
-      const action = route.requestContract.slice(7) as GoogleAction;
-      const spec = googleContracts[action];
+    if (catalogContract) {
+      const action = route.requestContract.slice(metaContract ? 5 : 7) as GoogleAction | MetaAction;
+      const spec = metaContract ? metaContracts[action as MetaAction] : googleContracts[action as GoogleAction];
       if (!hasExactNoQuery(request) || !authenticatedActorSubject || request.headers.get(EXPECTED_USER_ID_HEADER) !== authenticatedActorSubject)
         return protocolError(409,"IDENTITY_CONTEXT_CHANGED","Identity context changed");
       if (spec.method === "GET") {
@@ -548,7 +554,7 @@ export async function buildWorkbenchUpstreamRequest(
         if (raw instanceof Response) return raw;
         const parsed = parseJSONBody(raw);
         const result = spec.body.safeParse(parsed?.payload);
-        if (!parsed || !result.success) return protocolError(400,"INVALID_REQUEST","Invalid Google Merchant request");
+        if (!parsed || !result.success) return protocolError(400,"INVALID_REQUEST",metaContract?"Invalid Meta catalog request":"Invalid Google Merchant request");
         if (action === "prepare") {
           const key = readCanonicalUUIDHeader(request.headers,"Idempotency-Key");
           if (!key) return protocolError(400,"INVALID_REQUEST","Invalid request key");
@@ -1132,7 +1138,7 @@ export async function buildWorkbenchUpstreamRequest(
         : undefined),
     requestId,
     sourceMutation:
-      (googleContract && request.method==="POST") ||
+      (catalogContract && request.method==="POST") ||
       (route.requestContract.startsWith("product-acquisition-plan-")&&request.method==="POST") ||
       (imageSetContract && request.method==="POST" && route.requestContract!=="image-set-preview" && route.requestContract!=="image-set-requirements") ||
       (supplyContract && supplyMutates(route.requestContract.slice(7) as SupplyRoute)) ||
@@ -1229,16 +1235,17 @@ export async function buildWorkbenchBrowserResponse(
 
   const parsedBody = parseJSONBody(body);
   const payload = parsedBody?.payload ?? null;
-  if (contract.startsWith("google-")) {
+  if (contract.startsWith("google-") || contract.startsWith("meta-")) {
     const action = contract.slice(7) as GoogleAction;
-    const checked = googleContracts[action].response.safeParse(payload);
+    const spec = contract.startsWith("meta-") ? metaContracts[contract.slice(5) as MetaAction] : googleContracts[action];
+    const checked = spec.response.safeParse(payload);
     if (upstream.status === 200 && checked.success) return new NextResponse(JSON.stringify(checked.data), {status:200,headers:safeJSONHeaders()});
     const code = typeof payload?.code === "string" ? payload.code : "";
     const permitted = new Set(["INVALID_REQUEST","AUTHENTICATION_REQUIRED","PERMISSION_DENIED","NOT_FOUND","STORE_NOT_FOUND",
       "STORE_VERSION_CONFLICT","VERSION_CONFLICT","OUTCOME_UNKNOWN","NOT_READY","REVISION_CONFLICT","DEPENDENCY_UNAVAILABLE",
       "STORE_OFFICIAL_SETUP_UNAVAILABLE","STORE_AUTHORIZATION_REJECTED","STORE_AUTHORIZATION_OUTCOME_UNKNOWN","STORE_CONNECTION_NOT_CONNECTED","STORE_CONNECTION_UNAVAILABLE","STORE_INVALID_STATE","IDEMPOTENCY_KEY_CONFLICT","ORGANIZATION_ACCESS_DENIED","ORGANIZATION_ACCESS_REVOKED"]);
-    if (!upstream.ok && permitted.has(code)) return protocolError(upstream.status,code,"Google Merchant request failed",options.requestId??"");
-    return protocolError(502,options.sourceMutation ? "OUTCOME_UNKNOWN" : "DEPENDENCY_UNAVAILABLE","Google Merchant response invalid",options.requestId??"");
+    if (!upstream.ok && permitted.has(code)) return protocolError(upstream.status,code,contract.startsWith("meta-")?"Meta catalog request failed":"Google Merchant request failed",options.requestId??"");
+    return protocolError(502,options.sourceMutation ? "OUTCOME_UNKNOWN" : "DEPENDENCY_UNAVAILABLE",contract.startsWith("meta-")?"Meta catalog response invalid":"Google Merchant response invalid",options.requestId??"");
   }
   if(supplyContract){
     const invalid=()=>protocolError(options.sourceMutation?503:502,options.sourceMutation?"OUTCOME_UNKNOWN":"DEPENDENCY_UNAVAILABLE","Supply response invalid",options.requestId??"");
