@@ -10,17 +10,18 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
-	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 )
 
 const (
-	ProductImageModel   = aicapability.GRSaiProductImageModel
-	ProductImageBaseURL = aicapability.GRSaiProductImageBaseURL
+	ProductImageModel          = "gpt-image-2.6"
+	ProductImageBaseURL        = "https://grsaiapi.com"
+	ProductImageMaxSourceBytes = 3 << 20
 
 	maxProductImageReplyBytes = 1 << 20
 )
@@ -45,11 +46,12 @@ type ProductImageResult struct {
 
 var errProductImageOutcome = errors.New("grsai product image outcome is unconfirmed")
 var ErrProductImagePreflight = errors.New("grsai product image request did not start")
+var productImageTaskID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 
 // StartProductImage sends a single POST. The caller must persist the original
 // dispatch claim first and durably record the returned ID before any lookup.
 func (c *Client) StartProductImage(ctx context.Context, prompt string, source []byte) (string, error) {
-	if !c.productImageConfigured() || ctx == nil || strings.TrimSpace(prompt) == "" || len(prompt) > 16<<10 || !utf8.ValidString(prompt) || len(source) == 0 || len(source) > aicapability.GRSaiProductImageMaxSourceBytes {
+	if !c.productImageConfigured() || ctx == nil || strings.TrimSpace(prompt) == "" || len(prompt) > 16<<10 || !utf8.ValidString(prompt) || len(source) == 0 || len(source) > ProductImageMaxSourceBytes {
 		return "", ErrProductImagePreflight
 	}
 	media := http.DetectContentType(source)
@@ -78,7 +80,7 @@ func (c *Client) StartProductImage(ctx context.Context, prompt string, source []
 		return "", ErrProductImagePreflight
 	}
 	response, err := c.readProductImageResponse(ctx, http.MethodPost, ProductImageBaseURL+"/v1/api/generate", bytes.NewReader(body))
-	if err != nil || !aicapability.ValidGRSaiProductImageTaskID(response.ID) || response.Status != string(ProductImageRunning) || len(response.Results) != 0 || response.Error != "" {
+	if err != nil || !productImageTaskID.MatchString(response.ID) || response.Status != string(ProductImageRunning) || len(response.Results) != 0 || response.Error != "" {
 		return "", errProductImageOutcome
 	}
 	return response.ID, nil
@@ -87,7 +89,7 @@ func (c *Client) StartProductImage(ctx context.Context, prompt string, source []
 // ReadProductImageResult only reads the known supplier ID. The application
 // supplies the original still-valid credential and owns all polling limits.
 func (c *Client) ReadProductImageResult(ctx context.Context, taskID string) (ProductImageResult, error) {
-	if !c.productImageConfigured() || ctx == nil || !aicapability.ValidGRSaiProductImageTaskID(taskID) {
+	if !c.productImageConfigured() || ctx == nil || !productImageTaskID.MatchString(taskID) {
 		return ProductImageResult{}, errors.New("grsai product image lookup is unavailable")
 	}
 	ctx, cancel := context.WithTimeout(ctx, min(c.cfg.Timeout, 5*time.Second))
