@@ -27,15 +27,8 @@ type AuthorizationNotice struct {
 // VerifyAuthorizationNotice returns only the signed Shop identity and a digest.
 // Shop contact details and request headers never identify a local authorization.
 func (c *OAuthClient) VerifyAuthorizationNotice(topic, signature string, raw []byte) (AuthorizationNotice, error) {
-	if c == nil || len(raw) == 0 || len(raw) > MaxAuthorizationNoticeBytes {
-		return AuthorizationNotice{}, ErrInvalidRequest
-	}
-	mac := hmac.New(sha256.New, []byte(c.clientSecret))
-	mac.Write(raw)
-	normalized := mac.Sum(nil)
-	decoded, err := base64.StdEncoding.Strict().DecodeString(signature)
-	if err != nil || base64.StdEncoding.EncodeToString(decoded) != signature || !hmac.Equal(decoded, normalized) {
-		return AuthorizationNotice{}, ErrNoticeSignature
+	if err := c.verifyNoticeSignature(signature, raw); err != nil {
+		return AuthorizationNotice{}, err
 	}
 	var fields map[string]json.RawMessage
 	if !decodeAdminJSON(raw, &fields) || !canonicalAuthorizationFields(fields) {
@@ -72,6 +65,19 @@ func (c *OAuthClient) VerifyAuthorizationNotice(topic, signature string, raw []b
 	digest := sha256.Sum256(raw)
 	notice.BodyHash = hex.EncodeToString(digest[:])
 	return notice, nil
+}
+
+func (c *OAuthClient) verifyNoticeSignature(signature string, raw []byte) error {
+	if c == nil || len(raw) == 0 || len(raw) > MaxAuthorizationNoticeBytes {
+		return ErrInvalidRequest
+	}
+	mac := hmac.New(sha256.New, []byte(c.clientSecret))
+	mac.Write(raw)
+	decoded, err := base64.StdEncoding.Strict().DecodeString(signature)
+	if err != nil || base64.StdEncoding.EncodeToString(decoded) != signature || !hmac.Equal(decoded, mac.Sum(nil)) {
+		return ErrNoticeSignature
+	}
+	return nil
 }
 
 func canonicalAuthorizationFields(fields map[string]json.RawMessage) bool {

@@ -40,12 +40,14 @@ func (h *Handler) shopifyLifecycleRoutes() []httproute.Descriptor {
 		return nil
 	}
 	return []httproute.Descriptor{
-		shopifyLifecycleRoute(ShopifyUninstalledPath, "app/uninstalled", service),
-		shopifyLifecycleRoute(ShopifyScopesUpdatedPath, "app/scopes_update", service),
+		shopifyNoticeRoute(ShopifyUninstalledPath, "app/uninstalled", service.ReceiveShopifyLifecycle),
+		shopifyNoticeRoute(ShopifyScopesUpdatedPath, "app/scopes_update", service.ReceiveShopifyLifecycle),
 	}
 }
 
-func shopifyLifecycleRoute(path, topic string, service shopifyLifecycleService) httproute.Descriptor {
+type shopifyNoticeReceiver func(context.Context, string, string, string, []byte) error
+
+func shopifyNoticeRoute(path, topic string, receive shopifyNoticeReceiver) httproute.Descriptor {
 	return httproute.Descriptor{Method: http.MethodPost, Path: path, Module: ModuleName, AuthPolicy: httproute.AuthPolicyPublic,
 		OrganizationAccessPolicy: httproute.OrganizationAccessPolicyNone, RequestTimeout: ShopifyLifecycleTimeout,
 		Handler: httproute.WithRequestBodyReadTimeout(ShopifyLifecycleTimeout, func(c *gin.Context) {
@@ -69,7 +71,7 @@ func shopifyLifecycleRoute(path, topic string, service shopifyLifecycleService) 
 				c.Status(http.StatusBadRequest)
 				return
 			}
-			err = service.ReceiveShopifyLifecycle(request.Context(), topic, eventID[0], signatures[0], body)
+			err = receive(request.Context(), topic, eventID[0], signatures[0], body)
 			switch {
 			case errors.Is(err, storecenter.ErrOfficialAuthorizationRejected):
 				c.Status(http.StatusUnauthorized)
