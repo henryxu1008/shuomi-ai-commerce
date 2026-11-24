@@ -18,6 +18,7 @@ import (
 	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
@@ -32,6 +33,14 @@ import (
 type fixedAuth struct{ scope collection.Scope }
 
 func (a fixedAuth) Authorize(context.Context, string) (collection.Scope, error) { return a.scope, nil }
+
+type stageMerchantFixture struct {
+	binding storecenter.ProductMerchantBinding
+}
+
+func (f stageMerchantFixture) ReadTargetMerchant(context.Context, collection.Scope, string) (storecenter.ProductMerchantBinding, error) {
+	return f.binding, nil
+}
 
 type unusedSources struct {
 	sourcing.PublishedAcquisitionReader
@@ -235,6 +244,20 @@ func TestPostgresTransferCapturesAllPagesAndReplaysOriginalMembership(t *testing
 		require.Equal(t, recordID, facts[0].RecordID)
 		require.True(t, facts[0].Ready)
 		require.Equal(t, recordID, facts[0].PublishedRecordID)
+
+		replacement := uuid.NewString()
+		binding := storecenter.ProductMerchantBinding{
+			Platform: storecenter.PlatformShopify, OrganizationID: scope.OrganizationID, StoreID: replacement, Site: "shopify",
+			StoreVersion: 1, ConnectionRevision: 2, ApplicationID: "gid://shopify/App/32", ApplicationRevision: "shopify-admin-2026-10",
+			SupplierIdentityHash: supplierHash, Shopify: storecenter.ShopifyMerchantBinding{ShopKey: shopKey, Currency: "USD"},
+		}
+		app := listingapp.Application{
+			Preparations: service, Authorization: authority, StageProjection: listingapp.ReviewProjection{Facts: repository},
+			TargetMerchants: stageMerchantFixture{binding: binding},
+		}
+		page, err := app.Stages(actor, receipt.Preparation.ID, replacement, "uploaded", collection.Query{Limit: 20}, "")
+		require.NoError(t, err)
+		require.Equal(t, []listingapp.StageItem{{SourceID: source.SourceID, Stage: "uploaded"}}, page.Items)
 
 		// Rebinding this Workbench store cannot surface the former shop's draft.
 		otherShop := uuid.NewString()

@@ -133,11 +133,12 @@ func (a *Application) Stages(ctx context.Context, id, storeID, stage string, q c
 	if limit == 0 {
 		limit = 20
 	}
+	shopifyShopKey := binding.Shopify.ShopKey
 	after := ""
 	cursorFound := q.After == ""
 	last := ""
 	for {
-		facts, e := a.StageProjection.Facts.ListStageFacts(ctx, scope, id, storeID, binding.Shopify.ShopKey, binding.SupplierIdentityHash, after)
+		facts, e := a.StageProjection.Facts.ListStageFacts(ctx, scope, id, storeID, shopifyShopKey, binding.SupplierIdentityHash, after)
 		if e != nil {
 			return out, e
 		}
@@ -155,9 +156,11 @@ func (a *Application) Stages(ctx context.Context, id, storeID, stage string, q c
 				if f.Ready {
 					current.Stage = "ready"
 				}
-				if f.PublishedRecordID == f.RecordID {
-					current.Stage = "uploaded"
-				}
+			}
+			// Shopify confirms one draft per source and stable shop. Its receipt is
+			// still current when the same shop is attached to a replacement Store.
+			if f.PublishedRecordID != "" && (shopifyShopKey != "" || f.PublishedRecordID == f.RecordID) {
+				current.Stage = "uploaded"
 			}
 			if f.Optimization.Status != "" && (f.Optimization.RecordID == f.RecordID && f.Optimization.RecordRevision == f.RecordRevision || f.Optimization.RecordID == "" && (f.Optimization.Status == preparation.ItemPending || f.Optimization.Status == preparation.ItemRunning)) {
 				pending, e := a.StageProjection.pending(ctx, scope, f.Optimization, f.ProductKey, f.EffectiveVersion)
@@ -201,6 +204,12 @@ func (a *Application) Stages(ctx context.Context, id, storeID, stage string, q c
 	}
 	if out.Counts["all"] != out.BatchTotal {
 		return out, record.ErrConflict
+	}
+	if shopifyShopKey != "" {
+		current, e := a.TargetMerchants.ReadTargetMerchant(ctx, scope, storeID)
+		if e != nil || current != binding {
+			return out, record.ErrForbidden
+		}
 	}
 	fresh, err := a.Authorization.Authorize(ctx, preparation.PermissionRead)
 	if err == nil && fresh != scope {
