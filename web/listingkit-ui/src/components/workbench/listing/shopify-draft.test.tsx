@@ -1,10 +1,15 @@
 import {cleanup, fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {afterEach, expect, it, vi} from "vitest";
-import {readSupplyPublicationStatus} from "@/lib/api/supply-chain";
-import {publicationSchema} from "@/lib/contracts/supply-chain";
-import {ShopifyDraftResult} from "./shopify-draft";
+import {readSupplyPublicationStatus, shopifySupplyRules, supplyInventory} from "@/lib/api/supply-chain";
+import {publicationSchema, type SupplySourceDetail} from "@/lib/contracts/supply-chain";
+import {ShopifyDraftEditor, ShopifyDraftResult} from "./shopify-draft";
+import type {ListingCommandState} from "./use-listing-command";
 
-vi.mock("@/lib/api/supply-chain", () => ({readSupplyPublicationStatus: vi.fn()}));
+vi.mock("@/lib/api/supply-chain", () => ({
+ readSupplyPublicationStatus: vi.fn(),
+ shopifySupplyRules: vi.fn(),
+ supplyInventory: vi.fn(),
+}));
 afterEach(() => {cleanup(); vi.resetAllMocks()});
 
 const sourceId = "11111111-1111-4111-8111-111111111111";
@@ -16,6 +21,35 @@ const receipt = {
 };
 const readback = {...receipt, shopifyStatus: receipt.shopify};
 const adminUrl = "https://fixture-shop.myshopify.com/admin/products/12345";
+
+it("submits the confirmed Shopify price when clicking Save", async () => {
+ vi.mocked(shopifySupplyRules).mockImplementation(async () => ({
+  merchant: {store_id: storeId}, shopify: {currency: "USD"},
+ }) as Awaited<ReturnType<typeof shopifySupplyRules>>);
+ vi.mocked(supplyInventory).mockResolvedValue({
+  scope: {tenant_id: "org", product_key: "fixture", target_platform: "product", source_snapshot_version: "1"},
+  assets: [],
+ });
+ const source: SupplySourceDetail = {
+  source: {
+   id: sourceId, preparationId: sourceId, collectionItemId: sourceId, collectionRevision: 1,
+   source: {productKey: "fixture", publicationId: sourceId, version: "1", kind: "own"},
+  },
+  product: {title: "Test travel pouch", variants: [{sku: "SAMPLE"}]},
+  images: [],
+ };
+ const execute = vi.fn<ListingCommandState["execute"]>();
+ const command: ListingCommandState = {execute, busy: false, error: null, foreign: false, ready: true,
+  pending: null, verify: vi.fn(), retry: vi.fn()};
+ render(<ShopifyDraftEditor scope={{organizationId: "org", userId: "user"}} source={source}
+  storeId={storeId} storeName="Fixture shop" command={command} disabled={false}/>);
+ fireEvent.change(await screen.findByRole("textbox", {name: "SAMPLE"}), {target: {value: "12.50"}});
+ fireEvent.click(screen.getByRole("button", {name: "保存待上传资料"}));
+ expect(execute).toHaveBeenCalledExactlyOnceWith("save-target", {
+  sourceId, storeId, expectedRevision: 0, effectiveVersion: "1",
+  shopify: {currency: "USD", prices: ["12.50"], imageIds: []},
+ });
+});
 
 it("shows the Shopify admin link after verifying the product", async () => {
  vi.mocked(readSupplyPublicationStatus).mockResolvedValue(publicationSchema.parse({...readback, shopifyAdminUrl: adminUrl}));

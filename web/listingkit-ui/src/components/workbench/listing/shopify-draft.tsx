@@ -93,7 +93,7 @@ export function ShopifyDraftEditor({scope, source, storeId, storeName, existing,
      </label>)}
     </div>}
   </fieldset>
-  <Button disabled={!canSave}>保存待上传资料</Button>
+  <Button type="submit" disabled={!canSave}>保存待上传资料</Button>
  </form>;
 }
 
