@@ -567,6 +567,7 @@ function ScopedPage({
       ) : list.isError ? (
         <ErrorState
           error={list.error}
+          shopifyOrder={shopify}
           retry={() => {
             setAfter("");
             setHistory([]);
@@ -1000,7 +1001,11 @@ function Detail({
       {detail.isPending ? (
         <ConsoleState kind="loading" title="正在读取详情…" />
       ) : detail.isError ? (
-        <ErrorState error={detail.error} retry={() => void detail.refetch()} />
+        <ErrorState
+          error={detail.error}
+          shopifyOrder={Boolean(selected.shopifyOrder)}
+          retry={() => void detail.refetch()}
+        />
       ) : detail.data ? (
         <div className={styles.detailBody}>
           <p className={styles.coverage}>
@@ -1314,11 +1319,22 @@ function coverageNote(code: string) {
   };
   return notes[code] ?? code;
 }
-function ErrorState({ error, retry }: { error: unknown; retry: () => void }) {
+function ErrorState({
+  error,
+  retry,
+  shopifyOrder = false,
+}: {
+  error: unknown;
+  retry: () => void;
+  shopifyOrder?: boolean;
+}) {
   const code =
     error instanceof ObservationError ? error.code : "DEPENDENCY_UNAVAILABLE";
-  const message =
-    code === "PERMISSION_DENIED"
+  const shopifyAccessDenied =
+    shopifyOrder && (code === "PERMISSION_DENIED" || code === "NOT_FOUND");
+  const message = shopifyAccessDenied
+    ? "当前无法查看这家 Shopify 店铺的订单，请核对店铺授权和成员权限"
+    : code === "PERMISSION_DENIED"
       ? "没有查看当前企业数据的权限"
       : code === "REVISION_CONFLICT"
         ? "同步范围已变化，请从第一页刷新"

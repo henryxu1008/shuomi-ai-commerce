@@ -71,6 +71,21 @@ func TestShopifyOrderGraphQLErrorDoesNotMeanEmptyOrders(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestShopifyOrderRequiresAnExplicitCancellationField(t *testing.T) {
+	withoutCancellation := strings.Replace(shopifyOrderFirstPageFixture, `"cancelledAt":null,`, "", 1)
+	withoutCancellation = strings.Replace(withoutCancellation, `"hasNextPage":true,"endCursor":"lines-next"`, `"hasNextPage":false,"endCursor":null`, 1)
+	reader, err := NewSyntheticOrderReader(transportFunc(func(*http.Request) (*http.Response, error) {
+		return fixtureResponse(200, withoutCancellation), nil
+	}))
+	require.NoError(t, err)
+	start := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	page, err := reader.Orders(context.Background(), "fixture.myshopify.com", "orders-fixture",
+		OrderQuery{Start: start, End: start.Add(30 * 24 * time.Hour)}, func(context.Context) error { return nil })
+	require.NoError(t, err)
+	require.True(t, page.Incomplete)
+	require.Empty(t, page.Orders)
+}
+
 const shopifyOrderFirstPageFixture = `{"data":{"orders":{"pageInfo":{"hasNextPage":true,"endCursor":"orders-next"},"nodes":[{"id":"gid://shopify/Order/17","name":"#1017","createdAt":"2026-10-20T12:00:00Z","updatedAt":"2026-10-22T12:00:00Z","cancelledAt":null,"displayFulfillmentStatus":"UNFULFILLED","lineItems":{"pageInfo":{"hasNextPage":true,"endCursor":"lines-next"},"nodes":[{"id":"gid://shopify/LineItem/51","title":"Fixture A","sku":"A01","quantity":2}]}}]}}}`
 
 const shopifyOrderSecondLinePageFixture = `{"data":{"order":{"id":"gid://shopify/Order/17","updatedAt":"2026-10-22T12:00:00Z","lineItems":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"gid://shopify/LineItem/52","title":"Fixture B","sku":null,"quantity":1}]}}}}`

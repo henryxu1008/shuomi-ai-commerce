@@ -2,6 +2,7 @@ package shopify
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"sort"
@@ -76,13 +77,13 @@ type orderLines struct {
 }
 
 type orderNode struct {
-	ID          string      `json:"id"`
-	Name        string      `json:"name"`
-	CreatedAt   time.Time   `json:"createdAt"`
-	UpdatedAt   time.Time   `json:"updatedAt"`
-	CancelledAt *time.Time  `json:"cancelledAt"`
-	Status      string      `json:"displayFulfillmentStatus"`
-	Lines       *orderLines `json:"lineItems"`
+	ID          string          `json:"id"`
+	Name        string          `json:"name"`
+	CreatedAt   time.Time       `json:"createdAt"`
+	UpdatedAt   time.Time       `json:"updatedAt"`
+	CancelledAt json.RawMessage `json:"cancelledAt"`
+	Status      string          `json:"displayFulfillmentStatus"`
+	Lines       *orderLines     `json:"lineItems"`
 }
 
 func (r *SyntheticOrderReader) Orders(ctx context.Context, domain, token string, q OrderQuery, authorize func(context.Context) error) (OrderPage, error) {
@@ -119,6 +120,12 @@ func (r *SyntheticOrderReader) Orders(ctx context.Context, domain, token string,
 			out.Incomplete = true
 			continue
 		}
+		var cancelledAt *time.Time
+		if len(node.CancelledAt) == 0 || json.Unmarshal(node.CancelledAt, &cancelledAt) != nil ||
+			cancelledAt != nil && (cancelledAt.Before(node.CreatedAt) || cancelledAt.After(node.UpdatedAt)) {
+			out.Incomplete = true
+			continue
+		}
 		items, err := r.readOrderLines(ctx, domain, token, node, &lineReads, authorize)
 		if errors.Is(err, ErrOrderPageUnavailable) {
 			out.Incomplete = true
@@ -128,7 +135,7 @@ func (r *SyntheticOrderReader) Orders(ctx context.Context, domain, token string,
 			return OrderPage{}, err
 		}
 		order := market.ObservedOrder{ID: strings.TrimPrefix(node.ID, "gid://shopify/Order/"), Number: strings.TrimSpace(node.Name), CreatedAt: node.CreatedAt.UTC(),
-			UpdatedAt: node.UpdatedAt.UTC(), Status: node.Status, Cancelled: node.CancelledAt != nil, Items: items}
+			UpdatedAt: node.UpdatedAt.UTC(), Status: node.Status, Cancelled: cancelledAt != nil, Items: items}
 		if !order.Valid() {
 			out.Incomplete = true
 			continue

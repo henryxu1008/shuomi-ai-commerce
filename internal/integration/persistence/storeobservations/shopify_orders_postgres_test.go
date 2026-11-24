@@ -18,6 +18,8 @@ import (
 	app "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storeobservations"
 	routes "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storeobservations/httpapi"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 	wire "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/shopify"
 	market "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shopify"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
@@ -40,21 +42,60 @@ type shopifyFixtureTransport func(*http.Request) (*http.Response, error)
 
 func (f shopifyFixtureTransport) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
 
+type shopifyFixtureIAM struct{}
+
+func (shopifyFixtureIAM) ReadExactServiceProjectAuthorization(_ context.Context, token, actor, project, org string) (zitadel.ExactServiceProjectAuthorization, error) {
+	if token != "fixture-service" || project != "fixture-project" || (org != "org-a" && org != "org-b") {
+		return zitadel.ExactServiceProjectAuthorization{}, nil
+	}
+	member, role := "member-"+org, authz.EnterpriseRoleKey(org, 1)
+	switch {
+	case actor == "store-member-org-a" && org == "org-a":
+		member, role = actor, authz.EnterpriseRoleKey(org, 2)
+	case actor != "actor-"+org:
+		return zitadel.ExactServiceProjectAuthorization{}, nil
+	}
+	return zitadel.ExactServiceProjectAuthorization{
+		Found: true, State: "STATE_ACTIVE", AuthorizationID: member, Roles: []string{role},
+	}, nil
+}
+
+type shopifyFixtureRolePolicy struct{}
+
+func (shopifyFixtureRolePolicy) RoleModules(_ context.Context, org string, keys []string) (map[string][]string, error) {
+	policies := make(map[string][]string, len(keys))
+	for _, key := range keys {
+		switch key {
+		case authz.EnterpriseRoleKey(org, 1):
+			policies[key] = []string{"store-orders"}
+		case authz.EnterpriseRoleKey(org, 2):
+			policies[key] = []string{"stores"}
+		}
+	}
+	return policies, nil
+}
+
 type shopifyFixtureAuthorization struct {
+	app.Authorization
 	db       *gorm.DB
 	bindings map[string]o.Binding
 	reader   *wire.SyntheticOrderReader
 }
 
-func (a *shopifyFixtureAuthorization) Authorize(_ context.Context, scope o.Scope, kind o.Kind, _ bool) error {
-	if !scope.Valid() || kind != o.Orders {
-		return o.ErrForbidden
+func (a *shopifyFixtureAuthorization) Authorize(ctx context.Context, scope o.Scope, kind o.Kind, sync bool) error {
+	// The current enterprise order module bundles read and sync. Exercise the
+	// existing permission split with a synthetic read-only order grant.
+	if scope == (o.Scope{OrganizationID: "org-a", ActorID: "reader-org-a", MemberID: "reader-org-a"}) {
+		if kind != o.Orders || sync {
+			return o.ErrForbidden
+		}
+		return nil
 	}
-	return nil
+	return a.Authorization.Authorize(ctx, scope, kind, sync)
 }
 
-func (a *shopifyFixtureAuthorization) Open(ctx context.Context, scope o.Scope, storeID string, kind o.Kind, _ bool, expected *o.Binding) (o.Merchant, error) {
-	if err := a.Authorize(ctx, scope, kind, false); err != nil {
+func (a *shopifyFixtureAuthorization) Open(ctx context.Context, scope o.Scope, storeID string, kind o.Kind, sync bool, expected *o.Binding) (o.Merchant, error) {
+	if err := a.Authorize(ctx, scope, kind, sync); err != nil {
 		return nil, err
 	}
 	binding, known := a.bindings[storeID]
@@ -106,10 +147,14 @@ type shopifyFixtureStarter struct{}
 
 func (shopifyFixtureStarter) Ensure(context.Context, string, string) error { return nil }
 
-func shopifyFixtureIdentity(ctx context.Context, org string, expires time.Time) context.Context {
+func shopifyFixtureIdentity(ctx context.Context, account string, expires time.Time) context.Context {
+	org, actor, member := account, "actor-"+account, "member-"+account
+	if account == "reader-org-a" || account == "store-member-org-a" {
+		org, actor, member = "org-a", account, account
+	}
 	return authidentity.WithAuthenticatedIdentity(ctx, authidentity.AuthenticatedIdentity{
-		TenantID: org, EffectiveOrganizationID: org, UserID: "actor-" + org,
-		EffectiveMemberID: "member-" + org, TokenExpiresAt: expires,
+		TenantID: org, EffectiveOrganizationID: org, UserID: actor,
+		EffectiveMemberID: member, TokenExpiresAt: expires,
 	})
 }
 
@@ -223,15 +268,26 @@ func TestSyntheticShopifyOrdersHTTPAndOriginalObservationAuthority(t *testing.T)
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(string(raw)))}, nil
 	}))
 	require.NoError(t, err)
-	access := &shopifyFixtureAuthorization{db: repo.db, bindings: map[string]o.Binding{first.StoreID: first, second.StoreID: second}, reader: reader}
+	permissions, err := authz.NewListingKitAuthorizer(nil, nil)
+	require.NoError(t, err)
+	permissions.SetRolePolicyReader(shopifyFixtureRolePolicy{})
+	access := &shopifyFixtureAuthorization{
+		Authorization: app.Authorization{
+			Client: shopifyFixtureIAM{}, ProjectID: "fixture-project", Permissions: permissions,
+			ServiceToken: func(context.Context) (string, error) { return "fixture-service", nil },
+		},
+		db: repo.db, bindings: map[string]o.Binding{first.StoreID: first, second.StoreID: second}, reader: reader,
+	}
 	service := &o.Service{Repository: repo, Access: access, ShopifyOrders: access, Directory: app.Directory{Stores: stores, ShopifyOrders: true},
 		Starter: shopifyFixtureStarter{}, Now: func() time.Time { return now }}
 	router := gin.New()
 	for _, route := range routes.Routes(&app.Application{Service: service, Ready: func() bool { return true }}, func(ctx context.Context, bearer string) (context.Context, error) {
-		if bearer != "Bearer org-a" && bearer != "Bearer org-b" {
+		switch bearer {
+		case "Bearer org-a", "Bearer org-b", "Bearer reader-org-a", "Bearer store-member-org-a":
+			return shopifyFixtureIdentity(ctx, strings.TrimPrefix(bearer, "Bearer "), now.Add(time.Hour)), nil
+		default:
 			return nil, o.ErrForbidden
 		}
-		return shopifyFixtureIdentity(ctx, strings.TrimPrefix(bearer, "Bearer "), now.Add(time.Hour)), nil
 	}) {
 		router.Handle(route.Method, route.Path, route.Handler)
 	}
@@ -299,6 +355,21 @@ func TestSyntheticShopifyOrdersHTTPAndOriginalObservationAuthority(t *testing.T)
 	require.Equal(t, 200, detail.Code, detail.Body.String())
 	require.Contains(t, detail.Body.String(), `"quantity":2`)
 	require.NotContains(t, detail.Body.String(), `"amount"`)
+
+	readOnlyList := httpCall("reader-org-a", http.MethodGet, query, "", "")
+	require.Equal(t, http.StatusOK, readOnlyList.Code, readOnlyList.Body.String())
+	readOnlyDetail := httpCall("reader-org-a", http.MethodGet, statusPath, "", "")
+	require.Equal(t, http.StatusOK, readOnlyDetail.Code, readOnlyDetail.Body.String())
+	syncBody := `{"kind":"orders","stores":["` + first.StoreID + `"]}`
+	require.Equal(t, http.StatusForbidden, httpCall("store-member-org-a", http.MethodGet, query, "", "").Code)
+	require.Equal(t, http.StatusForbidden, httpCall("store-member-org-a", http.MethodGet, statusPath, "", "").Code)
+	require.Equal(t, http.StatusForbidden, httpCall("store-member-org-a", http.MethodPost, "/syncs", uuid.NewString(), syncBody).Code)
+	for _, syncKey := range []string{key, uuid.NewString()} {
+		syncDenied := httpCall("reader-org-a", http.MethodPost, "/syncs", syncKey, syncBody)
+		require.Equal(t, http.StatusForbidden, syncDenied.Code, syncDenied.Body.String())
+	}
+	require.Equal(t, 2, calls)
+
 	track := httpCall("org-a", http.MethodGet, statusPath+"/packages/fixture/track", "", "")
 	require.Equal(t, 409, track.Code, track.Body.String())
 	require.Contains(t, track.Body.String(), "UNSUPPORTED_APPLICATION")
