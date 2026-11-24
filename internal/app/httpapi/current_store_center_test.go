@@ -48,6 +48,60 @@ func TestTikTokLifecycleAdmissionRequiresExplicitSignedBoundary(t *testing.T) {
 	}
 }
 
+type inertAmazonStoreAuthorization struct {
+	storehttp.AmazonAuthorizationService
+}
+
+func TestShopifyPairingRouteUsesCurrentStoreAdmission(t *testing.T) {
+	h, err := storehttp.NewHandlerWithServiceLifecycle(inertStoreService{}, &storecenter.ServiceLifecycleApplication{})
+	require.NoError(t, err)
+	require.NoError(t, h.SetOfficialConnections(&storeapp.OfficialConnections{}))
+	require.NoError(t, h.SetShopifyConnections(&storeapp.ShopifyConnections{}))
+	require.NoError(t, h.SetAmazonAuthorizations(inertAmazonStoreAuthorization{}, currentAmazonSessionProof))
+	module := storehttp.NewModule(h)
+	module.(interface {
+		ConfigureCatalog(*storecenter.Catalog, *storecenter.MetadataRepository)
+	}).ConfigureCatalog(&storecenter.Catalog{}, &storecenter.MetadataRepository{})
+	require.NoError(t, module.(interface {
+		ConfigureBrowser(*storecenter.BrowserOperations) error
+	}).ConfigureBrowser(&storecenter.BrowserOperations{}))
+	registry := kernelmodule.NewRegistry()
+	require.NoError(t, module.Register(registry))
+	var all []httproute.Descriptor
+	for _, r := range currentWorkbenchApplicationRoutes {
+		all = append(all, httproute.Descriptor{Method: r.Method, Path: r.Path})
+	}
+	all = append(all, registry.Routes()...)
+	validate := func(routes []httproute.Descriptor, shopify bool) error {
+		return validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false,
+			currentApplicationOptionalRoutes{StoreCenter: true, AmazonStoreAuthorization: true, Shopify: shopify})
+	}
+	require.NoError(t, validate(all, true))
+	require.Error(t, validate(all, false))
+	index := -1
+	for i, route := range all {
+		if route.Path == storehttp.ShopifyPairingPath {
+			index = i
+			break
+		}
+	}
+	require.GreaterOrEqual(t, index, 0)
+	for _, mutate := range []func(*httproute.Descriptor){
+		func(d *httproute.Descriptor) { d.Permission = authz.PermissionWorkbenchStoreRead },
+		func(d *httproute.Descriptor) { d.AuthPolicy = httproute.AuthPolicyPublic },
+		func(d *httproute.Descriptor) {
+			d.OrganizationAccessPolicy = httproute.OrganizationAccessPolicyCachedRead
+		},
+		func(d *httproute.Descriptor) { d.RequestTimeout = 0 },
+		func(d *httproute.Descriptor) { d.RejectUnreadRequestBody = false },
+		func(d *httproute.Descriptor) { d.Handler = nil },
+	} {
+		changed := append([]httproute.Descriptor(nil), all...)
+		mutate(&changed[index])
+		require.Error(t, validate(changed, true))
+	}
+}
+
 func TestCurrentStoreAdmissionUsesRegisteredOfficialRefresh(t *testing.T) {
 	h, err := storehttp.NewHandlerWithServiceLifecycle(inertStoreService{}, &storecenter.ServiceLifecycleApplication{})
 	require.NoError(t, err)

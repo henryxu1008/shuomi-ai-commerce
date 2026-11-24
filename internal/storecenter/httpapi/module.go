@@ -44,7 +44,10 @@ func (m routeModule) Enabled(cfg *config.Config) bool {
 
 func (m routeModule) Register(registry *kernelmodule.Registry) error {
 	if m.handler.shopifyConnections != nil {
-		registry.AddRoutes(route(http.MethodPost, ShopifyPairingPath, authz.PermissionWorkbenchStoreUpdate, httproute.OrganizationAccessPolicyLiveWrite, m.handler.ShopifyPairing))
+		pairing := route(http.MethodPost, ShopifyPairingPath, authz.PermissionWorkbenchStoreUpdate, httproute.OrganizationAccessPolicyLiveWrite, m.handler.ShopifyPairing)
+		pairing.RequestTimeout = ShopifyPairingTimeout
+		pairing.RejectUnreadRequestBody = true
+		registry.AddRoutes(pairing)
 	}
 	registry.AddRoutes(m.handler.amazonAuthorizationRoutes()...)
 	if m.handler.browser != nil {

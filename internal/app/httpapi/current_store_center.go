@@ -210,6 +210,15 @@ func (a currentStoreMemberAuthorizer) ReceiptSubject(ctx context.Context) (strin
 }
 
 func validateCurrentStoreDescriptor(d httproute.Descriptor) error {
+	if d.Path == storehttp.ShopifyPairingPath {
+		if d.Module == storehttp.ModuleName && d.Method == http.MethodPost &&
+			d.AuthPolicy == httproute.AuthPolicyCurrentIdentity && d.OrganizationAccessPolicy == httproute.OrganizationAccessPolicyLiveWrite &&
+			d.Permission == authz.PermissionWorkbenchStoreUpdate && d.OrganizationTargetResolver == nil &&
+			d.RequestTimeout == storehttp.ShopifyPairingTimeout && d.RejectUnreadRequestBody && d.Handler != nil {
+			return nil
+		}
+		return errors.New("Shopify Store pairing route loses live write authority or request bounds")
+	}
 	if storehttp.IsAmazonAuthorizationPath(d.Path) {
 		method, permission, timeout := http.MethodPost, authz.PermissionWorkbenchStoreUpdate, 35*time.Second
 		if d.Path == storehttp.AmazonAuthorizationStatusPath {

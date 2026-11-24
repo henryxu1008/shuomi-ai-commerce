@@ -4,12 +4,16 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
-const ShopifyPairingPath = "/api/v1/workbench/stores/:store_id/shopify-pairing"
+const (
+	ShopifyPairingPath    = "/api/v1/workbench/stores/:store_id/shopify-pairing"
+	ShopifyPairingTimeout = 25 * time.Second
+)
 
 type ShopifyConnectionService interface {
 	Begin(context.Context, storecenter.OfficialConnectionCommand, string, string) (storecenter.OfficialConnectionBegin, error)
