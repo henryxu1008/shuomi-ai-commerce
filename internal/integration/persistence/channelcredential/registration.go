@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
 	"gorm.io/gorm"
@@ -57,13 +58,45 @@ func InstallRegistrations(ctx context.Context, db *gorm.DB) error {
 		return tx.Exec(`CREATE TABLE public.ai_channel_registrations (
  organization_id varchar(128) NOT NULL,
  connection_id varchar(128) NOT NULL,
- template varchar(128) NOT NULL CHECK (template IN ('openai-mini-v1','openai-compatible-mini-v1')),
+ template varchar(128) NOT NULL CHECK (template IN ('openai-mini-v1','openai-compatible-mini-v1','grsai-product-image-v1')),
  name varchar(128) NOT NULL CHECK (length(name)>0),
  revision bigint NOT NULL CHECK (revision>0),
  PRIMARY KEY (organization_id, connection_id),
  FOREIGN KEY (organization_id, connection_id) REFERENCES public.ai_channel_connections(organization_id, connection_id)
 )`).Error
 	})
+}
+
+// EnableGRSaiImageRegistration widens only the known template constraint on
+// existing managed registrations. It is called by the explicit Run DB owner.
+func EnableGRSaiImageRegistration(ctx context.Context, db *gorm.DB) (bool, error) {
+	if ctx == nil || ctx.Err() != nil || db == nil || db.Dialector.Name() != "postgres" {
+		return false, credential.ErrUnavailable
+	}
+	var definition string
+	q := db.WithContext(ctx).Raw(`SELECT pg_get_constraintdef(c.oid) FROM pg_constraint c
+JOIN pg_class t ON t.oid=c.conrelid
+WHERE current_user='product_agent_owner' AND current_schema()='public'
+AND t.oid=to_regclass('public.ai_channel_registrations') AND t.relkind='r' AND t.relpersistence='p'
+AND t.relowner=(SELECT oid FROM pg_roles WHERE rolname=current_user)
+AND c.conname='ai_channel_registrations_template_check' AND c.contype='c' AND c.convalidated AND NOT c.connoinherit
+AND c.conkey=ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid=t.oid AND attname='template' AND NOT attisdropped)]`).Scan(&definition)
+	if q.Error != nil || q.RowsAffected != 1 {
+		return false, credential.ErrUnavailable
+	}
+	normalized := strings.NewReplacer("::character varying", "", "::text[]", "", "::text", "", "(", "", ")", "", " ", "").Replace(definition)
+	switch normalized {
+	case "CHECKtemplate=ANYARRAY['openai-mini-v1','openai-compatible-mini-v1','grsai-product-image-v1']":
+		return false, nil
+	case "CHECKtemplate=ANYARRAY['openai-mini-v1','openai-compatible-mini-v1']":
+		err := db.WithContext(ctx).Exec(`ALTER TABLE public.ai_channel_registrations
+DROP CONSTRAINT ai_channel_registrations_template_check,
+ADD CONSTRAINT ai_channel_registrations_template_check
+CHECK (template IN ('openai-mini-v1','openai-compatible-mini-v1','grsai-product-image-v1'))`).Error
+		return err == nil, err
+	default:
+		return false, credential.ErrUnavailable
+	}
 }
 
 func (s *Store) CreateRegistration(ctx context.Context, command credential.RegistrationCommand) (credential.RegistrationResult, error) {

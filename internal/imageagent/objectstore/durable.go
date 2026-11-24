@@ -417,7 +417,7 @@ func (s *DurableArtifactStore) FinalizeWithProgress(ctx context.Context, manifes
 		if factErr != nil {
 			return imageagent.FinalManifest{}, factErr
 		}
-		if fact.Validate() != nil || fact.State != imageagent.GenerationSucceeded || fact.Success.ResultUnavailable != "" || fact.Fingerprint != capacityReservation.Intent.Fingerprint || fact.Settlement == (imageagent.GenerationSettlementReceipt{}) || imageagent.StorageGenerationOperation(fact.Intent.Identity) != operation {
+		if !fact.HasSuccessProof() || fact.ProviderOutputInvalid || fact.Success.ResultUnavailable != "" || fact.Fingerprint != capacityReservation.Intent.Fingerprint || imageagent.StorageGenerationOperation(fact.Intent.Identity) != operation {
 			return imageagent.FinalManifest{}, storagecapacity.ErrUnknown
 		}
 		// The immutable generation fact exists before output publication. Its

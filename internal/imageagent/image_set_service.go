@@ -43,6 +43,7 @@ type ImageTargetSelection struct {
 }
 
 type ImageSetPreparation struct {
+	OwnProduct             bool   `json:"-"`
 	EffectivePublicationID string `json:"-"`
 	GeneratedArtwork       bool   `json:"-"`
 	Source                 ImageSourceBinding
@@ -70,6 +71,7 @@ type ImageSetQuoteReader interface {
 
 // Member-facing projection excludes endpoints and credential references.
 type ImageGenerationOption struct {
+	ChannelName           string               `json:"channelName,omitempty"`
 	ReferencePriceVersion string               `json:"referencePriceVersion,omitempty"`
 	UnitVersion           string               `json:"unitVersion"`
 	Route                 *ImageRouteSelection `json:"route,omitempty"`
@@ -275,6 +277,16 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 	if len(resolved.Observations) != len(selected) || len(resolved.Catalog.Assets) != len(selected) {
 		return PreparedImageSet{}, ErrRevisionConflict
 	}
+	quote, err := s.imageSets.Quotes.ReadImageGenerationQuote(ctx, identity, input.Route)
+	if err != nil {
+		return PreparedImageSet{}, err
+	}
+	if quote.UsesProviderUsage() {
+		if !resolved.OwnProduct || input.ContextKind != ImageSourceListing || input.Target.Platform != "product" || len(selected) != 1 {
+			return PreparedImageSet{}, ErrValidation
+		}
+		resolved.Source.OwnProduct = true
+	}
 	var regeneration *ImageSetRegeneration
 	if input.RegenerateFromRunID != "" {
 		if regeneration, err = s.validateImageSetRegeneration(ctx, identity, input, resolved); err != nil {
@@ -305,10 +317,6 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 		return PreparedImageSet{}, ErrRevisionConflict
 	}
 	textBinding, err := s.resolveImageText(ctx, identity, input.Text, resolved, snapshot.Parameters.Language)
-	if err != nil {
-		return PreparedImageSet{}, err
-	}
-	quote, err := s.imageSets.Quotes.ReadImageGenerationQuote(ctx, identity, input.Route)
 	if err != nil {
 		return PreparedImageSet{}, err
 	}
@@ -349,7 +357,7 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 	if encodeErr != nil || len(encodedPlan) > 2<<20 {
 		return PreparedImageSet{}, ErrValidation
 	}
-	limits := agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: len(plan.Slots), Points: plan.Set.MaxPoints, ElapsedSeconds: snapshot.HardLimits.ElapsedSeconds}
+	limits := imageSetLimits(plan, snapshot.HardLimits.ElapsedSeconds)
 	if !limits.Within(snapshot.HardLimits) || !limits.Within(s.imageSets.HardLimits) {
 		return PreparedImageSet{}, ErrCommandBlocked
 	}
@@ -560,7 +568,7 @@ func (s *Service) ConfirmImagePlan(ctx context.Context, input ConfirmImagePlanIn
 	if current.Run.Status != RunStatusAwaitingPlanApproval {
 		return RunProjection{}, ErrCommandBlocked
 	}
-	limits := agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: len(current.Plan.Slots), Points: current.Plan.Set.MaxPoints, ElapsedSeconds: int64(current.Run.Budget.MaxElapsed / time.Second)}
+	limits := imageSetLimits(current.Plan, int64(current.Run.Budget.MaxElapsed/time.Second))
 	command := agentconfig.ImageRunAdmissionCommand{Scope: agent.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}, Snapshot: current.Plan.Set.Configuration, MemberID: identity.MemberID, RunID: input.RunID, ConfirmActionID: input.ActionID, SourceDigest: ImageSetSourceDigest(current.Plan.Set.Source, current.Plan), InputDigest: current.Plan.Set.InputDigest, PlanDigest: input.PlanDigest, QuoteDigest: input.QuoteDigest, Limits: limits}
 	receipt, err := s.imageSets.Configuration.ReadImageRunAdmission(ctx, command.Scope, command.Snapshot)
 	if errors.Is(err, agentconfig.ErrNotFound) {

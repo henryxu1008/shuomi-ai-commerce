@@ -82,5 +82,6 @@ func (r ImageSetSources) ReadImageSetSource(ctx context.Context, identity imagea
 	}
 	prepared, err := prepare(input.ContextID, original, effective, input.ApplyReceiptID, assets)
 	prepared.Source.ContextKind = imageagent.ImageSourceListing
+	prepared.OwnProduct = source.Source.Kind == "own"
 	return prepared, err
 }

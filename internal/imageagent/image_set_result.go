@@ -2,8 +2,6 @@ package imageagent
 
 import (
 	"reflect"
-
-	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 )
 
 // ImageSetResultDigest is a separate contract from ResultDigestV3. It binds
@@ -71,36 +69,23 @@ func imageSetEffectsDigest(plan Plan, slots []SlotProjection, recoverable []Reco
 		if !closure.Valid(actual.Attempt) {
 			return "", ErrRevisionConflict
 		}
-		points := int64(0)
+		var quote ImageGenerationQuote
 		if artwork {
-			points = plan.Artwork.Quote.Points
+			quote = plan.Artwork.Quote
 		} else {
-			points = declared.Recipe.Quote.Points
+			quote = declared.Recipe.Quote
 		}
-		switch closure.Kind {
-		case "settled":
-			if !agentconfig.ImageDigest(closure.IntentID) || !agentconfig.ImageDigest(closure.Fingerprint) || !agentconfig.ImageDigest(closure.SettlementProofDigest) || closure.Points < 0 || closure.Points > points || actual.Attempt <= 0 {
-				return "", ErrRevisionConflict
-			}
-		case "no_generation":
-			if !agentconfig.ImageDigest(closure.IntentID) || !agentconfig.ImageDigest(closure.Fingerprint) || !agentconfig.ImageDigest(closure.SettlementProofDigest) || closure.Points != 0 || actual.Attempt <= 0 {
-				return "", ErrRevisionConflict
-			}
-		case "not_dispatched":
-			if closure.IntentID != "" || closure.Fingerprint != "" || closure.SettlementProofDigest != "" || closure.Points != 0 || actual.Attempt != 0 {
-				return "", ErrRevisionConflict
-			}
-		default:
+		if !closure.MatchesQuote(quote) {
 			return "", ErrRevisionConflict
 		}
 		switch actual.Slot.Status {
 		case SlotStatusAccepted:
-			if closure.Kind != "settled" || actual.ErrorCode != "" || len(actual.Candidates) != 1 {
+			proof := closure.CandidateProof()
+			if proof == nil || actual.ErrorCode != "" || len(actual.Candidates) != 1 {
 				return "", ErrRevisionConflict
 			}
 			candidate := actual.Candidates[0]
-			proof := candidate.GenerationProof
-			if ValidateProvenanceAssetID(candidate.AssetID) != nil || seen[candidate.AssetID] || candidate.Width <= 0 || candidate.Height <= 0 || proof == nil || proof.UnitVersion != closure.UnitVersion || proof.IntentID != closure.IntentID || proof.Fingerprint != closure.Fingerprint || proof.SettlementProofDigest != closure.SettlementProofDigest || proof.Points != closure.Points {
+			if ValidateProvenanceAssetID(candidate.AssetID) != nil || seen[candidate.AssetID] || candidate.Width <= 0 || candidate.Height <= 0 || candidate.GenerationProof == nil || *candidate.GenerationProof != *proof {
 				return "", ErrRevisionConflict
 			}
 			if artwork {

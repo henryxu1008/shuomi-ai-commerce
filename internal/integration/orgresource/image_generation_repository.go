@@ -251,7 +251,7 @@ func (r *GormImageGenerationRepository) readFact(ctx context.Context, id imageag
 	if err != nil {
 		return fact, err
 	}
-	if fact.Validate() != nil || fact.Intent.Identity != id {
+	if fact.Validate() != nil || fact.Intent.Identity != id || fact.Intent.UsesProviderUsage() {
 		return imageagent.GenerationFact{}, orgresource.ErrInvalidOwnerProof
 	}
 	return fact, nil

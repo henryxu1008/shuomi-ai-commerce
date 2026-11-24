@@ -17,6 +17,8 @@ const (
 	OfficialOpenAIBaseURL   = "https://api.openai.com/v1"
 	OfficialOpenAIChannel   = "openai-direct"
 	CompatibleOpenAIChannel = "openai-compatible"
+	GRSaiImageTemplate      = "grsai-product-image-v1"
+	GRSaiImageChannel       = "grsai-product-image"
 )
 
 // PlatformOwner is reserved for platform-owned channels, never an IdP organization.
@@ -102,6 +104,7 @@ func NewRegistrationCommand(org, actor, key string, input RegistrationInput) (Re
 	}
 	id := aicapability.ScopedCommandID("uc-", "create-channel-v1", org, actor, key)
 	base, channel := OfficialOpenAIBaseURL, OfficialOpenAIChannel
+	provider := "openai"
 	switch input.Template {
 	case OfficialMiniTemplate:
 		if input.BaseURL != "" {
@@ -112,6 +115,11 @@ func NewRegistrationCommand(org, actor, key string, input RegistrationInput) (Re
 		if base == "" {
 			return RegistrationCommand{}, ErrInvalid
 		}
+	case GRSaiImageTemplate:
+		if input.BaseURL != "" || org == PlatformOwner {
+			return RegistrationCommand{}, ErrInvalid
+		}
+		base, channel, provider = aicapability.GRSaiProductImageBaseURL, GRSaiImageChannel, "grsai"
 	default:
 		return RegistrationCommand{}, ErrInvalid
 	}
@@ -120,7 +128,7 @@ func NewRegistrationCommand(org, actor, key string, input RegistrationInput) (Re
 		account = "default"
 	}
 	cmd := Command{OrganizationID: org, ActorID: actor, Key: key, ConnectionID: id,
-		Provider: "openai", Channel: channel, Account: account, Region: "global",
+		Provider: provider, Channel: channel, Account: account, Region: "global",
 		BaseURL: base, Secret: input.APIKey, Enabled: true}
 	if err := cmd.Validate(); err != nil {
 		return RegistrationCommand{}, err

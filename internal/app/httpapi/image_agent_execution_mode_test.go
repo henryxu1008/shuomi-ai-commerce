@@ -12,6 +12,9 @@ func TestImagePolicyRequiresExactCompleteSet(t *testing.T) {
 	p := imageagent.RunProjection{Run: imageagent.Run{ID: "run"}, Plan: plan, ResultDigest: "digest", Slots: []imageagent.SlotProjection{{Slot: imageagent.Slot{ID: "main", Status: imageagent.SlotStatusAccepted}, Attempt: 1, Candidates: []imageagent.AssetCandidate{{AssetID: "asset"}}}}}
 	command := asset.ImageSetCommand{Choices: []asset.ImageSetChoice{{Kind: "generated", RunID: "run", PlanRevision: 1, ResultDigest: "digest", SlotID: "main", Attempt: 1, AssetID: "asset", Presentation: asset.ImagePresentation{Group: "carousel", Order: 1}}}}
 	require.True(t, completeImagePolicySelection(p, command))
+	p.Plan.Set = &imageagent.ImageSetPlan{Source: imageagent.ImageSourceBinding{OwnProduct: true}}
+	require.False(t, completeImagePolicySelection(p, command), "enterprise-owned supplier output requires a human adoption")
+	p.Plan.Set = nil
 	p.Slots[0].Candidates = append(p.Slots[0].Candidates, imageagent.AssetCandidate{AssetID: "other"})
 	require.False(t, completeImagePolicySelection(p, command), "policy cannot guess which candidate the user meant")
 	p.Slots[0].Candidates = p.Slots[0].Candidates[:1]

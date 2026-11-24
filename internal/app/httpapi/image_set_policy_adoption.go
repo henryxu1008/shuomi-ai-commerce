@@ -22,6 +22,9 @@ func (a imageSetPolicyAdopter) PreparePolicyAdoption(ctx context.Context, identi
 	if err != nil {
 		return nil, err
 	}
+	if p.Plan.Set != nil && p.Plan.Set.Source.OwnProduct {
+		return nil, nil
+	}
 	mode, err := loadImageExecutionMode(ctx, a.configuration, identity, p)
 	if err != nil {
 		return nil, err

@@ -325,7 +325,7 @@ runPlan:
 			}
 		}
 		projection = result
-		if input.Plan.Set != nil && input.Plan.Set.ModeSnapshotRef.Valid() {
+		if input.Plan.Set != nil && !input.Plan.Set.Source.OwnProduct && input.Plan.Set.ModeSnapshotRef.Valid() {
 			var command *productasset.ImageSetCommand
 			if err := workflow.ExecuteActivity(imageAgentActivityContext(ctx), activityPrepareImageSetPolicyAdoption, input.Identity).Get(ctx, &command); err != nil {
 				return WorkflowResult{}, err
@@ -501,7 +501,7 @@ func (o *workflowEffectOwner) persistImageSetCompletion(ctx workflow.Context, in
 		if err := workflow.ExecuteActivity(ownerCtx, activityPersistImageSetSlotResult, activityInput).Get(ownerCtx, &projection); err != nil {
 			return err
 		}
-		if projection.Slot.ID != result.Published.SlotID || projection.Slot.Status != result.Status && (result.Status != imageagent.SlotStatusBlocked || projection.Slot.Status != imageagent.SlotStatusAccepted || projection.Closure == nil || projection.Closure.Kind != "settled") {
+		if projection.Slot.ID != result.Published.SlotID || projection.Slot.Status != result.Status && (result.Status != imageagent.SlotStatusBlocked || projection.Slot.Status != imageagent.SlotStatusAccepted || projection.Closure == nil || projection.Closure.CandidateProof() == nil) {
 			return imageagent.ErrRevisionConflict
 		}
 		phase := result.EffectPhase
@@ -774,13 +774,20 @@ func (s *workflowUpdateState) applyEffectRecoveryCompleted(signal EffectRecovery
 		if s.input.Plan.Set != nil || s.input.Plan.Artwork != nil {
 			closure, proof := signal.Result.Closure, signal.Result.GenerationProof
 			recipe := s.input.Plan.Slots[index].Recipe
-			points := int64(0)
+			var quote imageagent.ImageGenerationQuote
 			if s.input.Plan.Artwork != nil {
-				points = s.input.Plan.Artwork.Quote.Points
+				quote = s.input.Plan.Artwork.Quote
 			} else if recipe != nil {
-				points = recipe.Quote.Points
+				quote = recipe.Quote
 			}
-			if closure == nil || closure.Kind != "settled" || !closure.Valid(signal.Attempt) || proof == nil || points <= 0 || closure.Points < 0 || closure.Points > points || *proof != (imageagent.ImageGenerationProof{UnitVersion: closure.UnitVersion, IntentID: closure.IntentID, Fingerprint: closure.Fingerprint, SettlementProofDigest: closure.SettlementProofDigest, Points: closure.Points}) {
+			if closure == nil || !closure.Valid(signal.Attempt) || !closure.MatchesQuote(quote) || proof == nil {
+				return false
+			}
+			if quote.UsesProviderUsage() && !quote.Valid() || !quote.UsesProviderUsage() && quote.Points <= 0 {
+				return false
+			}
+			expectedProof := closure.CandidateProof()
+			if expectedProof == nil || *proof != *expectedProof {
 				return false
 			}
 		}

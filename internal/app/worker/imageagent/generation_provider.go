@@ -23,6 +23,7 @@ import (
 	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/bailian"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/grsai"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
 	openai "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai"
 	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 )
@@ -49,6 +50,17 @@ func (f generationProviderFactory) prepare(ctx context.Context, input imageagent
 	cfg, metadata, err := f.resolveForSend(ctx, selectedImageRoute(input))
 	if err != nil {
 		return imageagent.PreparedGenerationProvider{}, err
+	}
+	if metadata.BillingMode == aicapability.ModelUsageOnly {
+		if input.ImageSet == nil || input.Artwork != nil || !input.ImageSet.Source.OwnProduct || input.TargetPlatform != "product" {
+			return imageagent.PreparedGenerationProvider{}, imageagent.ErrImageRouteChanged
+		}
+		transport := f.providerHTTPClient
+		if transport == nil {
+			transport = httpimage.NewPublicImageHTTPClient()
+		}
+		client := grsai.NewClient(grsai.Config{APIKey: cfg.APIKey, Model: cfg.Model, SubmitURL: cfg.BaseURL, Timeout: cfg.Timeout, HTTPClient: transport})
+		return imageagent.PreparedGenerationProvider{Metadata: metadata, ProviderUsage: ownedProductImageTasks{client}}, nil
 	}
 	build := func(bound ai.RouteBoundImageEditor) (*openai.SourceImageAdapter, error) {
 		c := openai.SourceImageAdapterConfig{ImageClient: bound, Provider: metadata.Provider, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, PricingVersion: metadata.PriceVersion, GeneratedImageFetcher: f.generatedFetcher, DiagnoseOutputDimensions: imageDimensionsDiagnostic(f.logger, metadata.Provider, cfg.Model)}
@@ -176,7 +188,7 @@ func (f generationProviderFactory) resolveChannel(ctx context.Context, send bool
 		return invalid()
 	}
 	if len(choices) == 1 && choices[0] != nil {
-		return nil, imageagent.GenerationProviderMetadata{}, imageagent.ErrImageRouteChanged
+		return f.resolveOwnedProductImage(ctx, *choices[0], send)
 	}
 	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if !ok || identity.TenantID == "" || identity.EffectiveOrganizationID != identity.TenantID {

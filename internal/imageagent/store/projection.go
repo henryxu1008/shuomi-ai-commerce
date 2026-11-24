@@ -609,18 +609,18 @@ func validateSlotProjectionMutationIdentity(input imageagent.ProjectionCommit, c
 		}
 		if mutation.Result.Status == imageagent.SlotStatusAccepted {
 			recipe := mutation.Projection.Slot.Recipe
-			points := int64(0)
+			var quote imageagent.ImageGenerationQuote
 			if input.Snapshot.Plan.Artwork != nil {
-				points = input.Snapshot.Plan.Artwork.Quote.Points
+				quote = input.Snapshot.Plan.Artwork.Quote
 			} else if recipe != nil {
-				points = recipe.Quote.Points
+				quote = recipe.Quote
 			}
-			if closure == nil || closure.Kind != "settled" || points <= 0 || closure.Points < 0 || closure.Points > points || len(mutation.Projection.Candidates) != 1 {
+			if closure == nil || !quote.Valid() || !closure.MatchesQuote(quote) || len(mutation.Projection.Candidates) != 1 {
 				return imageagent.ErrRevisionConflict
 			}
 			candidate := mutation.Projection.Candidates[0]
-			proof := candidate.GenerationProof
-			if proof == nil || *proof != (imageagent.ImageGenerationProof{UnitVersion: closure.UnitVersion, IntentID: closure.IntentID, Fingerprint: closure.Fingerprint, SettlementProofDigest: closure.SettlementProofDigest, Points: closure.Points}) {
+			proof := closure.CandidateProof()
+			if proof == nil || candidate.GenerationProof == nil || *candidate.GenerationProof != *proof {
 				return imageagent.ErrRevisionConflict
 			}
 			if _, err := imageagent.NormalizeDurableAssetIdentity(candidate.DurableAsset); err != nil {

@@ -53,6 +53,7 @@ type modelRoutePricingModule struct {
 	services             ModelRoutePricingDependencies
 	authorizer           *authz.ListingKitAuthorizer
 	organizationResolver organizationIdentityResolver
+	ownedImageTenants    []string
 }
 
 func (modelRoutePricingModule) Name() string                { return "model-route-pricing" }

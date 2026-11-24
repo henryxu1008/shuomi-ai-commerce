@@ -13,12 +13,13 @@ const registeredConnection=managedConnection.refine(c=>connectionID.safeParse(c.
 export const managedChannels=z.strictObject({
  organizationId:routeFact,channels:z.array(registeredConnection).max(128),bindings:z.array(binding).max(128),
  bindingTemplates:z.array(channelTemplate).max(2),canSave:z.boolean(),canRename:z.boolean(),canAttach:z.boolean(),
+ grsaiImageRegistration:z.boolean().optional(),
  bindingReadiness:z.array(z.strictObject({bindingId:bindingID,ready:z.boolean(),reason:z.string().max(64)})).max(128).optional(),
  modelQueryTargets:modelQueryTargets.nullable(),
 }).refine(v=>v.channels.every(c=>c.organizationId===v.organizationId)&&v.bindings.every(b=>b.organizationId===v.organizationId));
 export const createChannel=z.strictObject({...member,input:z.strictObject({
  template:channelTemplate,name:channelName,baseUrl:channelBaseUrl.optional(),account:channelName.optional(),apiKey:channelAPIKey,
-}).refine(v=>v.template==="openai-mini-v1"?!v.baseUrl:!!v.baseUrl)});
+}).refine(v=>v.template==="openai-compatible-mini-v1"?!!v.baseUrl:!v.baseUrl)});
 export const renameChannel=z.strictObject({...member,input:z.strictObject({name:channelName,expectedRevision:revision})});
 export const editBinding=z.strictObject({...member,input:z.discriminatedUnion("action",[
  z.strictObject({action:z.literal("attach"),expectedRevision:revision}),

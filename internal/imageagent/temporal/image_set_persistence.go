@@ -107,7 +107,7 @@ func (a *Activities) deriveImageSetSlotProjection(ctx context.Context, current i
 				return existing, nil
 			}
 		}
-		invalidOutput := fact.State == imageagent.GenerationSucceeded && fact.Success.ResultUnavailable == "invalid_result"
+		invalidOutput := fact.State == imageagent.GenerationSucceeded && (fact.Success.ResultUnavailable == "invalid_result" || fact.ProviderOutputInvalid)
 		if fact.State == imageagent.GenerationSucceeded && !invalidOutput {
 			invalidOutput = hasClosedInvalidImageSetOutput(current, execution, closure)
 			if !invalidOutput && a.generationOutputRecovery != nil && effectErr == nil {
@@ -121,13 +121,24 @@ func (a *Activities) deriveImageSetSlotProjection(ctx context.Context, current i
 				}
 			}
 		}
-		if fact.State == imageagent.GenerationNoEffect || invalidOutput {
+		if fact.State == imageagent.GenerationNoEffect || fact.State == imageagent.GenerationSupplierFailed || invalidOutput {
+			if fact.Intent.UsesProviderUsage() && a.generationRecovery != nil {
+				// Preserve the original closure evidence before this projection
+				// removes its recovery entry. This replays only a local capacity
+				// close, including when the previous close lost its response.
+				if _, err := a.generationRecovery.ReconcileExistingGeneration(ctx, reservation.Identity); err != nil {
+					return result, err
+				}
+			}
 			result.Closure = closure
 			if fact.State == imageagent.GenerationNoEffect && result.ErrorCode != imageagent.StorageLimitExceededCode {
 				result.ErrorCode = imageagent.SlotProviderNotDispatchedCode
 			}
 			if fact.State == imageagent.GenerationSucceeded {
 				result.ErrorCode = imageagent.InvalidGeneratedOutputCode
+			}
+			if fact.State == imageagent.GenerationSupplierFailed {
+				result.ErrorCode = imageagent.ImageProviderFailedCode
 			}
 		}
 		return result, nil
@@ -145,7 +156,7 @@ func (a *Activities) deriveImageSetSlotProjection(ctx context.Context, current i
 		return result, imageagent.ErrRevisionConflict
 	}
 	result.Closure = closure
-	candidate.GenerationProof = &imageagent.ImageGenerationProof{UnitVersion: closure.UnitVersion, IntentID: closure.IntentID, Fingerprint: closure.Fingerprint, SettlementProofDigest: closure.SettlementProofDigest, Points: closure.Points}
+	candidate.GenerationProof = closure.CandidateProof()
 	return result, nil
 }
 

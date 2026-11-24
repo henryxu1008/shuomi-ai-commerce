@@ -56,6 +56,9 @@ func (r *generationRecovery) ReconcileExistingGeneration(ctx context.Context, id
 	if fact.State == GenerationUnknown {
 		return fact.State, nil
 	}
+	if fact.Intent.UsesProviderUsage() {
+		return fact.State, closeGenerationCapacity(ctx, r.capacity, fact)
+	}
 	if fact.State != GenerationNoEffect && fact.State != GenerationSucceeded {
 		return fact.State, ErrRevisionConflict
 	}
