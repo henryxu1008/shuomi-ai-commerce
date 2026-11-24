@@ -27,9 +27,9 @@ import (
 	"gorm.io/gorm"
 )
 
-type shopifyOrderMember struct{}
+type orderFixtureMember struct{}
 
-func (shopifyOrderMember) AuthorizeStoreMember(ctx context.Context, org string) (storecenter.StoreMemberAccess, error) {
+func (orderFixtureMember) AuthorizeStoreMember(ctx context.Context, org string) (storecenter.StoreMemberAccess, error) {
 	scope, err := app.Scope(ctx)
 	if err != nil || scope.OrganizationID != org {
 		return storecenter.StoreMemberAccess{}, storecenter.ErrNotFound
@@ -37,18 +37,20 @@ func (shopifyOrderMember) AuthorizeStoreMember(ctx context.Context, org string) 
 	return storecenter.StoreMemberAccess{OrganizationID: org, ActorID: scope.ActorID, MemberID: scope.MemberID, Administrator: true, CanWrite: true}, nil
 }
 
-type shopifyFixtureTransport func(*http.Request) (*http.Response, error)
+type orderFixtureTransport func(*http.Request) (*http.Response, error)
 
-func (f shopifyFixtureTransport) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
+func (f orderFixtureTransport) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
 
-type shopifyFixtureIAM struct{}
+type orderFixtureIAM struct{}
 
-func (shopifyFixtureIAM) ReadExactServiceProjectAuthorization(_ context.Context, token, actor, project, org string) (zitadel.ExactServiceProjectAuthorization, error) {
+func (orderFixtureIAM) ReadExactServiceProjectAuthorization(_ context.Context, token, actor, project, org string) (zitadel.ExactServiceProjectAuthorization, error) {
 	if token != "fixture-service" || project != "fixture-project" || (org != "org-a" && org != "org-b") {
 		return zitadel.ExactServiceProjectAuthorization{}, nil
 	}
 	member, role := "member-"+org, authz.EnterpriseRoleKey(org, 1)
 	switch {
+	case actor == "order-member-org-a" && org == "org-a":
+		member = actor
 	case actor == "store-member-org-a" && org == "org-a":
 		member, role = actor, authz.EnterpriseRoleKey(org, 2)
 	case actor != "actor-"+org:
@@ -59,9 +61,9 @@ func (shopifyFixtureIAM) ReadExactServiceProjectAuthorization(_ context.Context,
 	}, nil
 }
 
-type shopifyFixtureRolePolicy struct{}
+type orderFixtureRolePolicy struct{}
 
-func (shopifyFixtureRolePolicy) RoleModules(_ context.Context, org string, keys []string) (map[string][]string, error) {
+func (orderFixtureRolePolicy) RoleModules(_ context.Context, org string, keys []string) (map[string][]string, error) {
 	policies := make(map[string][]string, len(keys))
 	for _, key := range keys {
 		switch key {
@@ -142,13 +144,13 @@ func (m shopifyFixtureMerchant) Check(ctx context.Context) error {
 	return nil
 }
 
-type shopifyFixtureStarter struct{}
+type orderFixtureStarter struct{}
 
-func (shopifyFixtureStarter) Ensure(context.Context, string, string) error { return nil }
+func (orderFixtureStarter) Ensure(context.Context, string, string) error { return nil }
 
-func shopifyFixtureIdentity(ctx context.Context, account string, expires time.Time) context.Context {
+func orderFixtureIdentity(ctx context.Context, account string, expires time.Time) context.Context {
 	org, actor, member := account, "actor-"+account, "member-"+account
-	if account == "reader-org-a" || account == "store-member-org-a" {
+	if account == "reader-org-a" || account == "store-member-org-a" || account == "order-member-org-a" {
 		org, actor, member = "org-a", account, account
 	}
 	return authidentity.WithAuthenticatedIdentity(ctx, authidentity.AuthenticatedIdentity{
@@ -157,7 +159,7 @@ func shopifyFixtureIdentity(ctx context.Context, account string, expires time.Ti
 	})
 }
 
-func installSyntheticShopifyRecords(t *testing.T, owner *gorm.DB) {
+func installSyntheticOrderRecords(t *testing.T, owner *gorm.DB, key string) {
 	t.Helper()
 	// Extend only the freshly installed test projection. Regular Store
 	// schema initialization and all application configurations stay disabled.
@@ -175,20 +177,21 @@ func installSyntheticShopifyRecords(t *testing.T, owner *gorm.DB) {
 			return err
 		}
 		if count != 0 {
-			return errors.New("Shopify order fixtures require a fresh observation schema")
+			return errors.New("order fixtures require a fresh observation schema")
 		}
-		return tx.Exec(`ALTER TABLE store_observations.records DROP CONSTRAINT store_observation_record_variant,
+		shape := `ALTER TABLE store_observations.records DROP CONSTRAINT store_observation_record_variant,
 			ADD CONSTRAINT store_observation_record_variant CHECK ((NOT (payload ? 'shopifyOrder') AND (` + baseline + `))
 			OR (kind='orders' AND jsonb_typeof(payload->'shopifyOrder')='object'
 				AND payload= jsonb_build_object('shopifyOrder',payload->'shopifyOrder')
-				AND coalesce(payload->'shopifyOrder'->>'id','')=platform_id))`).Error
+				AND coalesce(payload->'shopifyOrder'->>'id','')=platform_id))`
+		return tx.Exec(strings.ReplaceAll(shape, "shopifyOrder", key)).Error
 	})
 	require.NoError(t, err)
 }
 
 func TestSyntheticShopifyOrdersHTTPAndOriginalObservationAuthority(t *testing.T) {
 	ctx, owner, repo := observationDatabase(t)
-	installSyntheticShopifyRecords(t, owner)
+	installSyntheticOrderRecords(t, owner, "shopifyOrder")
 	pool, err := owner.DB()
 	require.NoError(t, err)
 	tx, err := pool.BeginTx(ctx, nil)
@@ -202,10 +205,10 @@ func TestSyntheticShopifyOrdersHTTPAndOriginalObservationAuthority(t *testing.T)
  workbench_store_shopify_authorizations,workbench_store_shopify_order_consents TO observation_runtime`).Error)
 
 	now := time.Now().UTC().Truncate(time.Second)
-	stores, err := storecenter.NewMemberScopedStoreRepository(owner, shopifyOrderMember{})
+	stores, err := storecenter.NewMemberScopedStoreRepository(owner, orderFixtureMember{})
 	require.NoError(t, err)
 	newBinding := func(org, shopID string) o.Binding {
-		auth := shopifyFixtureIdentity(ctx, org, now.Add(time.Hour))
+		auth := orderFixtureIdentity(ctx, org, now.Add(time.Hour))
 		store, err := storecenter.NewStore(storecenter.CreateStoreInput{ID: uuid.NewString(), OrganizationID: org, ActorSubject: "actor-" + org,
 			Name: "Shopify " + org, Platform: "shopify", Region: "US", CreateIdempotencyKey: uuid.NewString(), OccurredAt: now})
 		require.NoError(t, err)
@@ -243,7 +246,7 @@ func TestSyntheticShopifyOrdersHTTPAndOriginalObservationAuthority(t *testing.T)
 	}
 	calls := 0
 	partial := false
-	reader, err := wire.NewSyntheticOrderReader(shopifyFixtureTransport(func(req *http.Request) (*http.Response, error) {
+	reader, err := wire.NewSyntheticOrderReader(orderFixtureTransport(func(req *http.Request) (*http.Response, error) {
 		calls++
 		token := req.Header.Get("X-Shopify-Access-Token")
 		require.Contains(t, []string{"org-a-order-fixture", "org-b-order-fixture"}, token)
@@ -269,21 +272,21 @@ func TestSyntheticShopifyOrdersHTTPAndOriginalObservationAuthority(t *testing.T)
 	require.NoError(t, err)
 	permissions, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
-	permissions.SetRolePolicyReader(shopifyFixtureRolePolicy{})
+	permissions.SetRolePolicyReader(orderFixtureRolePolicy{})
 	access := &shopifyFixtureAuthorization{
 		Authorization: app.Authorization{
-			Client: shopifyFixtureIAM{}, ProjectID: "fixture-project", Permissions: permissions,
+			Client: orderFixtureIAM{}, ProjectID: "fixture-project", Permissions: permissions,
 			ServiceToken: func(context.Context) (string, error) { return "fixture-service", nil },
 		},
 		db: repo.db, bindings: map[string]o.Binding{first.StoreID: first, second.StoreID: second}, reader: reader,
 	}
 	service := &o.Service{Repository: repo, Access: access, ShopifyOrders: access, Directory: app.Directory{Stores: stores, ShopifyOrders: true},
-		Starter: shopifyFixtureStarter{}, Now: func() time.Time { return now }}
+		Starter: orderFixtureStarter{}, Now: func() time.Time { return now }}
 	router := gin.New()
 	for _, route := range routes.Routes(&app.Application{Service: service, Ready: func() bool { return true }}, func(ctx context.Context, bearer string) (context.Context, error) {
 		switch bearer {
 		case "Bearer org-a", "Bearer org-b", "Bearer reader-org-a", "Bearer store-member-org-a":
-			return shopifyFixtureIdentity(ctx, strings.TrimPrefix(bearer, "Bearer "), now.Add(time.Hour)), nil
+			return orderFixtureIdentity(ctx, strings.TrimPrefix(bearer, "Bearer "), now.Add(time.Hour)), nil
 		default:
 			return nil, o.ErrForbidden
 		}

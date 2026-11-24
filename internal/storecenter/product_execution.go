@@ -65,27 +65,28 @@ type TikTokMerchantBinding struct {
 // ProductMerchantBinding is a public reference to current Store authority. It
 // contains no credential and never grants durable execution on its own.
 type ProductMerchantBinding struct {
-	Shopify              ShopifyMerchantBinding    `json:"shopify,omitempty,omitzero"`
-	AmazonBeta           bool                      `json:"amazon_beta,omitempty"`
-	Walmart              WalmartMerchantBinding    `json:"walmart,omitempty,omitzero"`
-	TikTok               TikTokMerchantBinding     `json:"tiktok,omitempty,omitzero"`
-	Platform             Platform                  `json:"platform,omitempty"`
-	IdentityPartition    OfficialIdentityPartition `json:"identity_partition,omitempty"`
-	MerchantMode         OfficialMerchantMode      `json:"merchant_mode,omitempty"`
-	RegionID             int64                     `json:"region_id,omitempty"`
-	CredentialExpiresAt  time.Time                 `json:"credential_expires_at,omitempty,omitzero"`
-	VerificationRevision string                    `json:"verification_revision,omitempty"`
-	ScopesHash           string                    `json:"scopes_hash,omitempty"`
-	OrganizationID       string                    `json:"organization_id"`
-	StoreID              string                    `json:"store_id"`
-	Site                 string                    `json:"site"`
-	StoreVersion         int64                     `json:"store_version"`
-	ConnectionRevision   int64                     `json:"connection_revision"`
-	ApplicationRevision  string                    `json:"application_revision"`
-	ApplicationID        string                    `json:"application_id"`
-	ApplicationType      OfficialApplicationType   `json:"application_type"`
-	SupplierIdentityHash string                    `json:"supplier_identity_hash"`
-	ServiceExpiresAt     time.Time                 `json:"service_expires_at"`
+	Shopify               ShopifyMerchantBinding    `json:"shopify,omitempty,omitzero"`
+	AmazonOrderGeneration int64                     `json:"amazon_order_generation,omitempty"`
+	AmazonBeta            bool                      `json:"amazon_beta,omitempty"`
+	Walmart               WalmartMerchantBinding    `json:"walmart,omitempty,omitzero"`
+	TikTok                TikTokMerchantBinding     `json:"tiktok,omitempty,omitzero"`
+	Platform              Platform                  `json:"platform,omitempty"`
+	IdentityPartition     OfficialIdentityPartition `json:"identity_partition,omitempty"`
+	MerchantMode          OfficialMerchantMode      `json:"merchant_mode,omitempty"`
+	RegionID              int64                     `json:"region_id,omitempty"`
+	CredentialExpiresAt   time.Time                 `json:"credential_expires_at,omitempty,omitzero"`
+	VerificationRevision  string                    `json:"verification_revision,omitempty"`
+	ScopesHash            string                    `json:"scopes_hash,omitempty"`
+	OrganizationID        string                    `json:"organization_id"`
+	StoreID               string                    `json:"store_id"`
+	Site                  string                    `json:"site"`
+	StoreVersion          int64                     `json:"store_version"`
+	ConnectionRevision    int64                     `json:"connection_revision"`
+	ApplicationRevision   string                    `json:"application_revision"`
+	ApplicationID         string                    `json:"application_id"`
+	ApplicationType       OfficialApplicationType   `json:"application_type"`
+	SupplierIdentityHash  string                    `json:"supplier_identity_hash"`
+	ServiceExpiresAt      time.Time                 `json:"service_expires_at"`
 }
 
 type ShopifyMerchantBinding struct {
@@ -103,7 +104,7 @@ func (b ProductMerchantBinding) ValidShopifyOrderApplication() bool {
 }
 
 func (b ProductMerchantBinding) validShopifyIdentity() bool {
-	return b.Platform == PlatformShopify && b.Site == "shopify" && shopifyAppID.MatchString(b.ApplicationID) &&
+	return b.AmazonOrderGeneration == 0 && b.Platform == PlatformShopify && b.Site == "shopify" && shopifyAppID.MatchString(b.ApplicationID) &&
 		b.ApplicationRevision == "shopify-admin-2026-10" && uuid.Validate(b.Shopify.ShopKey) == nil && shopifyCurrencyCode.MatchString(b.Shopify.Currency) && !b.AmazonBeta &&
 		b.ConnectionRevision > 0 && b.StoreVersion > 0 && shopifyDigest.MatchString(b.SupplierIdentityHash) && b.TikTok == (TikTokMerchantBinding{}) &&
 		b.Walmart == (WalmartMerchantBinding{}) && b.IdentityPartition == "" && b.ApplicationType == "" && b.MerchantMode == "" && b.RegionID == 0 &&
@@ -117,7 +118,7 @@ func (b ProductMerchantBinding) ValidApplication() bool {
 	if b.Platform == PlatformAmazon {
 		return b.ValidAmazonApplication()
 	}
-	if b.Shopify != (ShopifyMerchantBinding{}) || b.AmazonBeta {
+	if b.Shopify != (ShopifyMerchantBinding{}) || b.AmazonBeta || b.AmazonOrderGeneration != 0 {
 		return false
 	}
 	if b.Platform == PlatformWalmart {
@@ -141,6 +142,14 @@ func (b ProductMerchantBinding) ValidApplication() bool {
 // Amazon Target is keyed by the local Store and grant generation. Seller
 // identifiers and their derived hashes are excluded from the immutable record.
 func (b ProductMerchantBinding) ValidAmazonApplication() bool {
+	return b.AmazonOrderGeneration == 0 && b.validAmazonIdentity()
+}
+
+func (b ProductMerchantBinding) ValidAmazonOrderApplication() bool {
+	return b.AmazonBeta && b.AmazonOrderGeneration > 0 && b.validAmazonIdentity()
+}
+
+func (b ProductMerchantBinding) validAmazonIdentity() bool {
 	return b.Platform == PlatformAmazon && b.Site == "amazon-us" && b.Shopify == (ShopifyMerchantBinding{}) && uuid.Validate(b.StoreID) == nil &&
 		b.StoreVersion > 0 && b.ConnectionRevision > 0 && b.SupplierIdentityHash == "" && b.ApplicationType == "" &&
 		b.IdentityPartition == "" && b.MerchantMode == "" && b.RegionID == 0 && b.VerificationRevision == "" && b.ScopesHash == "" &&
