@@ -25,6 +25,22 @@ import (
 	"gorm.io/gorm"
 )
 
+func TestCurrentStoreLifecycleUsesApprovedQuantityLimits(t *testing.T) {
+	policy := currentStorePeriodPolicy{}
+	for _, tc := range []struct {
+		command storecenter.ServiceCommand
+		limit   int64
+	}{
+		{storecenter.ServiceCommandActivate, 1},
+		{storecenter.ServiceCommandRenew, storecenter.Phase1MaxStoreServicePeriods},
+		{storecenter.ServiceCommandReactivate, storecenter.Phase1MaxStoreServicePeriods},
+	} {
+		limit, err := policy.MaxQuantity(context.Background(), "organization-test", tc.command)
+		require.NoError(t, err)
+		require.Equal(t, tc.limit, limit, string(tc.command))
+	}
+}
+
 func TestTikTokLifecycleAdmissionRequiresExplicitSignedBoundary(t *testing.T) {
 	var base []httproute.Descriptor
 	for _, route := range currentWorkbenchApplicationRoutes {

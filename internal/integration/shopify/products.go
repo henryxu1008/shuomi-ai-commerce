@@ -83,7 +83,7 @@ func (c *AdminClient) shopifySourceDefinitionReady(ctx context.Context, domain, 
 			} `json:"access"`
 		} `json:"metafieldDefinition"`
 	}
-	identifier := map[string]string{"ownerType": "PRODUCT", "key": sourceMetafield}
+	identifier := map[string]string{"ownerType": "PRODUCT", "namespace": "$app", "key": sourceMetafield}
 	return c.query(ctx, domain, token, sourceDefinitionQuery, map[string]any{"identifier": identifier}, &data) == nil &&
 		data.Definition != nil && data.Definition.Type.Name == "single_line_text_field" &&
 		data.Definition.Capabilities.UniqueValues.Enabled && data.Definition.Access.Storefront == "NONE"

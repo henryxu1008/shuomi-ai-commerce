@@ -29,6 +29,12 @@ func TestDraftWriteCreatesAndCorrelatesOnlyDraft(t *testing.T) {
 			return fixtureResponse(http.StatusOK, installationFixture), nil
 		}
 		if requests == 2 && strings.Contains(document.Query, "metafieldDefinition") {
+			var identifier map[string]string
+			if err := json.Unmarshal(document.Variables["identifier"], &identifier); err != nil ||
+				identifier["namespace"] != "$app" || identifier["ownerType"] != "PRODUCT" ||
+				identifier["key"] != sourceMetafield {
+				t.Fatalf("expected the app-owned product metafield definition: %v, %v", identifier, err)
+			}
 			return fixtureResponse(http.StatusOK, sourceDefinitionFixture), nil
 		}
 		if requests != 3 || strings.Contains(document.Query, "identifier:") || !strings.Contains(document.Query, "synchronous: true") {

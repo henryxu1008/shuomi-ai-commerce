@@ -127,11 +127,7 @@ func buildCurrentStoreCenterModule(ctx context.Context, records *gorm.DB, author
 	return module, nil
 }
 
-type currentStorePeriodPolicy struct{}
-
-func (currentStorePeriodPolicy) MaxQuantity(context.Context, string, storecenter.ServiceCommand) (int64, error) {
-	return 12, nil
-}
+type currentStorePeriodPolicy = storecenter.Phase1ServiceQuantityPolicy
 
 // Current Store descriptors resolve live Organization access before invoking
 // this capability. No member ID or administrator flag comes from the request.
