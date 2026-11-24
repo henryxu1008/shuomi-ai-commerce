@@ -10,13 +10,27 @@ import (
 	"gorm.io/gorm"
 )
 
-func requireAmazonEffect(ctx context.Context, tx *gorm.DB, reservation submission.ExecutionReservation) error {
+func requireAmazonEffect(ctx context.Context, tx *gorm.DB, reservation submission.ExecutionReservation, previous submission.ExecutionAttempt) error {
 	intent, partition, err := reservation.Amazon.Read(ctx)
 	claim := reservation.Attempt
 	if err != nil || claim.IntentKey != intent.Key || claim.Target != intent.Target ||
 		claim.OrganizationID != intent.Owner.OrganizationID || claim.PayloadFingerprint != intent.PayloadFingerprint ||
 		claim.Action != submission.AmazonSubmitAction {
 		return submission.ErrExecutionEvidenceRequired
+	}
+	if previous.Status == submission.ExecutionNotSent {
+		var originalRecordID string
+		if err := tx.WithContext(ctx).Raw(`SELECT record_id::text FROM public.listing_submission_official_intents
+			WHERE organization_id=? AND intent_key=? AND body_json->'target'->>'Platform'='amazon'
+			AND body_json->'target'->>'StoreID'=? AND body_json->'target'->>'SubjectID'=?
+			AND body_json->>'payload_fingerprint'=? AND body_json->>'record_id'=record_id::text`,
+			previous.OrganizationID, previous.IntentKey, previous.Target.StoreID, previous.Target.SubjectID,
+			previous.PayloadFingerprint).Row().Scan(&originalRecordID); err != nil {
+			return submission.ErrExecutionEvidenceRequired
+		}
+		if originalRecordID == intent.RecordID {
+			return submission.ErrExecutionTargetClaimed
+		}
 	}
 	var reference struct{ TargetID string }
 	owner := intent.Owner

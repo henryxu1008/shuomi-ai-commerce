@@ -47,7 +47,7 @@ export function AmazonListingPanel({ scope, source, storeId, storeName, canManag
     productType: "", title: source.product.title ?? "", description: "", brand: "",
     gtin: source.product.variants?.[0]?.barcode ?? "", price: "", quantity: "", mainImageId: "",
   }));
-  const [review, setReview] = useState<AmazonListingReview>();
+  const [savedReview, setReview] = useState<AmazonListingReview>();
   const [revision, setRevision] = useState(0);
   const [result, setResult] = useState<AmazonListingResult>();
   const [images, setImages] = useState<Array<{ id: string; url: string }>>([]);
@@ -91,6 +91,7 @@ export function AmazonListingPanel({ scope, source, storeId, storeName, canManag
     };
   }, [scope, sourceId, storeId, source.source.source.publicationId, version, resultOnly, canManage]);
 
+  const review = result?.submission === "not_sent" && result.recordId === savedReview?.recordId ? undefined : savedReview;
   const canEdit = canManage && !resultOnly && !uncertain && result?.submission !== "accepted" && result?.submission !== "unknown";
 
   function change(key: keyof Fields, value: string) {
@@ -200,6 +201,7 @@ export function AmazonListingPanel({ scope, source, storeId, storeName, canManag
     {message ? <p role="alert">{message}</p> : null}
     {result ? <div className="space-y-2 rounded-md border p-3" aria-label="Amazon 提交结果">
       <p role="status">{labels[result.submission]}</p>
+      {result.submission === "not_sent" && !resultOnly && !review ? <p>权限恢复后，请重新核对商品资料，再确认提交。</p> : null}
       <p>卖家 SKU：{result.sku}</p>
       {result.receipt ? <p>Amazon 提交编号：{result.receipt.submissionId}</p> : null}
       {result.observation ? <><p>{result.observation.asin
@@ -211,7 +213,7 @@ export function AmazonListingPanel({ scope, source, storeId, storeName, canManag
       {[...(result.receipt?.issues ?? []), ...(result.observation?.issues ?? [])].some(issue => issue.severity === "ERROR")
         ? <p>Amazon 提示有资料需要处理。请使用卖家 SKU 在 Seller Central 查看具体要求。</p> : null}
     </div> : resultOnly && !loading ? <p>当前没有可查看的提交结果。</p> : null}
-    {result || uncertain ? <Button type="button" variant="outline" disabled={busy} onClick={() => void check()}>查询 Amazon 结果</Button> : null}
+    {uncertain || result && result.submission !== "not_sent" ? <Button type="button" variant="outline" disabled={busy} onClick={() => void check()}>查询 Amazon 结果</Button> : null}
     {!loading && canEdit && !review ? <form className="grid gap-3" onSubmit={e => { e.preventDefault(); void prepare(); }}>
       <label>Amazon 商品类型<Input required value={fields.productType} onChange={e => change("productType", e.target.value)} disabled={busy} /></label>
       <label>商品名称<Input required value={fields.title} onChange={e => change("title", e.target.value)} disabled={busy} /></label>

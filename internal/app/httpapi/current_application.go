@@ -1621,6 +1621,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		StoreCenter:          supplied.storeCenters > 0,
 		TikTokShop:           supplied.officialStoreApplications.TikTokConfigured(),
 		Shopify:              supplied.officialStoreApplications.ShopifyConfigured(),
+		GoogleMerchant:       supplied.officialStoreApplications.GoogleMerchantConfigured(),
 		StoreObservations:    supplied.storeObservations > 0,
 		Fulfillment:          supplied.fulfillments == 1,
 		LocalTrial:           supplied.localTrials > 0,
@@ -1772,6 +1773,7 @@ type currentApplicationOptionalRoutes struct {
 	StoreCenter          bool
 	TikTokShop           bool
 	Shopify              bool
+	GoogleMerchant       bool
 	StoreObservations    bool
 	LocalTrial           bool
 	Resources            bool
@@ -1885,6 +1887,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		for _, r := range listinghttp.ListingRoutes(nil, nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
+		if optional.GoogleMerchant {
+			for _, r := range listinghttp.GoogleRoutes(nil, nil) {
+				admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+			}
+		}
 	}
 	if optional.ControlledLocalDraft {
 		if optional.PrivateDraftTrial || optional.OfflineRecords || !optional.Collections || !optional.CompletionDrafts {
@@ -1990,6 +1997,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		}
 		for _, r := range currentStoreBrowserRoutes {
 			admitted = append(admitted, currentApplicationRoute{Method: r.method, Path: r.path})
+		}
+		if optional.GoogleMerchant {
+			for _, r := range storehttp.GoogleStoreRoutes(nil) {
+				admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+			}
 		}
 	}
 	if optional.AmazonStoreAuthorization {

@@ -10,6 +10,7 @@ import (
 
 	"gorm.io/driver/sqlite"
 
+	listinghttp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing/httpapi"
 	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
@@ -116,6 +117,43 @@ func TestShopifyPairingRouteUsesCurrentStoreAdmission(t *testing.T) {
 		mutate(&changed[index])
 		require.Error(t, validate(changed, true))
 	}
+}
+
+type inertGoogleStoreConnection struct {
+	storehttp.GoogleConnectionService
+}
+
+func TestCurrentGoogleAndShopifyRouteAdmission(t *testing.T) {
+	h, err := storehttp.NewHandlerWithServiceLifecycle(inertStoreService{}, &storecenter.ServiceLifecycleApplication{})
+	require.NoError(t, err)
+	require.NoError(t, h.SetOfficialConnections(&storeapp.OfficialConnections{}))
+	require.NoError(t, h.SetShopifyConnections(&storeapp.ShopifyConnections{}))
+	require.NoError(t, h.SetGoogleConnections(inertGoogleStoreConnection{}))
+	module := storehttp.NewModule(h)
+	module.(interface {
+		ConfigureCatalog(*storecenter.Catalog, *storecenter.MetadataRepository)
+	}).ConfigureCatalog(&storecenter.Catalog{}, &storecenter.MetadataRepository{})
+	require.NoError(t, module.(interface {
+		ConfigureBrowser(*storecenter.BrowserOperations) error
+	}).ConfigureBrowser(&storecenter.BrowserOperations{}))
+	registry := kernelmodule.NewRegistry()
+	require.NoError(t, module.Register(registry))
+
+	var routes []httproute.Descriptor
+	for _, route := range currentWorkbenchApplicationRoutes {
+		routes = append(routes, httproute.Descriptor{Method: route.Method, Path: route.Path})
+	}
+	routes = append(routes, registry.Routes()...)
+	routes = append(routes, listinghttp.ListingRoutes(nil, nil)...)
+	withoutGoogleListing := len(routes)
+	routes = append(routes, listinghttp.GoogleRoutes(nil, nil)...)
+	validate := func(routes []httproute.Descriptor, google bool) error {
+		return validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false,
+			currentApplicationOptionalRoutes{StoreCenter: true, SupplyChain: true, Shopify: true, GoogleMerchant: google})
+	}
+	require.Error(t, validate(routes, false))
+	require.Error(t, validate(routes[:withoutGoogleListing], true))
+	require.NoError(t, validate(routes, true))
 }
 
 func TestCurrentStoreAdmissionUsesRegisteredOfficialRefresh(t *testing.T) {

@@ -157,6 +157,14 @@ func (k *ExecutionKernel) stopBeforeSend(ctx context.Context, preparation *TikTo
 	}
 	proof := TikTokNoSendProof{seal: g.proof}
 	g.mu.Unlock() // No database or provider I/O holds the process-local lock.
+	return k.persistNoSendProof(ctx, proof)
+}
+
+func (k *ExecutionKernel) persistNoSendProof(ctx context.Context, proof TikTokNoSendProof) (ExecutionAttempt, error) {
+	claim, err := proof.Claim()
+	if err != nil {
+		return ExecutionAttempt{}, err
+	}
 	ctx, cancel, err := executionContext(ctx)
 	if err != nil {
 		return ExecutionAttempt{}, err
@@ -169,7 +177,7 @@ func (k *ExecutionKernel) stopBeforeSend(ctx context.Context, preparation *TikTo
 	stopped, err := r.StopTikTokBeforeSend(ctx, proof)
 	if err != nil {
 		// A lost commit acknowledgement never reopens the gate or resends.
-		if prior, e := k.repository.Get(ctx, proof.seal.claim.Scope, proof.seal.claim.AttemptID); e == nil && prior.Status == ExecutionNotSent {
+		if prior, e := k.repository.Get(ctx, claim.Scope, claim.AttemptID); e == nil && prior.Status == ExecutionNotSent {
 			if validated, e := proof.Terminate(prior, prior.UpdatedAt); e == nil {
 				return validated, nil
 			}
@@ -192,7 +200,7 @@ func (p TikTokNoSendProof) Claim() (ExecutionClaim, error) {
 // Terminate is shared with the adapter so persisted and in-memory facts agree.
 // Only a proof issued by the closed live gate can invoke this transition.
 func (p TikTokNoSendProof) Terminate(attempt ExecutionAttempt, now time.Time) (ExecutionAttempt, error) {
-	if p.seal == nil || ValidatePersistedExecutionAttempt(attempt) != nil || !validNoSendReason(p.seal.reason) {
+	if p.seal == nil || ValidatePersistedExecutionAttempt(attempt) != nil || !validLocalNoSend(attempt, p.seal.reason) {
 		return ExecutionAttempt{}, ErrExecutionEvidenceRequired
 	}
 	original := p.seal.attempt
@@ -222,7 +230,8 @@ func tikTokNoSendAction(action string) bool {
 func supportsLocalNoSend(platform, action string) bool {
 	return platform == "tiktokshop" && tikTokNoSendAction(action) ||
 		platform == "googlemerchant" && action == GoogleInsertAction ||
-		platform == "shopify" && action == ShopifyDraftAction
+		platform == "shopify" && action == ShopifyDraftAction ||
+		platform == "amazon" && action == AmazonSubmitAction
 }
 
 func validNoSendReason(reason string) bool {
@@ -235,6 +244,12 @@ func validNoSendReason(reason string) bool {
 func noSendFingerprint(a ExecutionAttempt, reason string) string {
 	return digestExecutionParts("task-processor/submission/local-no-send/v1", a.OrganizationID, a.AttemptID, a.IntentKey, a.Target.Platform, a.Target.StoreID, a.Target.SubjectID, a.Action, a.PayloadFingerprint, a.ProviderExecutionKey, strconv.FormatInt(a.FenceEpoch, 10), a.ClaimOwnerID, reason)
 }
+func validLocalNoSend(a ExecutionAttempt, reason string) bool {
+	return supportsLocalNoSend(a.Target.Platform, a.Action) && validNoSendReason(reason) &&
+		(a.Target.Platform != "amazon" || reason == NoSendAccessRecheckFailed)
+}
 func validNoSendAttempt(a ExecutionAttempt) bool {
-	return supportsLocalNoSend(a.Target.Platform, a.Action) && a.Evidence != nil && a.Evidence.Kind == EvidenceLocalNoSend && a.Evidence.Reference == a.AttemptID && validNoSendReason(a.Evidence.Reason) && a.Evidence.Fingerprint == noSendFingerprint(a, a.Evidence.Reason) && a.FinishedAt != nil && a.FinishedAt.Before(a.LeaseExpiresAt)
+	return a.Evidence != nil && a.Evidence.Kind == EvidenceLocalNoSend && a.Evidence.Reference == a.AttemptID &&
+		validLocalNoSend(a, a.Evidence.Reason) && a.Evidence.Fingerprint == noSendFingerprint(a, a.Evidence.Reason) &&
+		a.FinishedAt != nil && a.FinishedAt.Before(a.LeaseExpiresAt)
 }

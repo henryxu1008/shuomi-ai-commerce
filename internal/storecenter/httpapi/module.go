@@ -50,7 +50,9 @@ func (m routeModule) Register(registry *kernelmodule.Registry) error {
 		registry.AddRoutes(pairing)
 	}
 	registry.AddRoutes(m.handler.amazonAuthorizationRoutes()...)
-	registry.AddRoutes(m.handler.googleRoutes()...)
+	if m.handler.google != nil {
+		registry.AddRoutes(GoogleStoreRoutes(m.handler)...)
+	}
 	if m.handler.browser != nil {
 		registry.AddRoutes(m.handler.browserRoutes()...)
 	}

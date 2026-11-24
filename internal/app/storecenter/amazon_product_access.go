@@ -112,7 +112,13 @@ func (a *AmazonProductAccess) Submit(ctx context.Context, scope collection.Scope
 	permit *submission.AmazonWritePermit, authorize func(context.Context) error,
 ) (amazon.SubmissionReceipt, error) {
 	subject := storecenter.ProductExecutionSubject{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID}
-	if session == nil || authorize == nil || !a.Current(ctx, subject, session.binding) || authorize(ctx) != nil || ctx.Err() != nil ||
+	if session == nil || authorize == nil || !a.Current(ctx, subject, session.binding) {
+		return amazon.SubmissionReceipt{}, storecenter.ErrOfficialConnectionUnavailable
+	}
+	if err := authorize(ctx); err != nil {
+		return amazon.SubmissionReceipt{}, err
+	}
+	if ctx.Err() != nil ||
 		permit.Consume(scope, session.binding, draft, time.Now()) != nil {
 		return amazon.SubmissionReceipt{}, storecenter.ErrOfficialConnectionUnavailable
 	}

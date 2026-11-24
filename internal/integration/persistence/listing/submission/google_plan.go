@@ -29,18 +29,18 @@ func InstallGooglePlanSchema(ctx context.Context, db *gorm.DB) error {
 			return err
 		}
 		var existing string
-		if err := tx.Raw(`SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint
+		var isolatedAmazon bool
+		if err := tx.Raw(`SELECT pg_get_constraintdef(oid), `+isolatedAmazonNoSendSchemaPresent+` FROM pg_catalog.pg_constraint
 			WHERE conrelid='public.listing_submission_execution_attempts'::regclass
-			AND conname=? AND contype='c' AND convalidated AND NOT condeferrable`, noSendConstraintName).Scan(&existing).Error; err != nil {
+			AND conname=? AND contype='c' AND convalidated AND NOT condeferrable AND NOT condeferred`, noSendConstraintName).Row().Scan(&existing, &isolatedAmazon); err != nil {
 			return err
 		}
-		shopifyDefinition := expectedConstraints[AttemptTable][noSendConstraintName].exactDefinition
-		hasShopify := pgschema.SchemaConstraintEqual(existing, shopifyDefinition)
-		if !hasShopify && !pgschema.SchemaConstraintEqual(existing, priorNoSendConstraint) {
+		hasShopify := pgschema.SchemaConstraintEqual(existing, noSendConstraintDefinition(true, false, isolatedAmazon))
+		if !hasShopify && !pgschema.SchemaConstraintEqual(existing, noSendConstraintDefinition(false, false, isolatedAmazon)) {
 			return errors.New("Google Merchant requires the current Listing submission no-send constraint")
 		}
 		if err := tx.Exec("ALTER TABLE public." + AttemptTable + " DROP CONSTRAINT " + noSendConstraintName +
-			", ADD CONSTRAINT " + noSendConstraintName + " " + googleNoSendConstraint(hasShopify)).Error; err != nil {
+			", ADD CONSTRAINT " + noSendConstraintName + " " + noSendConstraintDefinition(hasShopify, true, isolatedAmazon)).Error; err != nil {
 			return err
 		}
 		if err := tx.Exec(`CREATE TABLE public.workbench_listing_google_upload_plans (

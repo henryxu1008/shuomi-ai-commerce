@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 
+	submissionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/submission"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
 )
 
@@ -44,5 +45,5 @@ func InstallIsolatedAmazonSchemaTx(ctx context.Context, tx *sql.Tx) error {
 			return err
 		}
 	}
-	return nil
+	return submissionstore.InstallIsolatedAmazonNoSendSchemaTx(ctx, tx)
 }
