@@ -17,6 +17,7 @@ import (
 )
 
 type Service struct {
+	ShopifyOrders ShopifyOrderReader
 	TemuOrders    TemuOrderReader
 	TikTokOrders  TikTokOrderReader
 	WalmartOrders WalmartOrderReader
@@ -213,6 +214,15 @@ func (s *Service) Begin(ctx context.Context, scope Scope, key string, in BeginIn
 			}
 		} else {
 			child.Binding = m.Binding()
+			if child.Binding.Platform == storecenter.PlatformShopify {
+				if s.ShopifyOrders == nil || in.Kind != Orders || !child.Binding.ValidShopifyOrderApplication() {
+					return ErrUnsupported
+				}
+				if in.Start != nil || in.End != nil || len(stores) != 1 {
+					return ErrInvalid
+				}
+				child.Progress.Windows = []Window{*child.Range}
+			}
 		}
 		children[i] = child
 		return nil
@@ -469,6 +479,12 @@ func (s *Service) Step(ctx context.Context, org, id string) (Sync, error) {
 			product := p
 			records = append(records, Record{StoreID: sync.StoreID, SyncID: sync.ID, ID: p.ID, Product: &product})
 		}
+	} else if sync.Binding.Platform == storecenter.PlatformShopify {
+		updated, err := s.stepShopifyOrders(ctx, sync, merchant)
+		if err != nil {
+			return stop(err)
+		}
+		return updated, nil
 	} else if sync.Binding.Platform == storecenter.PlatformTemu {
 		updated, err := s.stepTemuOrders(ctx, sync, merchant)
 		if err != nil {
@@ -600,13 +616,16 @@ func (s *Service) List(ctx context.Context, scope Scope, q Query) (Result, error
 	if q.Kind == Products && q.Status != "" && q.Status != "active" && q.Status != "off" && q.Status != "unknown" {
 		return Result{}, ErrInvalid
 	}
-	if q.Kind == Orders && q.Status != "" && q.Status != "transit" && q.Status != "exceptional" && q.Status != "unknown" {
+	if q.Platform == "shopify" && (q.Kind != Orders || s.ShopifyOrders == nil || len(q.Stores) != 1 || !validShopifyOrderStatus(q.Status)) {
+		return Result{}, ErrInvalid
+	}
+	if q.Platform != "shopify" && q.Kind == Orders && q.Status != "" && q.Status != "transit" && q.Status != "exceptional" && q.Status != "unknown" {
 		n, e := strconv.Atoi(q.Status)
 		if e != nil || n < 1 || n > 9 {
 			return Result{}, ErrInvalid
 		}
 	}
-	if q.Platform != "" && q.Platform != "shein" && q.Platform != "temu" && q.Platform != "walmart" || q.Kind == Orders && (q.Platform == "temu" || q.Platform == "walmart") {
+	if q.Platform != "" && q.Platform != "shein" && q.Platform != "temu" && q.Platform != "walmart" && q.Platform != "shopify" || q.Kind == Orders && (q.Platform == "temu" || q.Platform == "walmart") {
 		return Result{}, ErrInvalid
 	}
 	// The consumer record list is the SHEIN projection; native Walmart orders
@@ -617,6 +636,14 @@ func (s *Service) List(ctx context.Context, scope Scope, q Query) (Result, error
 	stores, e := s.allowedStores(ctx, scope, q.Kind, false, q.Stores, q.Platform)
 	if e != nil {
 		return Result{}, e
+	}
+	if q.Platform == "shopify" {
+		if len(stores) != 1 {
+			return Result{}, ErrForbidden
+		}
+		if _, err := s.Access.Open(ctx, scope, stores[0], Orders, false, nil); err != nil {
+			return Result{}, err
+		}
 	}
 	q.Stores = stores
 	q.Sources = map[string]string{}
@@ -768,7 +795,12 @@ func (s *Service) Detail(ctx context.Context, scope Scope, store, syncID, id str
 	if kind == SupplyOrders && (record.SupplyOrder == nil || record.SupplyOrder.ID != id || !record.SupplyOrder.Valid() || record.Order != nil || record.Product != nil || record.TemuProduct != nil || record.WalmartProduct != nil || record.TemuOrder != nil || record.WalmartOrder != nil || record.TikTokOrder != nil) {
 		return Record{}, ErrUnavailable
 	}
-	if kind == Orders {
+	if kind == Orders && sync.Binding.Platform == storecenter.PlatformShopify {
+		if s.ShopifyOrders == nil || !sync.Binding.ValidShopifyOrderApplication() || record.ShopifyOrder == nil ||
+			record.ShopifyOrder.ID != id || !record.ShopifyOrder.Valid() {
+			return Record{}, ErrNotFound
+		}
+	} else if kind == Orders {
 		detail, e := merchant.OrderDetails(ctx, []string{id})
 		if e != nil {
 			if errors.Is(e, ErrUnavailable) && record.Order != nil && record.Order.ID == id && record.Order.Site == "shein-us" {
@@ -807,6 +839,9 @@ func (s *Service) Logistics(ctx context.Context, scope Scope, store, sync, order
 	record, e := s.Detail(ctx, scope, store, sync, order, Orders)
 	if e != nil {
 		return nil, e
+	}
+	if record.Order == nil {
+		return nil, ErrUnsupported
 	}
 	if record.Stale {
 		return nil, ErrUnavailable

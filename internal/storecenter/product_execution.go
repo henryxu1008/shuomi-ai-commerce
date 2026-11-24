@@ -89,11 +89,20 @@ type ProductMerchantBinding struct {
 }
 
 type ShopifyMerchantBinding struct {
-	ShopKey  string `json:"shopKey"`
-	Currency string `json:"currency"`
+	ShopKey         string `json:"shopKey"`
+	Currency        string `json:"currency"`
+	OrderGeneration int64  `json:"orderGeneration,omitempty"`
 }
 
 func (b ProductMerchantBinding) ValidShopifyApplication() bool {
+	return b.Shopify.OrderGeneration == 0 && b.validShopifyIdentity()
+}
+
+func (b ProductMerchantBinding) ValidShopifyOrderApplication() bool {
+	return b.Shopify.OrderGeneration > 0 && b.validShopifyIdentity()
+}
+
+func (b ProductMerchantBinding) validShopifyIdentity() bool {
 	return b.Platform == PlatformShopify && b.Site == "shopify" && shopifyAppID.MatchString(b.ApplicationID) &&
 		b.ApplicationRevision == "shopify-admin-2026-10" && uuid.Validate(b.Shopify.ShopKey) == nil && shopifyCurrencyCode.MatchString(b.Shopify.Currency) && !b.AmazonBeta &&
 		b.ConnectionRevision > 0 && b.StoreVersion > 0 && shopifyDigest.MatchString(b.SupplierIdentityHash) && b.TikTok == (TikTokMerchantBinding{}) &&
