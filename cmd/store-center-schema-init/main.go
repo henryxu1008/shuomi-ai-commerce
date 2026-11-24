@@ -97,7 +97,7 @@ func main() {
 			return installBrowserWorkbench(*path, *confirmed)
 		}
 		if confirmationSet {
-			return errors.New("--confirm-database requires --shopify-lifecycle, --align-core-contract, --browser-workbench, --observations-current-store, --google-merchant or --align-empty-observations-contract")
+			return errors.New("--confirm-database requires --align-core-contract, --browser-workbench, --observations-current-store, --google-merchant, --align-empty-observations-contract or --shopify-lifecycle")
 		}
 		return runStoreSchema(*path, *observations, *cockpit, *observationsOnly, *grantsOnly, *verify, *tiktok, *walmart, *shopify)
 	}()
