@@ -21,18 +21,21 @@ describe("Amazon workbench authorization proxy", () => {
         { authorizationUrl: `https://sellercentral.amazon.com/apps/authorize/consent?application_id=${appId}` },
         { headers: { "Set-Cookie": `__Secure-shuomi-amazon-flow=${flow}; Path=/workbench/stores/amazon; Max-Age=540; HttpOnly; Secure; SameSite=Lax` } },
       ));
-      const start = (origin: string) => new Request(route + "begin", { method: "POST", headers: {
+      const start = (origin: string, body?: string) => new Request(route + "begin", { method: "POST", body, headers: {
         origin, cookie: `${WORKBENCH_COOKIE_NAME}=org-a`, "X-Expected-User-ID": "member-a",
         "X-Expected-Organization-ID": "org-a", "X-Store-ID": storeId, "If-Match": '"3"',
       } });
       expect((await proxyAmazonAuthorization(start("https://wrong.example.org"), "begin", credentials, native)).status).toBe(403);
+      expect((await proxyAmazonAuthorization(start("https://app.example.org", "x"), "begin", credentials, native)).status).toBe(400);
       expect(native).not.toHaveBeenCalled();
-      const response = await proxyAmazonAuthorization(start("https://app.example.org"), "begin", credentials, native);
-      expect(response.status).toBe(200);
-      expect(response.headers.get("set-cookie")).toContain("HttpOnly");
-      expect(response.headers.get("set-cookie")).toContain("Secure");
-      expect(response.headers.get("set-cookie")).toContain("SameSite=lax");
-      expect(await response.text()).not.toContain(flow);
+      for (const body of [undefined, ""]) {
+        const response = await proxyAmazonAuthorization(start("https://app.example.org", body), "begin", credentials, native);
+        expect(response.status).toBe(200);
+        expect(response.headers.get("set-cookie")).toContain("HttpOnly");
+        expect(response.headers.get("set-cookie")).toContain("Secure");
+        expect(response.headers.get("set-cookie")).toContain("SameSite=lax");
+        expect(await response.text()).not.toContain(flow);
+      }
     } finally {
       vi.unstubAllEnvs();
     }
