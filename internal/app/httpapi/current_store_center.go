@@ -75,6 +75,7 @@ func buildCurrentStoreCenterModule(ctx context.Context, records *gorm.DB, author
 	if err != nil {
 		return nil, err
 	}
+	repo = repo.WithShopifyLifecycle(capabilities.ShopifyLifecycle)
 	audit, err := storecenter.NewGormAuditRepository(records)
 	if err != nil {
 		return nil, err
@@ -126,7 +127,7 @@ func buildCurrentStoreCenterModule(ctx context.Context, records *gorm.DB, author
 		}
 	}
 	module := storehttp.NewModule(handler)
-	catalog, metadata, err := buildStoreCatalog(records, authorizer, applications, nil, nil, nil)
+	catalog, metadata, err := buildStoreCatalog(records, authorizer, applications, nil, nil, nil, capabilities)
 	if err != nil {
 		return nil, err
 	}

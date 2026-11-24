@@ -83,8 +83,13 @@ func (r *MemberScopedStoreRepository) shopifyTx(ctx context.Context, org, storeI
 		return err
 	}
 	return r.db.WithContext(ctx).Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)}).Transaction(func(tx *gorm.DB) error {
-		store, err := connectionStore(tx, access, storeID)
+		store, err := lockConnectionStore(tx, org, storeID)
 		if err != nil {
+			return err
+		}
+		// These checks read the current member grant. SHARE prevents revocation
+		// without blocking concurrent grant checks during same-shop rebind.
+		if err := lockActiveMemberGrant(tx, access, storeID, "SHARE"); err != nil {
 			return err
 		}
 		if store.Platform != string(PlatformShopify) || store.RecordStatus != string(RecordStatusActive) {
@@ -253,7 +258,7 @@ func (r *MemberScopedStoreRepository) ReadShopifyPairing(ctx context.Context, ke
 	return r.updateShopifyPairing(ctx, key, session, now, func(*gorm.DB, *ShopifyPairing) error { return nil })
 }
 
-func (r *MemberScopedStoreRepository) ConfirmShopifyPairing(ctx context.Context, key ShopifyPairingKey, session string, identity ShopifyInstallation, now time.Time) (ShopifyBinding, error) {
+func (r *MemberScopedStoreRepository) ConfirmShopifyPairing(ctx context.Context, key ShopifyPairingKey, session string, identity ShopifyInstallation, now time.Time, verifiedRevision int64) (ShopifyBinding, error) {
 	if !identity.valid() {
 		return ShopifyBinding{}, ErrNotFound
 	}
@@ -263,12 +268,17 @@ func (r *MemberScopedStoreRepository) ConfirmShopifyPairing(ctx context.Context,
 		if err != nil {
 			return err
 		}
+		if r.shopifyLifecycle && row.State != "confirmed" {
+			if err := validateShopifyLifecycleProof(tx, identity, verifiedRevision, row.CreatedAt); err != nil {
+				return err
+			}
+		}
 		shop, err := findShopifyShop(tx, identity.AppID, identity.ShopID)
 		if err != nil {
 			return err
 		}
 		if row.State == "confirmed" {
-			known, err := currentShopifyBinding(tx, shop, key)
+			known, err := r.currentShopifyBinding(tx, shop, key)
 			if err != nil || row.ShopKey == nil || *row.ShopKey != known.ShopKey || row.Generation != known.Generation || known.ShopifyInstallation != identity {
 				return ErrVersionConflict
 			}
@@ -288,20 +298,32 @@ func (r *MemberScopedStoreRepository) ConfirmShopifyPairing(ctx context.Context,
 }
 
 func bindShopifyPairing(tx *gorm.DB, access StoreMemberAccess, store workbenchStoreRecord, row ShopifyPairing, shop shopifyShopRow, now time.Time) (ShopifyBinding, error) {
-	identity := row.ShopifyInstallation
+	binding, err := bindShopifyAuthorization(tx, access, store, row.ShopifyInstallation, shop, now)
+	if err != nil {
+		return ShopifyBinding{}, err
+	}
+	if err := updateShopifyPairingFields(tx, row, map[string]any{"state": "confirmed", "shop_key": binding.ShopKey, "generation": binding.Generation,
+		"shop_id": "", "installation_id": "", "domain": "", "currency": "", "key_id": "", "ciphertext": ""}); err != nil {
+		return ShopifyBinding{}, err
+	}
+	return binding, nil
+}
+
+// Caller holds the target Store, pairing proof and existing Shopify shop locks.
+func bindShopifyAuthorization(tx *gorm.DB, access StoreMemberAccess, store workbenchStoreRecord, identity ShopifyInstallation, shop shopifyShopRow, now time.Time) (ShopifyBinding, error) {
 	if shop.ShopKey == "" {
-		shop = shopifyShopRow{OrganizationID: row.OrganizationID, ShopKey: uuid.NewString(), StoreID: row.StoreID,
+		shop = shopifyShopRow{OrganizationID: store.OrganizationID, ShopKey: uuid.NewString(), StoreID: store.ID,
 			AppID: identity.AppID, ShopID: identity.ShopID, Generation: 1}
 		insert := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&shop)
 		if insert.Error != nil || insert.RowsAffected != 1 {
 			return ShopifyBinding{}, ErrAlreadyExists
 		}
 	} else {
-		if shop.OrganizationID != row.OrganizationID || shop.Generation == math.MaxInt64 {
+		if shop.OrganizationID != store.OrganizationID || shop.Generation == math.MaxInt64 {
 			return ShopifyBinding{}, ErrAlreadyExists
 		}
-		if shop.StoreID != row.StoreID {
-			if err := requireMemberGrant(tx, access, shop.StoreID); err != nil {
+		if shop.StoreID != store.ID {
+			if err := lockActiveMemberGrant(tx, access, shop.StoreID, "SHARE"); err != nil {
 				return ShopifyBinding{}, err
 			}
 		}
@@ -310,20 +332,16 @@ func bindShopifyPairing(tx *gorm.DB, access StoreMemberAccess, store workbenchSt
 			return ShopifyBinding{}, ErrOfficialConnectionUnavailable
 		}
 		if err := tx.Model(&shopifyShopRow{}).Where("organization_id=? AND shop_key=? AND generation=?", shop.OrganizationID, shop.ShopKey, shop.Generation).
-			Updates(map[string]any{"generation": shop.Generation + 1, "store_id": row.StoreID}).Error; err != nil {
+			Updates(map[string]any{"generation": shop.Generation + 1, "store_id": store.ID}).Error; err != nil {
 			return ShopifyBinding{}, ErrAlreadyExists
 		}
 		shop.Generation++
-		shop.StoreID = row.StoreID
+		shop.StoreID = store.ID
 	}
 	consent := shopifyAuthorizationRow{OrganizationID: shop.OrganizationID, ShopKey: shop.ShopKey, Generation: shop.Generation,
 		InstallationID: identity.InstallationID, Domain: identity.Domain, Currency: identity.Currency, ApprovedAt: now}
 	if err := tx.Create(&consent).Error; err != nil {
 		return ShopifyBinding{}, ErrOfficialConnectionUnavailable
-	}
-	if err := updateShopifyPairingFields(tx, row, map[string]any{"state": "confirmed", "shop_key": shop.ShopKey, "generation": shop.Generation,
-		"shop_id": "", "installation_id": "", "domain": "", "currency": "", "key_id": "", "ciphertext": ""}); err != nil {
-		return ShopifyBinding{}, err
 	}
 	if err := updateConnectionRef(tx, store, shop.ShopKey, access.ActorID, now); err != nil {
 		return ShopifyBinding{}, err
@@ -337,7 +355,7 @@ func shopifyBindingValue(shop shopifyShopRow, consent shopifyAuthorizationRow) S
 		Generation:          shop.Generation}
 }
 
-func currentShopifyBinding(tx *gorm.DB, shop shopifyShopRow, key ShopifyPairingKey) (ShopifyBinding, error) {
+func (r *MemberScopedStoreRepository) currentShopifyBinding(tx *gorm.DB, shop shopifyShopRow, key ShopifyPairingKey) (ShopifyBinding, error) {
 	if shop.ShopKey == "" || shop.OrganizationID != key.OrganizationID || shop.StoreID != key.StoreID {
 		return ShopifyBinding{}, ErrNotFound
 	}
@@ -349,6 +367,15 @@ func currentShopifyBinding(tx *gorm.DB, shop shopifyShopRow, key ShopifyPairingK
 	if err != nil {
 		return ShopifyBinding{}, ErrOfficialConnectionUnavailable
 	}
+	if r.shopifyLifecycle {
+		pending, err := shopifyAuthorizationPending(tx, shop)
+		if err != nil {
+			return ShopifyBinding{}, ErrOfficialConnectionUnavailable
+		}
+		if pending {
+			return ShopifyBinding{}, ErrShopifyLifecyclePending
+		}
+	}
 	return shopifyBindingValue(shop, auth), nil
 }
 
@@ -356,14 +383,14 @@ func (r *MemberScopedStoreRepository) ReadShopifyBinding(ctx context.Context, or
 	var result ShopifyBinding
 	err := r.shopifyTx(ctx, org, storeID, false, func(tx *gorm.DB, _ StoreMemberAccess, store workbenchStoreRecord) error {
 		var err error
-		result, err = readShopifyBinding(tx, org, storeID, store.ConnectionRef)
+		result, err = r.readShopifyBinding(tx, org, storeID, store.ConnectionRef)
 		return err
 	})
 	return result, err
 }
 
 // Both lookups inherit the caller's row lock when used for a service effect.
-func readShopifyBinding(tx *gorm.DB, org, storeID, shopKey string) (ShopifyBinding, error) {
+func (r *MemberScopedStoreRepository) readShopifyBinding(tx *gorm.DB, org, storeID, shopKey string) (ShopifyBinding, error) {
 	tx = tx.Session(&gorm.Session{})
 	var shop shopifyShopRow
 	err := tx.Where("organization_id=? AND store_id=? AND shop_key=?", org, storeID, shopKey).Take(&shop).Error
@@ -373,5 +400,5 @@ func readShopifyBinding(tx *gorm.DB, org, storeID, shopKey string) (ShopifyBindi
 	if err != nil {
 		return ShopifyBinding{}, ErrOfficialConnectionUnavailable
 	}
-	return currentShopifyBinding(tx, shop, ShopifyPairingKey{OrganizationID: org, StoreID: storeID})
+	return r.currentShopifyBinding(tx, shop, ShopifyPairingKey{OrganizationID: org, StoreID: storeID})
 }

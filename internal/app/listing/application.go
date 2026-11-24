@@ -95,7 +95,8 @@ func (a *Application) Source(ctx context.Context, id string) (SourceDetail, erro
 }
 
 type ShopifyStoreDetails struct {
-	Currency string `json:"currency"`
+	Currency      string `json:"currency"`
+	PriorRevision int64  `json:"priorRevision,omitempty"`
 }
 
 type TargetRules struct {
@@ -153,7 +154,16 @@ func (a *Application) QueryRules(ctx context.Context, in record.TargetInput) (Ta
 		if err != nil || !binding.ValidShopifyApplication() || !validTargetMerchant(scope, in.StoreID, binding) {
 			return TargetRules{}, record.ErrForbidden
 		}
-		return TargetRules{Merchant: binding, Shopify: &ShopifyStoreDetails{Currency: binding.Shopify.Currency}}, nil
+		details := &ShopifyStoreDetails{Currency: binding.Shopify.Currency}
+		if revisions, ok := a.Records.(interface {
+			ReadFrozenShopifyRevision(context.Context, collection.Scope, string) (int64, error)
+		}); ok {
+			details.PriorRevision, err = revisions.ReadFrozenShopifyRevision(ctx, scope, record.TargetIdentity(scope, in.SourceID, in.StoreID))
+			if err != nil {
+				return TargetRules{}, err
+			}
+		}
+		return TargetRules{Merchant: binding, Shopify: details}, nil
 	}
 	if in.WalmartRules != nil {
 		selection := *in.WalmartRules

@@ -20,7 +20,20 @@ func (a *Application) PublicationStatus(ctx context.Context, sourceID, storeID s
 		if a.ShopifyStatus == nil || len(receiptIDs) > 1 || len(receiptIDs) == 1 && receiptIDs[0] != "" && receiptIDs[0] != view.ReceiptID {
 			return view, record.ErrNotReady
 		}
-		return a.ShopifyStatus.read(ctx, view)
+		observed, err := a.ShopifyStatus.read(ctx, view)
+		if err != nil {
+			return PublicationView{}, err
+		}
+		if view.Shopify != nil {
+			current, err := a.Publication(ctx, sourceID, storeID)
+			if err != nil {
+				return PublicationView{}, err
+			}
+			if current.ReceiptID != view.ReceiptID {
+				return PublicationView{}, record.ErrNotFound
+			}
+		}
+		return observed, nil
 	}
 	if view.Product != nil {
 		if a.SheinPublication == nil {

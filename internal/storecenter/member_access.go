@@ -62,8 +62,9 @@ type MemberStoreGrantCommand struct {
 // All current Store consumers use this repository. The lower-level repository
 // remains a persistence implementation and receives a borrowed local transaction.
 type MemberScopedStoreRepository struct {
-	db     *gorm.DB
-	access StoreMemberAuthorizer
+	db               *gorm.DB
+	access           StoreMemberAuthorizer
+	shopifyLifecycle bool
 }
 
 func NewMemberScopedStoreRepository(db *gorm.DB, access StoreMemberAuthorizer) (*MemberScopedStoreRepository, error) {
@@ -71,6 +72,17 @@ func NewMemberScopedStoreRepository(db *gorm.DB, access StoreMemberAuthorizer) (
 		return nil, ErrDependencyUnavailable
 	}
 	return &MemberScopedStoreRepository{db: db, access: access}, nil
+}
+
+// WithShopifyLifecycle applies the installed Store capability at composition.
+func (r *MemberScopedStoreRepository) WithShopifyLifecycle(installed bool) *MemberScopedStoreRepository {
+	copy := *r
+	copy.shopifyLifecycle = installed
+	return &copy
+}
+
+func (r *MemberScopedStoreRepository) ShopifyLifecycleInstalled() bool {
+	return r != nil && r.shopifyLifecycle
 }
 
 var _ Repository = (*MemberScopedStoreRepository)(nil)
@@ -95,11 +107,15 @@ func (r *MemberScopedStoreRepository) authorize(ctx context.Context, org string,
 	return access, nil
 }
 func requireMemberGrant(tx *gorm.DB, access StoreMemberAccess, storeID string) error {
+	return lockActiveMemberGrant(tx, access, storeID, "UPDATE")
+}
+
+func lockActiveMemberGrant(tx *gorm.DB, access StoreMemberAccess, storeID, strength string) error {
 	if access.Administrator {
 		return nil
 	}
 	var row storeMemberGrantRow
-	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("organization_id = ? AND store_id = ? AND member_id = ? AND active = ?", access.OrganizationID, storeID, access.MemberID, true).Take(&row).Error
+	err := tx.Clauses(clause.Locking{Strength: strength}).Where("organization_id = ? AND store_id = ? AND member_id = ? AND active = ?", access.OrganizationID, storeID, access.MemberID, true).Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return ErrNotFound
 	}

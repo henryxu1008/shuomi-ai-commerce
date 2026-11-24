@@ -40,6 +40,16 @@ type assertionClaims struct {
 // Issue is called only for a store admitted by Store Center. The resulting
 // token must be checked against the exact current installation before use.
 func (c *AppTokenIssuer) Issue(ctx context.Context, shop string) (AccessToken, error) {
+	return c.issue(ctx, shop, true)
+}
+
+// IssueLifecycleProbe permits a read-only installation check after scope loss;
+// product callers must continue to use Issue.
+func (c *AppTokenIssuer) IssueLifecycleProbe(ctx context.Context, shop string) (AccessToken, error) {
+	return c.issue(ctx, shop, false)
+}
+
+func (c *AppTokenIssuer) issue(ctx context.Context, shop string, requireProducts bool) (AccessToken, error) {
 	if c == nil || ctx == nil || ctx.Err() != nil || !shopDomainPattern.MatchString(shop) {
 		return AccessToken{}, ErrInvalidRequest
 	}
@@ -74,7 +84,7 @@ func (c *AppTokenIssuer) Issue(ctx context.Context, shop string) (AccessToken, e
 		Scope     string `json:"scope"`
 		ExpiresIn int64  `json:"expires_in"`
 	}
-	if !decodeAdminJSON(raw, &reply) || !validToken(reply.Token) || !writeScope(reply.Scope) ||
+	if !decodeAdminJSON(raw, &reply) || !validToken(reply.Token) || requireProducts && !writeScope(reply.Scope) ||
 		reply.ExpiresIn <= 0 || reply.ExpiresIn > 24*60*60 {
 		return AccessToken{}, ErrTokenUnavailable
 	}

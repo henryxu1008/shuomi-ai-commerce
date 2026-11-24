@@ -1,6 +1,7 @@
 import {cleanup, fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {afterEach, expect, it, vi} from "vitest";
 import {readSupplyPublicationStatus, shopifySupplyRules, supplyInventory} from "@/lib/api/supply-chain";
+import {SupplyAPIError} from "@/lib/api/supply-error";
 import {publicationSchema, type SupplySourceDetail} from "@/lib/contracts/supply-chain";
 import {ShopifyDraftEditor, ShopifyDraftResult} from "./shopify-draft";
 import type {ListingCommandState} from "./use-listing-command";
@@ -22,9 +23,9 @@ const receipt = {
 const readback = {...receipt, shopifyStatus: receipt.shopify};
 const adminUrl = "https://fixture-shop.myshopify.com/admin/products/12345";
 
-it("submits the confirmed Shopify price when clicking Save", async () => {
+it.each([undefined, 4])("submits confirmed Shopify prices with the visible target revision %s", async priorRevision => {
  vi.mocked(shopifySupplyRules).mockImplementation(async () => ({
-  merchant: {store_id: storeId}, shopify: {currency: "USD"},
+  merchant: {store_id: storeId}, shopify: {currency: "USD", priorRevision},
  }) as Awaited<ReturnType<typeof shopifySupplyRules>>);
  vi.mocked(supplyInventory).mockResolvedValue({
   scope: {tenant_id: "org", product_key: "fixture", target_platform: "product", source_snapshot_version: "1"},
@@ -46,7 +47,7 @@ it("submits the confirmed Shopify price when clicking Save", async () => {
  fireEvent.change(await screen.findByRole("textbox", {name: "SAMPLE"}), {target: {value: "12.50"}});
  fireEvent.click(screen.getByRole("button", {name: "保存待上传资料"}));
  expect(execute).toHaveBeenCalledExactlyOnceWith("save-target", {
-  sourceId, storeId, expectedRevision: 0, effectiveVersion: "1",
+  sourceId, storeId, expectedRevision: priorRevision ?? 0, effectiveVersion: "1",
   shopify: {currency: "USD", prices: ["12.50"], imageIds: []},
  });
 });
@@ -58,6 +59,16 @@ it("shows the Shopify admin link after verifying the product", async () => {
  fireEvent.click(screen.getByRole("button", {name: "查看 Shopify 结果"}));
  await waitFor(() => expect(screen.getByRole("link", {name: "在 Shopify 后台打开商品"})).toHaveAttribute("href", adminUrl));
  expect(screen.getByText("商品编号 12345")).toBeTruthy();
+});
+
+it("clears a previously shown Shopify receipt when the server says it is no longer visible", async () => {
+ vi.mocked(readSupplyPublicationStatus).mockRejectedValue(new SupplyAPIError("NOT_FOUND", 404));
+ render(<ShopifyDraftResult scope={{organizationId: "org", userId: "user"}} sourceId={sourceId}
+  storeId={storeId} publication={receipt}/>);
+ expect(screen.getByText("商品编号 12345")).toBeTruthy();
+ fireEvent.click(screen.getByRole("button", {name: "查看 Shopify 结果"}));
+ expect(await screen.findByText("暂时没有可查看的 Shopify 结果。")).toBeTruthy();
+ expect(screen.queryByText("商品编号 12345")).toBeNull();
 });
 
 it("rejects an admin link from an unverified readback or for a different product", () => {

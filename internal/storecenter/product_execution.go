@@ -255,7 +255,7 @@ func (r *MemberScopedStoreRepository) readOfficialMaterial(ctx context.Context, 
 			if err := tx.Where("organization_id=? AND store_id=? AND shop_key=?", subject.OrganizationID, storeID, stored.ConnectionRef).Take(&shop).Error; err != nil {
 				return ErrNotFound
 			}
-			binding, err := currentShopifyBinding(tx, shop, ShopifyPairingKey{OrganizationID: subject.OrganizationID, StoreID: storeID})
+			binding, err := r.currentShopifyBinding(tx, shop, ShopifyPairingKey{OrganizationID: subject.OrganizationID, StoreID: storeID})
 			if err != nil {
 				return err
 			}

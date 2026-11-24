@@ -224,7 +224,7 @@ func TestSyntheticShopifyOrdersHTTPAndOriginalObservationAuthority(t *testing.T)
 		require.NoError(t, err)
 		_, err = stores.StageShopifyPairing(auth, pair.Key(), browser, provider, 0, "fixture-key", "fixture-ciphertext", now)
 		require.NoError(t, err)
-		bound, err := stores.ConfirmShopifyPairing(auth, pair.Key(), browser, provider, now)
+		bound, err := stores.ConfirmShopifyPairing(auth, pair.Key(), browser, provider, now, 0)
 		require.NoError(t, err)
 		expires := now.Add(24 * time.Hour)
 		require.NoError(t, owner.Exec(`UPDATE workbench_stores SET service_status='active',service_started_at=?,service_expires_at=?

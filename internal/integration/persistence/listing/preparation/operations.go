@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/shopifyguard"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
@@ -66,6 +67,32 @@ func (r operationItemRow) value() preparation.OperationItem {
 	}
 	return value
 }
+func operationItemForRead(db *gorm.DB, row operationItemRow) (preparation.OperationItem, error) {
+	value := row.value()
+	if row.RecordID == nil {
+		return value, nil
+	}
+	err := shopifyguard.CheckRecordReference(db, row.OrganizationID, row.ActorID, row.MemberID, *row.RecordID, false)
+	if errors.Is(err, shopifyguard.ErrFrozen) {
+		return preparation.OperationItem{SourceID: row.SourceID, Status: preparation.ItemMissing}, nil
+	}
+	if err != nil {
+		return preparation.OperationItem{}, preparation.ErrUnavailable
+	}
+	return value, nil
+}
+
+func checkOperationRecordWrite(db *gorm.DB, scope collection.Scope, recordID string) error {
+	err := shopifyguard.CheckRecordReference(db, scope.OrganizationID, scope.ActorID, scope.MemberID, recordID, true)
+	if errors.Is(err, shopifyguard.ErrFrozen) {
+		return preparation.ErrNotFound
+	}
+	if err != nil {
+		return preparation.ErrUnavailable
+	}
+	return nil
+}
+
 func operationError(err error) error {
 	if err == nil {
 		return nil
@@ -135,6 +162,13 @@ func (r *OperationRepository) PrepareOperation(ctx context.Context, proof prepar
 // Used only inside the owner's existing operation/plan UoW. Public callers
 // must present a live OperationCommit or UploadPlanAdvanceCommit first.
 func prepareOperationTx(ctx context.Context, tx *gorm.DB, scope collection.Scope, key string, input preparation.OperationInput) (preparation.OperationReceipt, error) {
+	// Shopify uses a single approved target. Protect the exact immutable
+	// record before taking target-head or operation locks.
+	if input.Action == preparation.OperationUpload && input.PlanID != "" && len(input.TargetApprovals) == 1 {
+		if err := checkOperationRecordWrite(tx, scope, input.TargetApprovals[0].RecordID); err != nil {
+			return preparation.OperationReceipt{}, err
+		}
+	}
 	if tx.Exec("SET LOCAL synchronous_commit=on").Error != nil || tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", collection.Digest([]string{scope.OrganizationID, scope.ActorID, "supply-operation", key})).Error != nil {
 		return preparation.OperationReceipt{}, preparation.ErrUnavailable
 	}
@@ -322,16 +356,29 @@ func (r *OperationRepository) ListOperationItems(ctx context.Context, scope coll
 		if !preparation.ValidItemStatus(row.Status) {
 			return page, preparation.ErrUnavailable
 		}
-		page.Items = append(page.Items, row.value())
+		value, err := operationItemForRead(r.db.WithContext(ctx), row)
+		if err != nil {
+			return page, err
+		}
+		page.Items = append(page.Items, value)
 	}
 	return page, nil
 }
 func (r *OperationRepository) mutate(ctx context.Context, proof preparation.OperationAccess, fn func(*gorm.DB, *operationRow) error) error {
+	return r.mutateWithRecord(ctx, proof, "", fn)
+}
+
+func (r *OperationRepository) mutateWithRecord(ctx context.Context, proof preparation.OperationAccess, recordID string, fn func(*gorm.DB, *operationRow) error) error {
 	operation, err := proof.Read(ctx)
 	if err != nil {
 		return err
 	}
 	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if recordID != "" {
+			if err := checkOperationRecordWrite(tx, operation.Owner, recordID); err != nil {
+				return err
+			}
+		}
 		row, err := readOperation(tx.Clauses(clause.Locking{Strength: "UPDATE"}), operation.Owner, operation.ID)
 		if err != nil {
 			return err
@@ -416,7 +463,7 @@ func (r *OperationRepository) FinishOperationItem(ctx context.Context, proof pre
 	if !collection.ValidID(value.SourceID) || !preparation.ItemTerminal(value.Status) || utf8.RuneCountInString(value.Note) > 300 || !utf8.ValidString(value.Note) || value.ResultReference != "" && !authidentity.IsBoundedIdentifier(value.ResultReference) {
 		return preparation.ErrInvalid
 	}
-	return r.mutate(ctx, proof, func(tx *gorm.DB, row *operationRow) error {
+	return r.mutateWithRecord(ctx, proof, value.RecordID, func(tx *gorm.DB, row *operationRow) error {
 		var item operationItemRow
 		if err := tx.Where("organization_id=? AND actor_id=? AND operation_id=? AND source_id=?", row.OrganizationID, row.ActorID, row.ID, value.SourceID).Take(&item).Error; err != nil {
 			return err

@@ -16,15 +16,17 @@ import (
 )
 
 type ShopifyConfig struct {
-	ApplicationGID string `json:"applicationGid"`
-	ClientID       string `json:"clientId"`
-	InstallURL     string `json:"installURL"`
-	CallbackURL    string `json:"callbackURL"`
-	ClientSecret   string `json:"clientSecretFile"`
-	PairingKey     string `json:"pairingKeyFile"`
-	PairingKeyID   string `json:"pairingKeyId"`
-	SigningKey     string `json:"signingKeyFile"`
-	SigningKeyID   string `json:"signingKeyId"`
+	ApplicationGID         string `json:"applicationGid"`
+	ClientID               string `json:"clientId"`
+	InstallURL             string `json:"installURL"`
+	CallbackURL            string `json:"callbackURL"`
+	ClientSecret           string `json:"clientSecretFile"`
+	PairingKey             string `json:"pairingKeyFile"`
+	PairingKeyID           string `json:"pairingKeyId"`
+	SigningKey             string `json:"signingKeyFile"`
+	SigningKeyID           string `json:"signingKeyId"`
+	StartedInstallation    bool   `json:"startedInstallation"`
+	LifecycleNotifications bool   `json:"lifecycleNotifications"`
 }
 
 func (c *ShopifyConfig) validate() error {
@@ -97,7 +99,7 @@ func (c *ShopifyConfig) prepare(ctx context.Context, registry *storeapp.Official
 		return nil, err
 	}
 	return storeapp.WithShopifyApplication(registry, storeapp.ShopifyApplication{AppID: c.ApplicationGID, InstallURL: c.InstallURL,
-		OAuth: oauth, Admin: wire.NewDevelopmentAdminClient(nil), Issuer: issuer, Protection: protection})
+		OAuth: oauth, Admin: wire.NewDevelopmentAdminClient(nil), Issuer: issuer, Protection: protection, StartedInstallation: c.StartedInstallation, LifecycleNotifications: c.LifecycleNotifications})
 }
 
 func parseShopifySigningKey(raw []byte) (*ecdsa.PrivateKey, error) {

@@ -70,7 +70,13 @@ type OwnerCallback struct {
 	used   *atomic.Bool
 }
 
-func (p OwnerCallback) Shop() string   { return p.shop }
+func (p OwnerCallback) Shop() string { return p.shop }
+
+func (p OwnerCallback) CodeDigest() string {
+	digest := sha256.Sum256([]byte(p.code))
+	return hex.EncodeToString(digest[:])
+}
+
 func (OwnerCallback) String() string   { return "Shopify authorization callback [redacted]" }
 func (OwnerCallback) GoString() string { return "Shopify authorization callback [redacted]" }
 

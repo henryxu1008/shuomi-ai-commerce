@@ -119,7 +119,7 @@ const shopifyMerchantSchema = officialMerchantSchema.extend({
 });
 export const shopifyRulesResponseSchema = z.object({
  merchant: shopifyMerchantSchema,
- shopify: z.strictObject({currency: shopifyCurrency}),
+ shopify: z.strictObject({currency: shopifyCurrency, priorRevision: z.number().int().positive().optional()}),
 }).refine(v => v.merchant.shopify.currency === v.shopify.currency);
 const shopifyTargetRecordSchema = sheinTargetRecordBase.omit({merchant:true,input:true,result:true}).extend({
  merchant: shopifyMerchantSchema, input: shopifyTargetInputSchema, shopify: shopifyDraft,

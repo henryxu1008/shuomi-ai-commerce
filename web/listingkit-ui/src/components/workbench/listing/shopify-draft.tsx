@@ -6,6 +6,7 @@ import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {readSupplyPublicationStatus, shopifySupplyRules, supplyInventory, type SupplyScope} from "@/lib/api/supply-chain";
 import {inventorySchema, shopifyTargetInputSchema, type ShopifySupplyTarget, type SupplyPublication, type SupplySourceDetail} from "@/lib/contracts/supply-chain";
+import {SupplyAPIError} from "@/lib/api/supply-error";
 import type {z} from "zod";
 import type {ListingCommandState} from "./use-listing-command";
 
@@ -22,7 +23,7 @@ export function ShopifyDraftEditor({scope, source, storeId, storeName, existing,
 }) {
  const original = source.source.source;
  const variants = source.product.variants?.length ? source.product.variants : [{sku: "", attributes: []}];
- const [currency, setCurrency] = useState("");
+ const [shopifyRules, setShopifyRules] = useState<{storeId: string; sourceId: string; currency: string; priorRevision?: number}>();
  const [prices, setPrices] = useState(existing?.input.shopify.prices ?? variants.map(() => ""));
  const [images, setImages] = useState<ApprovedImage[]>();
  const [selectedImages, setSelectedImages] = useState(existing?.input.shopify.imageIds ?? []);
@@ -30,13 +31,15 @@ export function ShopifyDraftEditor({scope, source, storeId, storeName, existing,
  const [imageError, setImageError] = useState(false);
  const sourceId = source.source.id;
  const revision = existing?.revision ?? 0;
+ const currentRules = shopifyRules?.storeId === storeId && shopifyRules.sourceId === sourceId ? shopifyRules : undefined;
+ const currency = currentRules?.currency ?? "";
  useEffect(() => {
   const controller = new AbortController();
   void shopifySupplyRules(scope, {
    sourceId, storeId, expectedRevision: revision, effectiveVersion: original.version, shopify: {currency: "", prices: []},
   }, controller.signal).then(value => {
    if (controller.signal.aborted) return;
-   if (value.merchant.store_id === storeId) setCurrency(value.shopify.currency);
+   if (value.merchant.store_id === storeId) setShopifyRules({storeId, sourceId, ...value.shopify});
    else setCurrencyError(true);
   }).catch(() => {
    if (!controller.signal.aborted) setCurrencyError(true);
@@ -53,7 +56,7 @@ export function ShopifyDraftEditor({scope, source, storeId, storeName, existing,
  }, [scope, sourceId, storeId, revision, original.version, original.publicationId]);
  const imageIds = selectedImages.filter(id => images?.some(image => image.id === id));
  const input = shopifyTargetInputSchema.safeParse({
-  sourceId, storeId, expectedRevision: revision, effectiveVersion: original.version, shopify: {currency, prices, imageIds},
+  sourceId, storeId, expectedRevision: existing?.revision ?? currentRules?.priorRevision ?? 0, effectiveVersion: original.version, shopify: {currency, prices, imageIds},
  });
  const canSave = !!source.product.title?.trim() && input.success && !disabled && (images !== undefined || imageError);
  return <form className="space-y-4" onSubmit={event => {
@@ -103,11 +106,12 @@ export function ShopifyDraftResult({scope, sourceId, storeId, publication}: {
  scope: SupplyScope; sourceId: string; storeId: string; publication?: SupplyPublication;
 }) {
  const [latest, setLatest] = useState<SupplyPublication>();
+ const [resultHidden, setResultHidden] = useState(false);
  const [message, setMessage] = useState("");
  const [checking, setChecking] = useState(false);
  const activeCheck = useRef<AbortController>(null);
  useEffect(() => () => activeCheck.current?.abort(), []);
- const result = latest?.shopify ?? publication?.shopify;
+ const result = resultHidden ? undefined : latest ? latest.shopify : publication?.shopify;
  const current = latest?.shopifyStatus;
  const media = current?.media ?? result?.media ?? [];
  async function check() {
@@ -119,13 +123,20 @@ export function ShopifyDraftResult({scope, sourceId, storeId, publication}: {
   try {
    const observed = await readSupplyPublicationStatus(scope, sourceId, storeId, controller.signal);
    if (controller.signal.aborted) return;
+   setResultHidden(false);
    setLatest(observed);
    if (observed.shopifyAttemptStatus === "not_started") setMessage("此商品还没有发往 Shopify 的记录。");
    if (observed.shopifyAttemptStatus === "outcome_unknown") setMessage("Shopify 结果仍待核实。系统会保留原操作。");
    if (observed.shopifyAttemptStatus === "claimed") setMessage("上传正在处理，请稍后查看。");
    if (observed.shopifyAttemptStatus === "not_sent") setMessage("原操作尚未发送。请核对店铺授权和资料，再确认上传。");
-  } catch {
+  } catch (error) {
    if (controller.signal.aborted) return;
+   if (error instanceof SupplyAPIError && (error.code === "NOT_FOUND" || error.code === "PERMISSION_DENIED")) {
+    setResultHidden(true);
+    setLatest(undefined);
+    setMessage("暂时没有可查看的 Shopify 结果。");
+    return;
+   }
    setLatest(prior => prior ? {...prior, shopifyStatus: undefined, shopifyAdminUrl: undefined} : undefined);
    setMessage("暂时无法核对 Shopify 结果。请检查店铺授权，或稍后再查。");
   } finally {
