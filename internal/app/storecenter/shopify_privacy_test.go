@@ -42,10 +42,23 @@ func TestIsolatedShopifyPrivacyReceiptPersistsBeforeAcknowledging(t *testing.T) 
 	for _, test := range []struct{ path, topic, body string }{
 		{storehttp.ShopifyCustomerDataRequestPath, wire.TopicCustomerDataRequest, buyerRequest},
 		{storehttp.ShopifyCustomerRedactPath, wire.TopicCustomerRedact, buyerRedact},
-		{shopPath, shopTopic, shopBody},
 	} {
 		response := deliverShopifyPrivacyNotice(router, test.path, test.topic, event, test.body, true)
 		require.Equal(t, http.StatusOK, response.Code, test.topic)
+		require.Empty(t, response.Body.String())
+	}
+	start := make(chan struct{})
+	deliveries := make(chan *httptest.ResponseRecorder, 2)
+	for range 2 {
+		go func() {
+			<-start
+			deliveries <- deliverShopifyPrivacyNotice(router, shopPath, shopTopic, event, shopBody, true)
+		}()
+	}
+	close(start)
+	for range 2 {
+		response := <-deliveries
+		require.Equal(t, http.StatusOK, response.Code, shopTopic)
 		require.Empty(t, response.Body.String())
 	}
 	require.Equal(t, http.StatusBadRequest, deliverShopifyPrivacyNotice(router, shopPath, shopTopic, "wrong-shape", buyerRedact, true).Code)
