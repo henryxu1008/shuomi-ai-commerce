@@ -10,7 +10,7 @@ import (
 )
 
 func (a *ShopifyConnections) LifecycleNotificationsEnabled() bool {
-	return a != nil && a.store != nil && a.app.LifecycleNotifications
+	return a != nil && a.store.ShopifyLifecycleInstalled() && a.app.LifecycleNotifications
 }
 
 func (a *ShopifyConnections) ReceiveShopifyLifecycle(ctx context.Context, topic, eventID, signature string, body []byte) error {
@@ -35,7 +35,7 @@ func (a *ShopifyConnections) ReceiveShopifyLifecycle(ctx context.Context, topic,
 // ReconcileShopifyLifecycle runs outside webhook delivery. A transient or
 // ambiguous platform result retains the exact event's authorization pause.
 func (a *ShopifyConnections) ReconcileShopifyLifecycle(ctx context.Context) error {
-	if !a.LifecycleNotificationsEnabled() {
+	if a == nil || !a.store.ShopifyLifecycleInstalled() {
 		return storecenter.ErrOfficialConnectionUnavailable
 	}
 	for i := 0; i < 4; i++ {

@@ -20,9 +20,11 @@ func TestShopifyStartedInstallationConsumesOnlyTheConfirmedStore(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback()
 	require.NoError(t, storecenter.InstallShopifySchemaTx(ctx, tx))
+	require.NoError(t, storecenter.InstallShopifyLifecycleSchemaTx(ctx, tx))
 	require.NoError(t, tx.Commit())
 	repo, err := storecenter.NewMemberScopedStoreRepository(db, &storeMemberAuthorizer{member: "member-original", admin: true})
 	require.NoError(t, err)
+	repo = repo.WithShopifyLifecycle(true)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	identity := storecenter.ShopifyInstallation{
 		AppID: "gid://shopify/App/812", ShopID: "gid://shopify/Shop/19",

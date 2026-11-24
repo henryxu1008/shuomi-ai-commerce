@@ -217,7 +217,7 @@ func (r *MemberScopedStoreRepository) InspectShopifyInstall(ctx context.Context,
 		case "selected":
 			view = ShopifyInstallSelection{Domain: proof.Domain, StoreVersion: proof.StoreVersion}
 		case "confirmed":
-			binding, err := readShopifyBinding(tx, key.OrganizationID, key.StoreID, store.ConnectionRef)
+			binding, err := r.readShopifyBinding(tx, key.OrganizationID, key.StoreID, store.ConnectionRef)
 			if err != nil || binding.ShopKey != proof.ShopKey || binding.Generation != proof.Generation || binding.AppID != proof.AppID {
 				return ErrVersionConflict
 			}
@@ -284,7 +284,7 @@ func (r *MemberScopedStoreRepository) ConfirmShopifyInstall(ctx context.Context,
 			return ErrNotFound
 		}
 		if proof.State == "confirmed" {
-			binding, err := readShopifyBinding(tx, command.OrganizationID, command.StoreID, store.ConnectionRef)
+			binding, err := r.readShopifyBinding(tx, command.OrganizationID, command.StoreID, store.ConnectionRef)
 			if err != nil || binding.ShopKey != proof.ShopKey || binding.Generation != proof.Generation || binding.AppID != proof.AppID {
 				return ErrVersionConflict
 			}
@@ -294,8 +294,10 @@ func (r *MemberScopedStoreRepository) ConfirmShopifyInstall(ctx context.Context,
 		if proof.State != "selected" || store.Version != command.ExpectedStoreVersion || !verified.valid() || proof.ShopifyInstallation != verified {
 			return ErrVersionConflict
 		}
-		if err := validateShopifyLifecycleProof(tx, verified, verifiedRevision, proof.CreatedAt); err != nil {
-			return err
+		if r.shopifyLifecycle {
+			if err := validateShopifyLifecycleProof(tx, verified, verifiedRevision, proof.CreatedAt); err != nil {
+				return err
+			}
 		}
 		shop, err := findShopifyShop(tx, verified.AppID, verified.ShopID)
 		if err != nil {

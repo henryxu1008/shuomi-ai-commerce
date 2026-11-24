@@ -480,6 +480,13 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 
 		ShopifyStartedInstallation: supplied.officialStoreApplications.ShopifyStartedInstallationConfigured(),
 	}
+	if storeCapabilities.Shopify {
+		installed, err := storecenter.ShopifyLifecycleInstalled(ctx, supplied.storeCenterDB, supplied.officialStoreApplications.ShopifyLifecycleConfigured())
+		if err != nil {
+			return nil, err
+		}
+		storeCapabilities.ShopifyLifecycle = installed
+	}
 	if err := validateDataServicesDependencies(supplied, sourceAccountDB, cfg); err != nil {
 		return nil, err
 	}
@@ -1336,6 +1343,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if e != nil {
 				return nil, e
 			}
+			stores = stores.WithShopifyLifecycle(storeCapabilities.ShopifyLifecycle)
 			projectChat.attachStoreScopes(stores)
 			var chatConnections *storeapp.OfficialConnections
 			if supplied.officialStoreApplications == nil {
@@ -1357,6 +1365,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 				if e != nil {
 					return nil, e
 				}
+				executionStores = executionStores.WithShopifyLifecycle(storeCapabilities.ShopifyLifecycle)
 				var scheduledConnections *storeapp.OfficialConnections
 				if supplied.officialStoreApplications == nil {
 					scheduledConnections, e = storeapp.NewUnconfiguredOfficialConnections(executionStores)
@@ -1677,7 +1686,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		startCommercialRecoveryLoop(runtimeContext, server, expiry.ExpireStartedShopifyInstallations, time.Minute, "Shopify installation proof expiry", logger)
 	}
-	if routeFeatures.ShopifyLifecycle {
+	if storeCapabilities.ShopifyLifecycle {
 		recovery, ok := storeCatalogModule.(interface{ ReconcileShopifyLifecycle(context.Context) error })
 		if !ok {
 			return nil, errors.New("Shopify lifecycle recovery unavailable")

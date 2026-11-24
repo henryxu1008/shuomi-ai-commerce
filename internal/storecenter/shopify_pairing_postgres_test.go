@@ -41,6 +41,12 @@ func TestShopifyPairingIsConsumedOnceAndShopRemainsExclusive(t *testing.T) {
 	ctx := context.Background()
 	db := newTikTokStoreDatabase(t)
 	shopifyCapability := storecenter.RuntimeCapabilities{Shopify: true}
+	showsLifecycle, err := storecenter.ShopifyLifecycleInstalled(ctx, db, false)
+	require.NoError(t, err)
+	require.False(t, showsLifecycle)
+	_, err = storecenter.ShopifyLifecycleInstalled(ctx, db, true)
+	require.Error(t, err)
+
 	require.Error(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, shopifyCapability))
 	pool, err := db.DB()
 	require.NoError(t, err)
@@ -108,4 +114,45 @@ func TestShopifyPairingIsConsumedOnceAndShopRemainsExclusive(t *testing.T) {
 	require.NoError(t, err)
 	_, err = repo.StageShopifyPairing(ctx, b.Key(), session, provider, 1, "fixture-key", "fixture-ciphertext", now)
 	require.ErrorIs(t, err, storecenter.ErrAlreadyExists)
+
+	addon, err := pool.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	defer addon.Rollback()
+	require.NoError(t, storecenter.InstallShopifyLifecycleSchemaTx(ctx, addon))
+	require.NoError(t, addon.Commit())
+	showsLifecycle, err = storecenter.ShopifyLifecycleInstalled(ctx, db, false)
+	require.NoError(t, err)
+	require.True(t, showsLifecycle)
+	shopifyCapability.ShopifyLifecycle = true
+	require.NoError(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, shopifyCapability))
+	readback, err := repo.WithShopifyLifecycle(showsLifecycle).ReadShopifyBinding(ctx, result.OrganizationID, result.StoreID)
+	require.NoError(t, err)
+	require.Equal(t, result, readback, "provisioning an empty receipt table does not rewrite existing approval")
+
+	destination := start(result.OrganizationID)
+	for _, storeID := range []string{result.StoreID, destination.StoreID} {
+		require.NoError(t, repo.SetMemberGrant(ctx, storecenter.MemberStoreGrantCommand{
+			OrganizationID: result.OrganizationID, StoreID: storeID, MemberID: authorizer.member,
+			OperationID: uuid.NewString(), Active: true,
+		}))
+	}
+	authorizer.admin = false
+	_, err = repo.ClaimShopifyPairing(ctx, destination.Key(), session, state, now)
+	require.NoError(t, err)
+	_, err = repo.StageShopifyPairing(ctx, destination.Key(), session, provider, result.Generation, "fixture-key", "fixture-ciphertext", now)
+	require.NoError(t, err)
+	oldGrantRead, err := pool.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	defer oldGrantRead.Rollback()
+	var active bool
+	require.NoError(t, oldGrantRead.QueryRowContext(ctx, `SELECT active FROM workbench_store_member_grants
+		WHERE organization_id=$1 AND store_id=$2 AND member_id=$3 FOR SHARE`, result.OrganizationID, result.StoreID, authorizer.member).Scan(&active))
+	require.True(t, active)
+	limited, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	moved, err := repo.WithShopifyLifecycle(true).ConfirmShopifyPairing(limited, destination.Key(), session, provider, now, 0)
+	require.NoError(t, err, "a concurrent permission check on the old Store must not block the rebind")
+	require.Equal(t, destination.StoreID, moved.StoreID)
+	require.Equal(t, result.Generation+1, moved.Generation)
+
 }

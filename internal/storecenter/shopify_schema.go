@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 
+	"gorm.io/gorm"
+
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 )
 
@@ -74,21 +76,6 @@ var shopifySchemaStatements = []string{
  (state='staged' AND shop_key IS NULL AND key_id<>'' AND ciphertext<>'' AND shop_id<>'' AND installation_id<>'' AND domain<>'' AND length(currency)=3) OR
  (state='confirmed' AND shop_key IS NOT NULL AND generation>0 AND key_id='' AND ciphertext='' AND shop_id='' AND installation_id='' AND domain='' AND currency=''))
 )`,
-	`CREATE TABLE public.workbench_store_shopify_lifecycle_events (
- app_id VARCHAR(128) NOT NULL, shop_id VARCHAR(128) NOT NULL, revision BIGINT NOT NULL,
- topic VARCHAR(32) NOT NULL, event_id VARCHAR(128) NOT NULL, body_hash CHAR(64) NOT NULL,
- organization_id VARCHAR(200) NOT NULL, shop_key VARCHAR(36) NOT NULL, generation BIGINT NOT NULL,
- status VARCHAR(16) NOT NULL, received_at TIMESTAMPTZ NOT NULL, retry_at TIMESTAMPTZ, attempt BIGINT NOT NULL,
- CONSTRAINT shopify_lifecycle_pk PRIMARY KEY (app_id,shop_id,revision),
- CONSTRAINT shopify_lifecycle_event UNIQUE (app_id,shop_id,topic,event_id),
- CONSTRAINT shopify_lifecycle_bounds CHECK (revision>0 AND attempt>=0 AND app_id<>'' AND shop_id<>'' AND event_id<>''
-   AND topic IN ('app/uninstalled','app/scopes_update') AND length(body_hash)=64
-   AND ((status='unbound' AND generation=0 AND organization_id='' AND shop_key='' AND retry_at IS NULL AND attempt=0)
-     OR (generation>0 AND organization_id<>'' AND shop_key<>''
-       AND ((status='pending' AND retry_at IS NOT NULL) OR (status IN ('healthy','revoked','superseded') AND retry_at IS NULL)))) )
-)`,
-	`CREATE INDEX shopify_lifecycle_due ON public.workbench_store_shopify_lifecycle_events(app_id,retry_at,shop_id,revision) WHERE status='pending'`,
-	`CREATE INDEX shopify_lifecycle_pending ON public.workbench_store_shopify_lifecycle_events(organization_id,shop_key,generation) WHERE status='pending'`,
 	shopifyInstallSchema,
 	`CREATE INDEX shopify_install_expiry ON public.workbench_store_shopify_installs(expires_at)`,
 }
@@ -164,9 +151,7 @@ func verifyShopifySchema(ctx context.Context, db coreSchemaQueryer) error {
    ('workbench_store_shopify_shops','shopify_store_unique','UNIQUE (organization_id, store_id)'),
    ('workbench_store_shopify_shops','shopify_current_authorization','FOREIGN KEY (organization_id, shop_key, generation) REFERENCES workbench_store_shopify_authorizations(organization_id, shop_key, generation) DEFERRABLE INITIALLY DEFERRED'),
    ('workbench_store_shopify_authorizations','shopify_authorization_pk','PRIMARY KEY (organization_id, shop_key, generation)'),
-   ('workbench_store_shopify_pairings','shopify_pairing_pk','PRIMARY KEY (organization_id, attempt_id)'),
-   ('workbench_store_shopify_lifecycle_events','shopify_lifecycle_pk','PRIMARY KEY (app_id, shop_id, revision)'),
-   ('workbench_store_shopify_lifecycle_events','shopify_lifecycle_event','UNIQUE (app_id, shop_id, topic, event_id)')
+   ('workbench_store_shopify_pairings','shopify_pairing_pk','PRIMARY KEY (organization_id, attempt_id)')
  ) AS expected(table_name, constraint_name, definition)
  WHERE NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint c JOIN pg_catalog.pg_class r ON r.oid=c.conrelid
   JOIN pg_catalog.pg_namespace n ON n.oid=r.relnamespace WHERE n.nspname='public' AND r.relname=expected.table_name AND r.relkind='r'
@@ -177,4 +162,79 @@ func verifyShopifySchema(ctx context.Context, db coreSchemaQueryer) error {
 		return errors.New("Store Shopify authorization schema unavailable")
 	}
 	return nil
+}
+
+var shopifyLifecycleSchemaStatements = []string{
+	`CREATE TABLE public.workbench_store_shopify_lifecycle_events (
+ app_id VARCHAR(128) NOT NULL, shop_id VARCHAR(128) NOT NULL, revision BIGINT NOT NULL,
+ topic VARCHAR(32) NOT NULL, event_id VARCHAR(128) NOT NULL, body_hash CHAR(64) NOT NULL,
+ organization_id VARCHAR(200) NOT NULL, shop_key VARCHAR(36) NOT NULL, generation BIGINT NOT NULL,
+ status VARCHAR(16) NOT NULL, received_at TIMESTAMPTZ NOT NULL, retry_at TIMESTAMPTZ, attempt BIGINT NOT NULL,
+ CONSTRAINT shopify_lifecycle_pk PRIMARY KEY (app_id,shop_id,revision),
+ CONSTRAINT shopify_lifecycle_event UNIQUE (app_id,shop_id,topic,event_id),
+ CONSTRAINT shopify_lifecycle_bounds CHECK (revision>0 AND attempt>=0 AND app_id<>'' AND shop_id<>'' AND event_id<>''
+   AND topic IN ('app/uninstalled','app/scopes_update') AND length(body_hash)=64
+   AND ((status='unbound' AND generation=0 AND organization_id='' AND shop_key='' AND retry_at IS NULL AND attempt=0)
+     OR (generation>0 AND organization_id<>'' AND shop_key<>''
+       AND ((status='pending' AND retry_at IS NOT NULL) OR (status IN ('healthy','revoked','superseded') AND retry_at IS NULL)))) )
+)`,
+	`CREATE INDEX shopify_lifecycle_due ON public.workbench_store_shopify_lifecycle_events(app_id,retry_at,shop_id,revision) WHERE status='pending'`,
+	`CREATE INDEX shopify_lifecycle_pending ON public.workbench_store_shopify_lifecycle_events(organization_id,shop_key,generation) WHERE status='pending'`,
+}
+
+// InstallShopifyLifecycleSchemaTx provisions only the empty notification
+// capability. Existing Shopify authorization and business records are untouched.
+func InstallShopifyLifecycleSchemaTx(ctx context.Context, tx *sql.Tx) error {
+	if tx == nil {
+		return errors.New("Store Shopify notification schema transaction unavailable")
+	}
+	if _, err := tx.ExecContext(ctx, "LOCK TABLE public.workbench_stores IN ACCESS EXCLUSIVE MODE"); err != nil {
+		return err
+	}
+	if err := verifyShopifySchema(ctx, tx); err != nil {
+		return err
+	}
+	var installed bool
+	if err := tx.QueryRowContext(ctx, "SELECT to_regclass('public.workbench_store_shopify_lifecycle_events') IS NOT NULL").Scan(&installed); err != nil {
+		return err
+	}
+	if !installed {
+		for _, statement := range shopifyLifecycleSchemaStatements {
+			if _, err := tx.ExecContext(ctx, statement); err != nil {
+				return err
+			}
+		}
+	}
+	return verifyShopifyLifecycleSchema(ctx, tx)
+}
+
+func verifyShopifyLifecycleSchema(ctx context.Context, db coreSchemaQueryer) error {
+	var ready bool
+	err := db.QueryRowContext(ctx, `SELECT count(*)=3 FROM pg_catalog.pg_constraint c
+	 JOIN pg_catalog.pg_class r ON r.oid=c.conrelid
+	 WHERE c.conrelid=to_regclass('public.workbench_store_shopify_lifecycle_events') AND r.relkind='r'
+	 AND NOT r.relrowsecurity AND r.relpersistence='p' AND c.convalidated AND NOT c.condeferrable
+	 AND ((c.conname='shopify_lifecycle_pk' AND pg_get_constraintdef(c.oid)='PRIMARY KEY (app_id, shop_id, revision)')
+	  OR (c.conname='shopify_lifecycle_event' AND pg_get_constraintdef(c.oid)='UNIQUE (app_id, shop_id, topic, event_id)')
+	  OR (c.conname='shopify_lifecycle_bounds' AND c.contype='c'))`).Scan(&ready)
+	if err != nil || !ready {
+		return errors.New("Store Shopify notification schema unavailable")
+	}
+	return nil
+}
+
+// ShopifyLifecycleInstalled is resolved once during composition. Persisted
+// pauses remain in force when a deployment stops accepting new notifications.
+func ShopifyLifecycleInstalled(ctx context.Context, db *gorm.DB, acceptNotices bool) (bool, error) {
+	if db == nil || db.Dialector.Name() != "postgres" {
+		return false, ErrDependencyUnavailable
+	}
+	var installed bool
+	if err := db.WithContext(ctx).Raw("SELECT to_regclass('public.workbench_store_shopify_lifecycle_events') IS NOT NULL").Row().Scan(&installed); err != nil {
+		return false, ErrDependencyUnavailable
+	}
+	if acceptNotices && !installed {
+		return false, errors.New("Shopify notifications require the installed Store owner schema")
+	}
+	return installed, nil
 }

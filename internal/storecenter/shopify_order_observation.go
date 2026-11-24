@@ -50,9 +50,6 @@ func LockShopifyOrderObservation(tx *gorm.DB, binding ProductMerchantBinding) er
 		  ON consent.organization_id=shop.organization_id AND consent.shop_key=shop.shop_key AND consent.authorization_generation=shop.generation
 		WHERE shop.organization_id=? AND shop.store_id=? AND shop.shop_key=? AND shop.app_id=? AND shop.generation=?
 		  AND approval.revoked_at IS NULL AND approval.currency=? AND consent.granted AND consent.order_generation=?
-		  AND NOT EXISTS (SELECT 1 FROM public.workbench_store_shopify_lifecycle_events event
-		    WHERE event.organization_id=shop.organization_id AND event.shop_key=shop.shop_key
-		      AND event.generation=shop.generation AND event.status='pending')
 		FOR SHARE OF shop, approval, consent`,
 		binding.OrganizationID, binding.StoreID, binding.Shopify.ShopKey, binding.ApplicationID, binding.ConnectionRevision,
 		binding.Shopify.Currency, binding.Shopify.OrderGeneration).Row().Scan(&found)

@@ -78,6 +78,10 @@ func TestShopifyLifecycleSignedNoticeSuspendsNewServiceChargesBeforeProviderChec
 	_, err = f.ledger.Lookup(f.member, storeServiceChargeIdentity(req.OperationID))
 	require.ErrorIs(t, err, orgresource.ErrReservationNotFound)
 	require.Zero(t, calls)
+	// Stopping HTTP acceptance must not reopen or strand an existing pause.
+	connections.app.LifecycleNotifications = false
+	require.False(t, connections.LifecycleNotificationsEnabled())
+	require.Equal(t, storecenter.ConnectionStatusUnavailable, before())
 	require.NoError(t, connections.ReconcileShopifyLifecycle(ctx))
 	require.Equal(t, 2, calls, "one token exchange and one read-only installation probe")
 	require.Equal(t, storecenter.ConnectionStatusDisconnected, before())

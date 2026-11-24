@@ -233,6 +233,14 @@ func verifyCurrentSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilit
 			return err
 		}
 	}
+	if capabilities.ShopifyLifecycle {
+		if !capabilities.Shopify {
+			return errors.New("Shopify lifecycle requires Store Shopify authority")
+		}
+		if err := verifyShopifyLifecycleSchema(ctx, sqlDB); err != nil {
+			return err
+		}
+	}
 	if capabilities.ShopifyStartedInstallation {
 		if err := verifyShopifyStartedInstallSchema(ctx, sqlDB); err != nil {
 			return err
@@ -423,7 +431,8 @@ const storeRuntimePermissionQuery = `SELECT current_user,
  OR ($3 AND n.nspname='public' AND ((r.relname IN ('workbench_store_tiktok_oauth_grants','workbench_store_tiktok_oauth_attempts','workbench_store_tiktok_shop_bindings','workbench_store_tiktok_oauth_refresh_operations') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')) OR (r.relname='workbench_store_tiktok_authorization_events' AND p.privilege_type IN ('SELECT','INSERT'))))
  OR ($4 AND n.nspname='public' AND r.relname IN ('workbench_store_walmart_oauth_grants','workbench_store_walmart_oauth_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))
  OR ($5 AND n.nspname='public' AND r.relname IN ('workbench_store_amazon_grants','workbench_store_amazon_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))
- OR ($6 AND n.nspname='public' AND r.relname IN ('workbench_store_shopify_shops','workbench_store_shopify_authorizations','workbench_store_shopify_pairings','workbench_store_shopify_lifecycle_events') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))
+ OR ($6 AND n.nspname='public' AND r.relname IN ('workbench_store_shopify_shops','workbench_store_shopify_authorizations','workbench_store_shopify_pairings') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))
+ OR ($7 AND n.nspname='public' AND r.relname='workbench_store_shopify_lifecycle_events' AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))
  OR ($6 AND n.nspname='public' AND r.relname='workbench_store_shopify_installs' AND p.privilege_type IN ('SELECT','INSERT','UPDATE','DELETE'))
  OR (n.nspname='public' AND to_regclass('public.workbench_store_google_oauth_grants') IS NOT NULL AND r.relname IN ('workbench_store_google_oauth_grants','workbench_store_google_oauth_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')))) FROM (SELECT current_user::text AS runtime_role) subject`
 
@@ -431,11 +440,11 @@ const storeRuntimePermissionQuery = `SELECT current_user,
 // The default Store boundary continues to reject every additional privilege.
 type RuntimeCapabilities struct {
 	Observations, OperationsCockpit, TikTokShop, WalmartUS, AmazonAuthorization, Shopify, GoogleMerchant bool
-	ShopifyStartedInstallation                                                                           bool
+	ShopifyStartedInstallation, ShopifyLifecycle                                                         bool
 }
 
 func (c RuntimeCapabilities) permissionQueryArgs() []any {
-	return []any{c.Observations, c.OperationsCockpit, c.TikTokShop, c.WalmartUS, c.AmazonAuthorization, c.Shopify}
+	return []any{c.Observations, c.OperationsCockpit, c.TikTokShop, c.WalmartUS, c.AmazonAuthorization, c.Shopify, c.ShopifyLifecycle}
 }
 
 func VerifyRuntimePermissions(ctx context.Context, db *gorm.DB) error {
@@ -484,10 +493,19 @@ func VerifyRuntimePermissionsForCapabilities(ctx context.Context, db *gorm.DB, c
 	}
 	if capabilities.Shopify {
 		var complete bool
-		err := sqlDB.QueryRowContext(ctx, `SELECT NOT EXISTS (SELECT 1 FROM (VALUES ('workbench_store_shopify_shops'),('workbench_store_shopify_authorizations'),('workbench_store_shopify_pairings'),('workbench_store_shopify_lifecycle_events')) t(name)
+		err := sqlDB.QueryRowContext(ctx, `SELECT NOT EXISTS (SELECT 1 FROM (VALUES ('workbench_store_shopify_shops'),('workbench_store_shopify_authorizations'),('workbench_store_shopify_pairings')) t(name)
  WHERE NOT coalesce(has_table_privilege(current_user,to_regclass('public.'||name),'SELECT') AND has_table_privilege(current_user,to_regclass('public.'||name),'INSERT') AND has_table_privilege(current_user,to_regclass('public.'||name),'UPDATE'),false))`).Scan(&complete)
 		if err != nil || !complete {
 			return errors.New("Store Shopify authorization grants unavailable")
+		}
+	}
+	if capabilities.ShopifyLifecycle {
+		var complete bool
+		err := sqlDB.QueryRowContext(ctx, `SELECT coalesce(has_table_privilege(current_user,to_regclass('public.workbench_store_shopify_lifecycle_events'),'SELECT')
+		 AND has_table_privilege(current_user,to_regclass('public.workbench_store_shopify_lifecycle_events'),'INSERT')
+		 AND has_table_privilege(current_user,to_regclass('public.workbench_store_shopify_lifecycle_events'),'UPDATE'),false)`).Scan(&complete)
+		if err != nil || !complete {
+			return errors.New("Store Shopify notification permissions unavailable")
 		}
 	}
 	if capabilities.ShopifyStartedInstallation {

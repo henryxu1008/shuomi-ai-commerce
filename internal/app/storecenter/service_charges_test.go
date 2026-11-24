@@ -125,6 +125,9 @@ func newServiceChargeFixtureForPlatform(t *testing.T, platform storecenter.Platf
 	require.NoError(t, err)
 	repo, err := storecenter.NewMemberScopedStoreRepository(storeDB, serviceContextAccess{})
 	require.NoError(t, err)
+	if platform == storecenter.PlatformShopify {
+		repo = repo.WithShopifyLifecycle(true)
+	}
 	member, admin := serviceContext("operator", "member-a", authz.EnterpriseRoleKey("org-a", 1)), serviceContext("admin", "member-admin", "listingkit_admin")
 	external := "external"
 	if platform == storecenter.PlatformShopify {
@@ -174,6 +177,7 @@ func newShopifyChargeStoreDatabase(t *testing.T) *gorm.DB {
 	defer tx.Rollback()
 	require.NoError(t, storecenter.InstallCurrentSchemaTx(ctx, tx))
 	require.NoError(t, storecenter.InstallShopifySchemaTx(ctx, tx))
+	require.NoError(t, storecenter.InstallShopifyLifecycleSchemaTx(ctx, tx))
 	require.NoError(t, tx.Commit())
 	return db
 }

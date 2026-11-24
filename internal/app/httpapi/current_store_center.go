@@ -75,6 +75,7 @@ func buildCurrentStoreCenterModule(ctx context.Context, records *gorm.DB, author
 	if err != nil {
 		return nil, err
 	}
+	repo = repo.WithShopifyLifecycle(capabilities.ShopifyLifecycle)
 	audit, err := storecenter.NewGormAuditRepository(records)
 	if err != nil {
 		return nil, err

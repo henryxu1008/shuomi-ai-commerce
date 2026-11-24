@@ -33,6 +33,7 @@ func main() {
 	tiktok := flag.Bool("tiktok-shop", false, "grant admitted TikTok OAuth tables on an authorized fresh empty Store instance")
 	walmart := flag.Bool("walmart-us", false, "grant admitted Walmart US OAuth tables on an authorized fresh empty Store instance")
 	shopify := flag.Bool("shopify", false, "install and grant Shopify authorization tables on an authorized fresh empty Store instance")
+	shopifyLifecycle := flag.Bool("shopify-lifecycle", false, "install only authorized Shopify notification tables on a confirmed current Store")
 	google := flag.Bool("google-merchant", false, "install Google Merchant authorization tables on an explicitly confirmed current Store database")
 	align := flag.Bool("align-core-contract", false, "align only the four admitted core CHECKs on a retained Store database; no grants or platform installation")
 	retainedObservations := flag.Bool("retained-observations", false, "declare already installed observations for --align-core-contract; no installation or grants")
@@ -58,6 +59,12 @@ func main() {
 		}
 		if retainedSet && !*align {
 			return errors.New("retained capability declarations require --align-core-contract")
+		}
+		if *shopifyLifecycle {
+			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *shopify || *google || *browserWorkbench || *align || *alignEmpty || *currentObservations {
+				return errors.New("Shopify lifecycle installation cannot be combined with another mode")
+			}
+			return installShopifyLifecycle(*path, *confirmed)
 		}
 		if *google {
 			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *shopify || *browserWorkbench || *align || *alignEmpty || *currentObservations {
@@ -90,7 +97,7 @@ func main() {
 			return installBrowserWorkbench(*path, *confirmed)
 		}
 		if confirmationSet {
-			return errors.New("--confirm-database requires --align-core-contract, --browser-workbench, --observations-current-store, --google-merchant or --align-empty-observations-contract")
+			return errors.New("--confirm-database requires --shopify-lifecycle, --align-core-contract, --browser-workbench, --observations-current-store, --google-merchant or --align-empty-observations-contract")
 		}
 		return runStoreSchema(*path, *observations, *cockpit, *observationsOnly, *grantsOnly, *verify, *tiktok, *walmart, *shopify)
 	}()
@@ -277,7 +284,7 @@ func installShopifyStoreSchema(ctx context.Context, records *gorm.DB) error {
 	if err := storecenter.InstallShopifySchemaTx(ctx, tx); err != nil {
 		return fmt.Errorf("initialize Store Shopify schema: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `GRANT SELECT,INSERT,UPDATE ON public.workbench_store_shopify_shops, public.workbench_store_shopify_authorizations, public.workbench_store_shopify_pairings, public.workbench_store_shopify_lifecycle_events TO store_center_runtime`); err != nil {
+	if _, err := tx.ExecContext(ctx, `GRANT SELECT,INSERT,UPDATE ON public.workbench_store_shopify_shops, public.workbench_store_shopify_authorizations, public.workbench_store_shopify_pairings TO store_center_runtime`); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `DO $$ BEGIN IF to_regclass('public.workbench_store_shopify_installs') IS NOT NULL THEN
@@ -400,6 +407,36 @@ func installGoogleMerchant(path, confirmed string) error {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, "GRANT SELECT,INSERT,UPDATE ON public.workbench_store_google_oauth_attempts,public.workbench_store_google_oauth_grants TO store_center_runtime"); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func installShopifyLifecycle(path, confirmed string) error {
+	cfg, err := loadOwnerConfig(path, "store_center_owner")
+	if err != nil || confirmed == "" || cfg.Database != confirmed {
+		return errors.New("Shopify lifecycle installation requires private Store owner configuration and exact database confirmation")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	db, err := platformdatabase.OpenExistingWritableContext(ctx, cfg)
+	if err != nil {
+		return errors.New("open private Store role database failed")
+	}
+	defer platformdatabase.Close(db)
+	pool, err := db.DB()
+	if err != nil {
+		return err
+	}
+	tx, err := pool.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := storecenter.InstallShopifyLifecycleSchemaTx(ctx, tx); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, "GRANT SELECT,INSERT,UPDATE ON public.workbench_store_shopify_lifecycle_events TO store_center_runtime"); err != nil {
 		return err
 	}
 	return tx.Commit()

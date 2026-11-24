@@ -28,7 +28,7 @@ type shopifyLifecycleService interface {
 
 func (m routeModule) ReconcileShopifyLifecycle(ctx context.Context) error {
 	service, ok := m.handler.shopifyConnections.(shopifyLifecycleService)
-	if !ok || !service.LifecycleNotificationsEnabled() {
+	if !ok {
 		return storecenter.ErrOfficialConnectionUnavailable
 	}
 	return service.ReconcileShopifyLifecycle(ctx)

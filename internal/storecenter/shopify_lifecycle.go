@@ -78,6 +78,9 @@ func shopifyLifecycleRevision(tx *gorm.DB, app, shop string) (int64, error) {
 }
 
 func (r *MemberScopedStoreRepository) ReadShopifyLifecycleRevision(ctx context.Context, installation ShopifyInstallation) (int64, error) {
+	if !r.shopifyLifecycle {
+		return 0, nil
+	}
 	if !installation.valid() {
 		return 0, ErrNotFound
 	}
@@ -85,7 +88,7 @@ func (r *MemberScopedStoreRepository) ReadShopifyLifecycleRevision(ctx context.C
 }
 
 func (r *MemberScopedStoreRepository) ReceiveShopifyLifecycle(ctx context.Context, notice ShopifyLifecycleNotice, received time.Time) error {
-	if !shopifyNoticeID.MatchString(notice.EventID) || !shopifyDigest.MatchString(notice.BodyHash) ||
+	if !r.shopifyLifecycle || !shopifyNoticeID.MatchString(notice.EventID) || !shopifyDigest.MatchString(notice.BodyHash) ||
 		(notice.Topic != "app/uninstalled" && notice.Topic != "app/scopes_update") || received.IsZero() {
 		return ErrNotFound
 	}
@@ -125,7 +128,7 @@ func (r *MemberScopedStoreRepository) ReceiveShopifyLifecycle(ctx context.Contex
 }
 
 func (r *MemberScopedStoreRepository) ClaimShopifyLifecycle(ctx context.Context, app string, now time.Time) (*ShopifyLifecycleCheck, error) {
-	if !shopifyAppID.MatchString(app) || now.IsZero() {
+	if !r.shopifyLifecycle || !shopifyAppID.MatchString(app) || now.IsZero() {
 		return nil, ErrNotFound
 	}
 	var check *ShopifyLifecycleCheck
@@ -157,7 +160,7 @@ func (r *MemberScopedStoreRepository) ClaimShopifyLifecycle(ctx context.Context,
 }
 
 func (r *MemberScopedStoreRepository) ResolveShopifyLifecycle(ctx context.Context, check ShopifyLifecycleCheck, decision ShopifyLifecycleDecision, now time.Time) error {
-	if !check.ShopifyInstallation.valid() || check.Revision < 1 || check.Generation < 1 || check.Attempt < 1 || now.IsZero() ||
+	if !r.shopifyLifecycle || !check.ShopifyInstallation.valid() || check.Revision < 1 || check.Generation < 1 || check.Attempt < 1 || now.IsZero() ||
 		(decision != ShopifyLifecycleHealthy && decision != ShopifyLifecycleRevoked && decision != ShopifyLifecycleUncertain) {
 		return ErrNotFound
 	}

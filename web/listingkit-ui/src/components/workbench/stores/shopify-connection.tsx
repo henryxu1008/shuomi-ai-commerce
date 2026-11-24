@@ -74,7 +74,11 @@ export function ShopifyConnection({store, scope, canWrite, onChanged}: {
     }
   }
   return <div className="grid gap-3">
-    <p>{store.connectionStatus === "connected" ? "Shopify 店铺已连接。" : "请由 Shopify 店主授权，然后回到这里确认店铺。"}</p>
+    <p>{store.connectionStatus === "connected"
+      ? "Shopify 店铺已连接。"
+      : store.connectionStatus === "unavailable"
+        ? "暂时无法核实 Shopify 授权，请稍后刷新。"
+        : "请由 Shopify 店主授权，然后回到这里确认店铺。"}</p>
     {issue === "owner" ? <p role="alert">请让具备商品管理权限的 Shopify 店主重新授权。</p> : null}
     {issue === "restart" ? <p role="alert">这次授权未完成，请重新连接 Shopify。</p> : null}
     {pending.data ? <p>请确认连接 Shopify 店铺 <strong>{pending.data.domain}</strong>。</p> : null}

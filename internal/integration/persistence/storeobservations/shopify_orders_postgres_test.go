@@ -200,7 +200,6 @@ func TestSyntheticShopifyOrdersHTTPAndOriginalObservationAuthority(t *testing.T)
 	require.NoError(t, tx.Commit())
 	require.NoError(t, owner.Exec(`GRANT SELECT,UPDATE ON workbench_stores,workbench_store_shopify_shops,
  workbench_store_shopify_authorizations,workbench_store_shopify_order_consents TO observation_runtime`).Error)
-	require.NoError(t, owner.Exec(`GRANT SELECT ON workbench_store_shopify_lifecycle_events TO observation_runtime`).Error)
 
 	now := time.Now().UTC().Truncate(time.Second)
 	stores, err := storecenter.NewMemberScopedStoreRepository(owner, shopifyOrderMember{})
