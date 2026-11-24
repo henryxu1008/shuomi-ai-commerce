@@ -78,9 +78,9 @@ Legacy decision 为 **EXTRACT**。复用现行 Store 角色、授权和绑定 se
 
 ## 开发店候选配置
 
-- 当前运行时仅允许 Shopify 证实为开发店的安装执行授权和商品调用。以空白隔离环境的 Store 与 Product 当前结构启动，配置 `storeCenter.shopify`，分别使用开发应用 ID、OAuth 凭据、配对加密密钥及应用签名私钥。回调和启动地址分别注册为工作台域名下的 `/api/shopify/callback` 与 `/api/shopify/launch`。
+- 当前运行时仅允许 Shopify 证实为开发店的安装执行授权和商品调用。以空白隔离环境的 Store 与 Product 当前结构启动。店铺库使用 `store-center-schema-init --shopify` 显式安装 Shopify 结构和授予运行权限，再配置 `storeCenter.shopify`，分别使用开发应用 ID、OAuth 凭据、配对加密密钥及应用签名私钥。回调和启动地址分别注册为工作台域名下的 `/api/shopify/callback` 与 `/api/shopify/launch`。
 - 开发应用使用 `write_products`。在应用配置声明 `[product.metafields.app.product_upload_source]`，类型为 `single_line_text_field`，启用 `capabilities.unique_values`，保持 Storefront 无读取权限。开始写入前核实店铺上的实际定义。[Shopify 元字段能力](https://shopify.dev/docs/apps/build/metafields/use-metafield-capabilities)
-- 从「店铺中心 → 我的店铺」创建 Shopify 店铺并完成官方授权。在「商品刊登」选择该店铺，填写当前店铺币种下的售价并选择素材，保存资料，再在上传计划核对后确认。回到商品行可查看 Shopify 商品编号、图片状态或核实原操作。开发店安装、商品写入、图片导入和重装待实际验证。
+- 从「店铺中心 → 我的店铺」创建 Shopify 店铺并完成官方授权。在「商品刊登」选择该店铺，填写当前店铺币种下的售价并选择素材，保存资料，再在上传计划核对后确认。回到商品行可查看 Shopify 商品编号、图片状态或核实原操作。核实到账户店铺的商品后，可以直接打开 Shopify 后台的对应商品。开发店安装、商品写入、图片导入和重装待实际验证。
 - 公共商家试用仍须接通 Shopify 端发起的安装恢复、关系撤销与合规清除处理，并走 Shopify 审核。开发店候选保持正式店拦截。
 
 ## 独立架构评审

@@ -1,6 +1,6 @@
 "use client";
 
-import {useEffect, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import Image from "next/image";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
@@ -105,24 +105,32 @@ export function ShopifyDraftResult({scope, sourceId, storeId, publication}: {
  const [latest, setLatest] = useState<SupplyPublication>();
  const [message, setMessage] = useState("");
  const [checking, setChecking] = useState(false);
+ const activeCheck = useRef<AbortController>(null);
+ useEffect(() => () => activeCheck.current?.abort(), []);
  const result = latest?.shopify ?? publication?.shopify;
  const current = latest?.shopifyStatus;
  const media = current?.media ?? result?.media ?? [];
  async function check() {
-  if (checking) return;
+  if (activeCheck.current) return;
+  const controller = new AbortController();
+  activeCheck.current = controller;
   setChecking(true);
   setMessage("");
   try {
-   const observed = await readSupplyPublicationStatus(scope, sourceId, storeId);
+   const observed = await readSupplyPublicationStatus(scope, sourceId, storeId, controller.signal);
+   if (controller.signal.aborted) return;
    setLatest(observed);
    if (observed.shopifyAttemptStatus === "not_started") setMessage("此商品还没有发往 Shopify 的记录。");
    if (observed.shopifyAttemptStatus === "outcome_unknown") setMessage("Shopify 结果仍待核实。系统会保留原操作。");
    if (observed.shopifyAttemptStatus === "claimed") setMessage("上传正在处理，请稍后查看。");
    if (observed.shopifyAttemptStatus === "not_sent") setMessage("原操作尚未发送。请核对店铺授权和资料，再确认上传。");
   } catch {
+   if (controller.signal.aborted) return;
+   setLatest(prior => prior ? {...prior, shopifyStatus: undefined, shopifyAdminUrl: undefined} : undefined);
    setMessage("暂时无法核对 Shopify 结果。请检查店铺授权，或稍后再查。");
   } finally {
-   setChecking(false);
+   activeCheck.current = null;
+   if (!controller.signal.aborted) setChecking(false);
   }
  }
  return <div className="mt-2 space-y-1 text-xs">
@@ -130,6 +138,9 @@ export function ShopifyDraftResult({scope, sourceId, storeId, publication}: {
    <p className="font-medium">已创建 Shopify 草稿</p>
    <p className="break-all">商品编号 {result.id.split("/").at(-1)}</p>
    {current ? <p>当前状态 {statusLabels[current.status]}</p> : null}
+   {latest?.shopifyAdminUrl ? <Button asChild variant="link" size="sm" className="px-0">
+    <a href={latest.shopifyAdminUrl} target="_blank" rel="noopener noreferrer">在 Shopify 后台打开商品</a>
+   </Button> : null}
    {media.some(state => state === "FAILED") ? <p>部分图片处理失败，请到 Shopify 后台查看。</p> : null}
    {media.some(state => state === "PROCESSING" || state === "UPLOADED") ? <p>图片正在处理。</p> : null}
   </> : null}

@@ -6,7 +6,10 @@ import (
 	"errors"
 )
 
+const shopifyStorePlatformDefinition = `CHECK ((platform = ANY (ARRAY['shein'::text, 'temu'::text, 'tiktokshop'::text, 'walmart'::text, 'shopify'::text])))`
+
 var shopifySchemaStatements = []string{
+	`ALTER TABLE public.workbench_stores DROP CONSTRAINT store_platform, ADD CONSTRAINT store_platform CHECK (platform IN ('shein','temu','tiktokshop','walmart','shopify'))`,
 	`CREATE TABLE public.workbench_store_shopify_shops (
  organization_id VARCHAR(200) NOT NULL, shop_key CHAR(36) NOT NULL, store_id CHAR(36) NOT NULL,
  app_id VARCHAR(128) NOT NULL, shop_id VARCHAR(128) NOT NULL, generation BIGINT NOT NULL,
@@ -50,13 +53,35 @@ var shopifySchemaStatements = []string{
 )`,
 }
 
-func installShopifySchemaTx(ctx context.Context, tx *sql.Tx) error {
+// InstallShopifySchemaTx admits the optional Shopify capability on an empty Store
+// database. The caller owns the transaction and any runtime grants.
+func InstallShopifySchemaTx(ctx context.Context, tx *sql.Tx) error {
+	if tx == nil {
+		return errors.New("Store Shopify schema transaction unavailable")
+	}
+	if _, err := tx.ExecContext(ctx, "LOCK TABLE public.workbench_stores IN ACCESS EXCLUSIVE MODE"); err != nil {
+		return err
+	}
+	var installed, hasStores bool
+	if err := tx.QueryRowContext(ctx, `SELECT to_regclass('public.workbench_store_shopify_shops') IS NOT NULL, EXISTS (SELECT 1 FROM public.workbench_stores)`).Scan(&installed, &hasStores); err != nil {
+		return err
+	}
+	capabilities := RuntimeCapabilities{TikTokShop: true, WalmartUS: true, Shopify: true}
+	if installed {
+		return verifyCurrentSchema(ctx, tx, capabilities)
+	}
+	if hasStores {
+		return errors.New("Store Shopify schema requires an empty Store database")
+	}
+	if err := VerifyCurrentSchemaTx(ctx, tx); err != nil {
+		return err
+	}
 	for _, statement := range shopifySchemaStatements {
 		if _, err := tx.ExecContext(ctx, statement); err != nil {
 			return err
 		}
 	}
-	return nil
+	return verifyCurrentSchema(ctx, tx, capabilities)
 }
 
 func verifyShopifySchema(ctx context.Context, db coreSchemaQueryer) error {

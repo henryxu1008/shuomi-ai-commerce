@@ -48,7 +48,8 @@ func verifyStoreMaintenancePrivilegeCatalog(ctx context.Context, q coreSchemaQue
 	query := strings.Replace(storeRuntimePermissionQuery, coreRuntimeSubject, "(SELECT 'store_center_runtime'::text AS runtime_role) subject", 1)
 	var role string
 	var required, forbidden bool
-	if err := q.QueryRowContext(ctx, query, capabilities.Observations, capabilities.OperationsCockpit, false, false).Scan(&role, &required, &forbidden); err != nil {
+	retained := RuntimeCapabilities{Observations: capabilities.Observations, OperationsCockpit: capabilities.OperationsCockpit}
+	if err := q.QueryRowContext(ctx, query, retained.permissionQueryArgs()...).Scan(&role, &required, &forbidden); err != nil {
 		return errors.New("retained Store runtime privileges unavailable")
 	}
 	if role != "store_center_owner" || !required || forbidden {
@@ -137,7 +138,7 @@ func AlignCoreSchemaTx(ctx context.Context, tx *sql.Tx) error {
 	return VerifyAlignedCoreSchemaTx(ctx, tx)
 }
 
-const storePlatformCheckSQL = `CHECK (platform IN ('shein','temu','tiktokshop','walmart','shopify'))`
+const storePlatformCheckSQL = `CHECK (platform IN ('shein','temu','tiktokshop','walmart'))`
 const storeTikTokCheckSQL = `CHECK (platform<>'tiktokshop' OR (region='US' AND external_store_id<>''))`
 const storeWalmartCheckSQL = `CHECK (platform<>'walmart' OR region='US')`
 const storeMerchantCheckSQL = `CHECK (octet_length(identity_hash)=64 AND app_id<>'' AND ((platform='shein' AND open_key_id<>'') OR (platform IN ('temu','walmart') AND open_key_id='')))`

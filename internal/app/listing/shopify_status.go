@@ -29,11 +29,12 @@ func (s *ShopifyStatusService) read(ctx context.Context, view PublicationView) (
 	defer cancel()
 	subject := shopifyProductSubject(view.shopifyScope, storecenter.ProductPurposeStatus)
 	if view.Shopify != nil {
-		observation, err := s.Store.ReadShopifyDraft(ctx, subject, view.binding, view.Shopify.ID, "")
+		readback, err := s.Store.ReadShopifyDraft(ctx, subject, view.binding, view.Shopify.ID, "")
 		if err != nil {
 			return view, record.ErrUnavailable
 		}
-		view.ShopifyStatus = &observation
+		view.ShopifyStatus = &readback.Product
+		view.ShopifyAdminURL = readback.AdminURL
 		return view, nil
 	}
 	scope := submission.ExecutionScope{OrganizationID: view.shopifyScope.OrganizationID}
@@ -71,11 +72,11 @@ func (s *ShopifyStatusService) read(ctx context.Context, view PublicationView) (
 	if err != nil {
 		return view, err
 	}
-	observation, err := s.Store.ReadShopifyDraft(ctx, subject, view.binding, "", draft.SourceKey)
+	readback, err := s.Store.ReadShopifyDraft(ctx, subject, view.binding, "", draft.SourceKey)
 	if err != nil {
 		return view, nil // The original attempt remains unknown unless the exact source is found.
 	}
-	proof, err := submission.NewShopifyDraftResolution(intent, saved, attempt, observation)
+	proof, err := submission.NewShopifyDraftResolution(intent, saved, attempt, readback.Product)
 	if err != nil {
 		return view, err
 	}
@@ -83,7 +84,8 @@ func (s *ShopifyStatusService) read(ctx context.Context, view PublicationView) (
 	if err != nil {
 		return view, err
 	}
-	view.Shopify, view.ShopifyStatus, view.RecordID, view.ReceiptID, view.ObservedAt = retained.Shopify, &observation, retained.RecordID, retained.ID, &retained.ObservedAt
+	view.Shopify, view.ShopifyStatus, view.RecordID, view.ReceiptID, view.ObservedAt = retained.Shopify, &readback.Product, retained.RecordID, retained.ID, &retained.ObservedAt
+	view.ShopifyAdminURL = readback.AdminURL
 	view.ShopifyAttemptStatus = submission.ExecutionSucceeded
 	return view, nil
 }

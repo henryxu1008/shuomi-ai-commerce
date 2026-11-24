@@ -137,9 +137,6 @@ func InstallCoreSchemaTx(ctx context.Context, tx *sql.Tx) error {
 	if err := installTikTokSchemaTx(ctx, tx); err != nil {
 		return err
 	}
-	if err := installShopifySchemaTx(ctx, tx); err != nil {
-		return err
-	}
 	return installWalmartSchemaTx(ctx, tx)
 }
 
@@ -187,7 +184,7 @@ func VerifyCurrentSchemaTx(ctx context.Context, tx *sql.Tx) error {
 	if tx == nil {
 		return errors.New("store schema transaction unavailable")
 	}
-	return verifyCurrentSchema(ctx, tx, RuntimeCapabilities{TikTokShop: true, WalmartUS: true, Shopify: true})
+	return verifyCurrentSchema(ctx, tx, RuntimeCapabilities{TikTokShop: true, WalmartUS: true})
 }
 
 func verifyCurrentSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilities RuntimeCapabilities) error {
@@ -269,8 +266,8 @@ func verifyCoreSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilities
 			return errors.New("store schema state constraints unavailable")
 		}
 		matches := pgschema.SchemaConstraintEqual(definition, want)
-		if !matches && !capabilities.Shopify && name == "store_platform" && want == currentConstraintDefinitions["store_platform"] {
-			matches = pgschema.SchemaConstraintEqual(definition, `CHECK ((platform = ANY (ARRAY['shein'::text, 'temu'::text, 'tiktokshop'::text, 'walmart'::text])))`)
+		if name == "store_platform" && want == currentConstraintDefinitions["store_platform"] && (capabilities.Shopify || !matches) {
+			matches = pgschema.SchemaConstraintEqual(definition, shopifyStorePlatformDefinition)
 		}
 		if !matches {
 			return fmt.Errorf("store schema state constraint mismatch: %s", name)
@@ -385,6 +382,10 @@ const storeRuntimePermissionQuery = `SELECT current_user,
 // The default Store boundary continues to reject every additional privilege.
 type RuntimeCapabilities struct{ Observations, OperationsCockpit, TikTokShop, WalmartUS, Shopify bool }
 
+func (c RuntimeCapabilities) permissionQueryArgs() []any {
+	return []any{c.Observations, c.OperationsCockpit, c.TikTokShop, c.WalmartUS, c.Shopify}
+}
+
 func VerifyRuntimePermissions(ctx context.Context, db *gorm.DB) error {
 	return VerifyRuntimePermissionsForCapabilities(ctx, db, RuntimeCapabilities{})
 }
@@ -399,7 +400,7 @@ func VerifyRuntimePermissionsForCapabilities(ctx context.Context, db *gorm.DB, c
 	}
 	var role string
 	var required, forbidden bool
-	if err := sqlDB.QueryRowContext(ctx, storeRuntimePermissionQuery, capabilities.Observations, capabilities.OperationsCockpit, capabilities.TikTokShop, capabilities.WalmartUS, capabilities.Shopify).Scan(&role, &required, &forbidden); err != nil {
+	if err := sqlDB.QueryRowContext(ctx, storeRuntimePermissionQuery, capabilities.permissionQueryArgs()...).Scan(&role, &required, &forbidden); err != nil {
 		return err
 	}
 	if role != "store_center_runtime" || !required || forbidden {
@@ -524,7 +525,7 @@ func currentColumnType(table, name string) schemaColumnType {
 var currentConstraintDefinitions = map[string]string{
 	"store_delete_shape":    `CHECK (((((record_status)::text = ANY ((ARRAY['deleting'::character varying, 'deleted'::character varying])::text[])) AND ((delete_operation_key)::text <> ''::text)) OR (((record_status)::text <> ALL ((ARRAY['deleting'::character varying, 'deleted'::character varying])::text[])) AND ((delete_operation_key)::text = ''::text))))`,
 	"store_deleted_shape":   `CHECK ((((record_status)::text = 'deleted'::text) = (deleted_at IS NOT NULL)))`,
-	"store_platform":        `CHECK ((platform = ANY (ARRAY['shein'::text, 'temu'::text, 'tiktokshop'::text, 'walmart'::text, 'shopify'::text])))`,
+	"store_platform":        `CHECK ((platform = ANY (ARRAY['shein'::text, 'temu'::text, 'tiktokshop'::text, 'walmart'::text])))`,
 	"store_walmart_market":  `CHECK (((platform <> 'walmart'::text) OR (region = 'US'::text)))`,
 	"store_tiktok_identity": `CHECK (((platform <> 'tiktokshop'::text) OR ((region = 'US'::text) AND (external_store_id <> ''::text))))`,
 	"store_record_status":   `CHECK (((record_status)::text = ANY ((ARRAY['active'::character varying, 'disabled'::character varying, 'deleting'::character varying, 'deleted'::character varying])::text[])))`,

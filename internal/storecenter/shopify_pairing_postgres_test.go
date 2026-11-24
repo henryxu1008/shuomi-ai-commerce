@@ -14,7 +14,16 @@ import (
 func TestShopifyPairingIsConsumedOnceAndShopRemainsExclusive(t *testing.T) {
 	ctx := context.Background()
 	db := newTikTokStoreDatabase(t)
-	require.NoError(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, storecenter.RuntimeCapabilities{Shopify: true}))
+	shopifyCapability := storecenter.RuntimeCapabilities{Shopify: true}
+	require.Error(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, shopifyCapability))
+	pool, err := db.DB()
+	require.NoError(t, err)
+	tx, err := pool.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = tx.Rollback() })
+	require.NoError(t, storecenter.InstallShopifySchemaTx(ctx, tx))
+	require.NoError(t, tx.Commit())
+	require.NoError(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, shopifyCapability))
 	authorizer := &storeMemberAuthorizer{member: "member-original", admin: true}
 	repo, err := storecenter.NewMemberScopedStoreRepository(db, authorizer)
 	require.NoError(t, err)

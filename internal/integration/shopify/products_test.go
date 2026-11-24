@@ -191,3 +191,23 @@ func TestDraftWriteRefusesMissingUniquePrivateSourceDefinition(t *testing.T) {
 		}
 	}
 }
+
+func TestProductAdminURLRequiresCanonicalShopAndProduct(t *testing.T) {
+	const shop = "fixture-shop.myshopify.com"
+	const product = "gid://shopify/Product/12345"
+	if got := ProductAdminURL(shop, product); got != "https://fixture-shop.myshopify.com/admin/products/12345" {
+		t.Fatalf("unexpected admin destination %q", got)
+	}
+	for _, input := range [][2]string{
+		{"fixture-shop.myshopify.com.evil.example", product},
+		{"fixture-shop.myshopify.com@evil.example", product},
+		{shop, "gid://shopify/ProductVariant/12345"},
+		{shop, "gid://shopify/Product/0"},
+		{shop, "gid://shopify/Product/12345?next=elsewhere"},
+		{shop, "gid://shopify/Product/18446744073709551616"},
+	} {
+		if got := ProductAdminURL(input[0], input[1]); got != "" {
+			t.Fatalf("unsafe admin destination %q", got)
+		}
+	}
+}

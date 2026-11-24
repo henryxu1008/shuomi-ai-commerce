@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -100,6 +101,14 @@ func (c *AdminClient) matchInstallation(ctx context.Context, expected Installati
 		return Installation{}, ErrInstallationUnavailable
 	}
 	return current, nil
+}
+
+// ProductAdminURL constructs an admin destination from the verified shop and product identifiers.
+func ProductAdminURL(shop, productID string) string {
+	if !shopDomainPattern.MatchString(shop) || !validGID(productID, "Product") {
+		return ""
+	}
+	return "https://" + shop + "/admin/products/" + strings.TrimPrefix(productID, "gid://shopify/Product/")
 }
 
 type ProductObservation struct {

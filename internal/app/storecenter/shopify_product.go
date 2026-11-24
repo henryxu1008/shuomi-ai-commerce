@@ -84,18 +84,23 @@ func (a *OfficialProductAccess) VerifyShopifyDraftWrite(ctx context.Context, sub
 	return &ShopifyDraftWrite{transport: writer}, nil
 }
 
-func (a *OfficialProductAccess) ReadShopifyDraft(ctx context.Context, subject storecenter.ProductExecutionSubject, expected MerchantBinding, productID, sourceKey string) (shopify.ProductObservation, error) {
+type ShopifyDraftReadback struct {
+	Product  shopify.ProductObservation
+	AdminURL string
+}
+
+func (a *OfficialProductAccess) ReadShopifyDraft(ctx context.Context, subject storecenter.ProductExecutionSubject, expected MerchantBinding, productID, sourceKey string) (ShopifyDraftReadback, error) {
 	if subject.Purpose != storecenter.ProductPurposeStatus || (productID == "") == (sourceKey == "") {
-		return shopify.ProductObservation{}, ErrProductAccessChanged
+		return ShopifyDraftReadback{}, ErrProductAccessChanged
 	}
 	value, binding, err := a.shopifyProductMaterial(ctx, subject, expected.StoreID)
 	if err != nil || binding != expected {
-		return shopify.ProductObservation{}, ErrProductAccessChanged
+		return ShopifyDraftReadback{}, ErrProductAccessChanged
 	}
 	app := a.applications.shopify
 	token, err := app.Issuer.Issue(ctx, value.Domain)
 	if err != nil {
-		return shopify.ProductObservation{}, ErrProductAccessChanged
+		return ShopifyDraftReadback{}, ErrProductAccessChanged
 	}
 	var observation wire.ProductObservation
 	if productID != "" {
@@ -104,10 +109,10 @@ func (a *OfficialProductAccess) ReadShopifyDraft(ctx context.Context, subject st
 		observation, err = app.Admin.FindDraftBySource(ctx, shopifyWireIdentity(value.ShopifyInstallation), token.Value, sourceKey)
 	}
 	if err != nil {
-		return shopify.ProductObservation{}, err
+		return ShopifyDraftReadback{}, err
 	}
 	if _, current, err := a.shopifyProductMaterial(ctx, subject, expected.StoreID); err != nil || current != expected {
-		return shopify.ProductObservation{}, ErrProductAccessChanged
+		return ShopifyDraftReadback{}, ErrProductAccessChanged
 	}
-	return shopifyObservation(observation), nil
+	return ShopifyDraftReadback{Product: shopifyObservation(observation), AdminURL: wire.ProductAdminURL(value.Domain, observation.ID)}, nil
 }

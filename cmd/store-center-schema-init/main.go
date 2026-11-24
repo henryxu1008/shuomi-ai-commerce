@@ -32,7 +32,7 @@ func main() {
 	cockpit := flag.Bool("operations-cockpit", false, "install manual financial facts and goals on an authorized fresh empty Store instance")
 	tiktok := flag.Bool("tiktok-shop", false, "grant admitted TikTok OAuth tables on an authorized fresh empty Store instance")
 	walmart := flag.Bool("walmart-us", false, "grant admitted Walmart US OAuth tables on an authorized fresh empty Store instance")
-	shopify := flag.Bool("shopify", false, "grant Shopify authorization tables on an authorized fresh empty Store instance")
+	shopify := flag.Bool("shopify", false, "install and grant Shopify authorization tables on an authorized fresh empty Store instance")
 	align := flag.Bool("align-core-contract", false, "align only the four admitted core CHECKs on a retained Store database; no grants or platform installation")
 	retainedObservations := flag.Bool("retained-observations", false, "declare already installed observations for --align-core-contract; no installation or grants")
 	retainedCockpit := flag.Bool("retained-operations-cockpit", false, "declare already installed operations cockpit for --align-core-contract; no installation or grants")
@@ -221,6 +221,11 @@ func runStoreSchema(storePath string, observations, cockpit, observationsOnly, g
 	if err := storeschema.Migrate(ctx, records); err != nil {
 		return fmt.Errorf("initialize current Store schema: %w", err)
 	}
+	if shopify {
+		if err := installShopifyStoreSchema(ctx, records); err != nil {
+			return err
+		}
+	}
 	if err := grantStoreRuntime(ctx, records); err != nil {
 		return err
 	}
@@ -237,11 +242,6 @@ func runStoreSchema(storePath string, observations, cockpit, observationsOnly, g
 			return err
 		}
 	}
-	if shopify {
-		if err := records.WithContext(ctx).Exec(`GRANT SELECT,INSERT,UPDATE ON public.workbench_store_shopify_shops, public.workbench_store_shopify_authorizations, public.workbench_store_shopify_pairings TO store_center_runtime`).Error; err != nil {
-			return err
-		}
-	}
 	if observations {
 		if err := storeschema.InstallObservations(ctx, records); err != nil {
 			return fmt.Errorf("initialize Store observation schema: %w", err)
@@ -253,6 +253,25 @@ func runStoreSchema(storePath string, observations, cockpit, observationsOnly, g
 		}
 	}
 	return nil
+}
+
+func installShopifyStoreSchema(ctx context.Context, records *gorm.DB) error {
+	db, err := records.DB()
+	if err != nil {
+		return err
+	}
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := storecenter.InstallShopifySchemaTx(ctx, tx); err != nil {
+		return fmt.Errorf("initialize Store Shopify schema: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `GRANT SELECT,INSERT,UPDATE ON public.workbench_store_shopify_shops, public.workbench_store_shopify_authorizations, public.workbench_store_shopify_pairings TO store_center_runtime`); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func grantStoreRuntime(ctx context.Context, db *gorm.DB) error {

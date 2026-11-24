@@ -20,6 +20,7 @@ type PublicationView struct {
 	SheinStatus          *SheinPublicationStatus          `json:"sheinStatus,omitempty"`
 	Shopify              *shopify.ProductObservation      `json:"shopify,omitempty"`
 	ShopifyStatus        *shopify.ProductObservation      `json:"shopifyStatus,omitempty"`
+	ShopifyAdminURL      string                           `json:"shopifyAdminUrl,omitempty"`
 	ShopifyAttemptID     string                           `json:"shopifyAttemptId,omitempty"`
 	ShopifyAttemptStatus submission.ExecutionStatus       `json:"shopifyAttemptStatus,omitempty"`
 	Walmart              *submission.WalmartFeedReceipt   `json:"walmart,omitempty"`
