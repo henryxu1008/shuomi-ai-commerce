@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	amazonmarket "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/amazon"
+	amazonmarket "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/amazonus"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"

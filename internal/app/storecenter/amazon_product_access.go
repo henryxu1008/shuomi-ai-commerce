@@ -9,7 +9,7 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/amazon"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/credentialprotection"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
-	amazonmarket "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/amazon"
+	amazonmarket "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/amazonus"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )

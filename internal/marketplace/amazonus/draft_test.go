@@ -1,4 +1,4 @@
-package amazon
+package amazonus
 
 import (
 	"crypto/sha256"

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
-	amazonmarket "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/amazon"
+	amazonmarket "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/amazonus"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
 	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
 	temumodel "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"

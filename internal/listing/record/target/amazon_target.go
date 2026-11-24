@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"time"
 
-	amazonmarket "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/amazon"
+	amazonmarket "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/amazonus"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"

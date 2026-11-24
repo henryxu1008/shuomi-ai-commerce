@@ -3,6 +3,8 @@ package submission
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"time"
 
@@ -41,6 +43,20 @@ type OfficialIntentCommit struct {
 	source preparation.AuthorizedSource
 	intent OfficialIntent
 	hash   string
+}
+
+// EncodeOfficialIntent returns the immutable document and its fingerprint
+// for persistence adapters working inside a Submission transaction.
+func EncodeOfficialIntent(value OfficialIntent) (body []byte, bodyHash string, err error) {
+	if err := ValidateOfficialIntent(value); err != nil {
+		return nil, "", err
+	}
+	body, err = json.Marshal(value)
+	if err != nil || len(body) > MaxExecutionPayloadBytes {
+		return nil, "", ErrExecutionEvidenceRequired
+	}
+	sum := sha256.Sum256(body)
+	return body, hex.EncodeToString(sum[:]), nil
 }
 
 func (p OfficialIntentCommit) Read(ctx context.Context) (OfficialIntent, error) {

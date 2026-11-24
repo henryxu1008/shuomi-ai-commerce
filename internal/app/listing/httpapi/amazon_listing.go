@@ -8,7 +8,7 @@ import (
 	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
 	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
-	amazonmarket "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/amazon"
+	amazonmarket "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/amazonus"
 )
 
 type amazonReviewInput struct {

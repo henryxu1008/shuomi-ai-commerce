@@ -2,13 +2,11 @@ package submissionpersistence
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"time"
 
 	recordstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/record"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
-	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
 )
 
@@ -63,14 +61,14 @@ func requireAmazonEffect(ctx context.Context, tx *gorm.DB, reservation submissio
 		env, partition, normalizedGTIN, intent.Amazon.SKU, owner.OrganizationID, intent.Target.StoreID, productKey).Scan(&sameOwner).Error; err != nil || !sameOwner {
 		return submission.ErrExecutionTargetClaimed
 	}
-	body, err := json.Marshal(intent)
-	if err != nil || len(body) > submission.MaxExecutionPayloadBytes {
-		return submission.ErrExecutionEvidenceRequired
+	body, bodyHash, err := submission.EncodeOfficialIntent(intent)
+	if err != nil {
+		return err
 	}
 	written := tx.Exec(`INSERT INTO public.listing_submission_official_intents
 		(organization_id, actor_id, member_id, intent_key, record_id, kind, input_hash, body_hash, body_json)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb))`, owner.OrganizationID, owner.ActorID, owner.MemberID,
-		intent.Key, intent.RecordID, intent.Kind, intent.InputHash, collection.Digest(intent), string(body))
+		intent.Key, intent.RecordID, intent.Kind, intent.InputHash, bodyHash, string(body))
 	if written.Error != nil || written.RowsAffected != 1 {
 		return submission.ErrExecutionUnavailable
 	}
@@ -78,7 +76,7 @@ func requireAmazonEffect(ctx context.Context, tx *gorm.DB, reservation submissio
 }
 
 func (r *Repository) ReadAmazonAttempt(ctx context.Context, scope submission.ExecutionScope, target submission.ExecutionTarget) (submission.ExecutionAttempt, error) {
-	if r == nil || ctx == nil || target.Platform != "amazon" || !collection.ValidID(target.StoreID) {
+	if r == nil || ctx == nil || !submission.ValidAmazonTarget(target) {
 		return submission.ExecutionAttempt{}, submission.ErrExecutionInvalid
 	}
 	fence, found, err := r.findTarget(ctx, r.db, scope.OrganizationID, target, false)

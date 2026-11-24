@@ -8,7 +8,7 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
 	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
-	amazonmarket "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/amazon"
+	amazonmarket "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/amazonus"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
@@ -81,6 +81,10 @@ func (a *AmazonSendAuthorization) Read(ctx context.Context) (OfficialIntent, str
 
 func AmazonTarget(storeID, productKey string) ExecutionTarget {
 	return ExecutionTarget{Platform: "amazon", StoreID: storeID, SubjectID: amazonmarket.SellerSKU(storeID, productKey)}
+}
+
+func ValidAmazonTarget(t ExecutionTarget) bool {
+	return t.Platform == "amazon" && collection.ValidID(t.StoreID) && amazonmarket.ValidSellerSKU(t.SubjectID)
 }
 
 func validateAmazonIntent(v OfficialIntent) error {

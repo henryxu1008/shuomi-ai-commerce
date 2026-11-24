@@ -1,5 +1,5 @@
-// Package amazon owns credential-free rules for preparing an Amazon US listing.
-package amazon
+// Package amazonus owns credential-free rules for preparing an Amazon US listing.
+package amazonus
 
 import (
 	"bytes"
@@ -107,13 +107,17 @@ func BuildDraft(in DraftInput, storeID, productKey, imageURL string, rules []byt
 
 func (d Draft) Validate() error {
 	attributes := bytes.TrimSpace(d.Attributes)
-	if !productTypeName.MatchString(d.ProductType) || !strings.HasPrefix(d.SKU, "shuomi-") ||
-		!validDigest(d.SKU[len("shuomi-"):], 16) || !validDigest(d.RuleHash, sha256.Size) ||
+	if !productTypeName.MatchString(d.ProductType) || !ValidSellerSKU(d.SKU) || !validDigest(d.RuleHash, sha256.Size) ||
 		len(attributes) == 0 || len(attributes) > maxAttributes || attributes[0] != '{' || !json.Valid(attributes) ||
 		d.WireHash != d.fingerprint() {
 		return ErrInvalidDraft
 	}
 	return nil
+}
+
+func ValidSellerSKU(sku string) bool {
+	prefix, digest, _ := strings.Cut(sku, "-")
+	return prefix == "shuomi" && validDigest(digest, 16)
 }
 
 func (d Draft) fingerprint() string {
