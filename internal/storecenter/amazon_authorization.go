@@ -70,3 +70,22 @@ type AmazonAuthorizationStore interface {
 	// unique binding before committing the encrypted credential and receipt.
 	BindAmazonAuthorization(context.Context, AmazonAuthorizationClaim, string, string, time.Time) error
 }
+
+type AmazonConnectionStart struct {
+	AuthorizationURL string    `json:"authorizationUrl"`
+	FlowCookie       string    `json:"-"`
+	ExpiresAt        time.Time `json:"expiresAt"`
+}
+
+type AmazonLoginCallback struct {
+	FlowCookie, AmazonCallbackURI, AmazonState, SellerID, Version string
+}
+
+type AmazonRedirectCallback struct {
+	FlowCookie, State, SellerID, Code string
+}
+
+type AmazonConnectionResult struct {
+	StoreID    string `json:"storeId"`
+	Generation int64  `json:"generation"`
+}

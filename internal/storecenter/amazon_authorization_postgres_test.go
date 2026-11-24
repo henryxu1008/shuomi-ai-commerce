@@ -174,7 +174,7 @@ func checkAmazonAuthorizationWithApplication(t *testing.T, db *gorm.DB, repo *st
 	require.NoError(t, err)
 	started, err := app.Begin(ctx, scope, store.ID(), store.Version())
 	require.NoError(t, err)
-	login := storeapp.AmazonLoginCallback{
+	login := storecenter.AmazonLoginCallback{
 		FlowCookie: started.FlowCookie, AmazonState: "synthetic-amazon-state", SellerID: "THIRDSELLER",
 		AmazonCallbackURI: "https://amazon.com/apps/authorize/confirm/" + appID,
 	}
@@ -182,7 +182,7 @@ func checkAmazonAuthorizationWithApplication(t *testing.T, db *gorm.DB, repo *st
 	require.NoError(t, err)
 	target, err := url.Parse(confirm)
 	require.NoError(t, err)
-	callback := storeapp.AmazonRedirectCallback{
+	callback := storecenter.AmazonRedirectCallback{
 		FlowCookie: started.FlowCookie, State: target.Query().Get("state"), SellerID: "THIRDSELLER", Code: "synthetic-code",
 	}
 	result, err := app.Complete(ctx, scope, callback)

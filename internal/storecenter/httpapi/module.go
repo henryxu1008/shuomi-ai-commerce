@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -31,6 +32,10 @@ func (m routeModule) ConfigureBrowser(service *storecenter.BrowserOperations) er
 	return m.handler.SetBrowserOperations(service)
 }
 
+func (m routeModule) ConfigureAmazonAuthorizations(service AmazonAuthorizationService, proof func(context.Context) [32]byte) error {
+	return m.handler.SetAmazonAuthorizations(service, proof)
+}
+
 func (routeModule) Name() string { return ModuleName }
 
 func (m routeModule) Enabled(cfg *config.Config) bool {
@@ -38,6 +43,7 @@ func (m routeModule) Enabled(cfg *config.Config) bool {
 }
 
 func (m routeModule) Register(registry *kernelmodule.Registry) error {
+	registry.AddRoutes(m.handler.amazonAuthorizationRoutes()...)
 	if m.handler.browser != nil {
 		registry.AddRoutes(m.handler.browserRoutes()...)
 	}

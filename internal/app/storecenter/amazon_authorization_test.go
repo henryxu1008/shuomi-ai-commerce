@@ -30,7 +30,7 @@ func TestAmazonAuthorizationBindsSessionAndClaimsExchangeOnce(t *testing.T) {
 	flowHash := sha256.Sum256([]byte(begin.FlowCookie))
 	require.Equal(t, hex.EncodeToString(flowHash[:]), repo.begin.FlowDigest)
 
-	callback := AmazonLoginCallback{
+	callback := storecenter.AmazonLoginCallback{
 		FlowCookie: begin.FlowCookie, AmazonState: "amazon-state", SellerID: "SELLERA",
 		AmazonCallbackURI: "https://amazon.com/apps/authorize/confirm/" + amazonFixtureApp,
 	}
@@ -48,7 +48,7 @@ func TestAmazonAuthorizationBindsSessionAndClaimsExchangeOnce(t *testing.T) {
 	require.NoError(t, err)
 	confirmation, err := url.Parse(next)
 	require.NoError(t, err)
-	final := AmazonRedirectCallback{
+	final := storecenter.AmazonRedirectCallback{
 		FlowCookie: begin.FlowCookie, SellerID: "SELLERB", State: confirmation.Query().Get("state"), Code: "single-use-code",
 	}
 	_, err = app.Complete(ctx, scope, final)
@@ -84,14 +84,14 @@ func TestAmazonAuthorizationUnknownExchangeRequiresFreshConsent(t *testing.T) {
 	scope := storecenter.AmazonBrowserScope{OrganizationID: "org-a", SessionDigest: sha256.Sum256([]byte("session"))}
 	start, err := app.Begin(ctx, scope, amazonFixtureStore, 7)
 	require.NoError(t, err)
-	confirm, err := app.Continue(ctx, scope, AmazonLoginCallback{
+	confirm, err := app.Continue(ctx, scope, storecenter.AmazonLoginCallback{
 		FlowCookie: start.FlowCookie, AmazonState: "amazon-state", SellerID: "SELLERA",
 		AmazonCallbackURI: "https://amazon.com/apps/authorize/confirm/" + amazonFixtureApp,
 	})
 	require.NoError(t, err)
 	redirect, err := url.Parse(confirm)
 	require.NoError(t, err)
-	callback := AmazonRedirectCallback{FlowCookie: start.FlowCookie, SellerID: "SELLERA", State: redirect.Query().Get("state"), Code: "used-code"}
+	callback := storecenter.AmazonRedirectCallback{FlowCookie: start.FlowCookie, SellerID: "SELLERA", State: redirect.Query().Get("state"), Code: "used-code"}
 	provider.exchangeError = errors.New("private provider response")
 	_, err = app.Complete(ctx, scope, callback)
 	require.ErrorIs(t, err, storecenter.ErrOfficialExchangeUnknown)
@@ -196,14 +196,14 @@ func TestAmazonAuthorizationDoesNotBindWithoutSellerProof(t *testing.T) {
 	wire, err := json.Marshal(begin)
 	require.NoError(t, err)
 	require.NotContains(t, string(wire), begin.FlowCookie)
-	redirect, err := app.Continue(ctx, scope, AmazonLoginCallback{
+	redirect, err := app.Continue(ctx, scope, storecenter.AmazonLoginCallback{
 		FlowCookie: begin.FlowCookie, AmazonState: "amazon-state", SellerID: "SELLERB",
 		AmazonCallbackURI: "https://amazon.com/apps/authorize/confirm/" + amazonFixtureApp,
 	})
 	require.NoError(t, err)
 	target, err := url.Parse(redirect)
 	require.NoError(t, err)
-	callback := AmazonRedirectCallback{FlowCookie: begin.FlowCookie, SellerID: "SELLERB", State: target.Query().Get("state"), Code: "one-time-code"}
+	callback := storecenter.AmazonRedirectCallback{FlowCookie: begin.FlowCookie, SellerID: "SELLERB", State: target.Query().Get("state"), Code: "one-time-code"}
 	otherOrganization := storecenter.AmazonBrowserScope{OrganizationID: "org-b", SessionDigest: scope.SessionDigest}
 	_, err = app.Complete(ctx, otherOrganization, callback)
 	require.ErrorIs(t, err, storecenter.ErrNotFound)
@@ -221,14 +221,14 @@ func TestAmazonAuthorizationRejectsBadCodeBeforeClaim(t *testing.T) {
 	scope := storecenter.AmazonBrowserScope{OrganizationID: "org-a", SessionDigest: sha256.Sum256([]byte("session-a"))}
 	begin, err := app.Begin(ctx, scope, amazonFixtureStore, 7)
 	require.NoError(t, err)
-	redirect, err := app.Continue(ctx, scope, AmazonLoginCallback{
+	redirect, err := app.Continue(ctx, scope, storecenter.AmazonLoginCallback{
 		FlowCookie: begin.FlowCookie, AmazonState: "amazon-state", SellerID: "SELLERA",
 		AmazonCallbackURI: "https://amazon.com/apps/authorize/confirm/" + amazonFixtureApp,
 	})
 	require.NoError(t, err)
 	target, err := url.Parse(redirect)
 	require.NoError(t, err)
-	_, err = app.Complete(ctx, scope, AmazonRedirectCallback{
+	_, err = app.Complete(ctx, scope, storecenter.AmazonRedirectCallback{
 		FlowCookie: begin.FlowCookie, SellerID: "SELLERA", State: target.Query().Get("state"), Code: "invalid code",
 	})
 	require.ErrorIs(t, err, storecenter.ErrNotFound)
@@ -242,7 +242,7 @@ func TestAmazonAuthorizationTreatsSellerProbeOutageAsUnknown(t *testing.T) {
 	scope := storecenter.AmazonBrowserScope{OrganizationID: "org-a", SessionDigest: sha256.Sum256([]byte("session-a"))}
 	begin, err := app.Begin(ctx, scope, amazonFixtureStore, 7)
 	require.NoError(t, err)
-	redirect, err := app.Continue(ctx, scope, AmazonLoginCallback{
+	redirect, err := app.Continue(ctx, scope, storecenter.AmazonLoginCallback{
 		FlowCookie: begin.FlowCookie, AmazonState: "amazon-state", SellerID: "SELLERA",
 		AmazonCallbackURI: "https://amazon.com/apps/authorize/confirm/" + amazonFixtureApp,
 	})
@@ -250,7 +250,7 @@ func TestAmazonAuthorizationTreatsSellerProbeOutageAsUnknown(t *testing.T) {
 	target, err := url.Parse(redirect)
 	require.NoError(t, err)
 	provider.verifyError = amazon.ErrUnavailable
-	callback := AmazonRedirectCallback{FlowCookie: begin.FlowCookie, SellerID: "SELLERA", State: target.Query().Get("state"), Code: "one-time-code"}
+	callback := storecenter.AmazonRedirectCallback{FlowCookie: begin.FlowCookie, SellerID: "SELLERA", State: target.Query().Get("state"), Code: "one-time-code"}
 	_, err = app.Complete(ctx, scope, callback)
 	require.ErrorIs(t, err, storecenter.ErrOfficialExchangeUnknown)
 	_, err = app.Complete(ctx, scope, callback)

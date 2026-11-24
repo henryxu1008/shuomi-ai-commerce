@@ -2299,3 +2299,5 @@ function safeJSONHeaders() {
 export class BodyTooLargeError extends Error {}
 class BodyReadTimeoutError extends Error {}
 class InvalidUpstreamBodyError extends Error {}
+
+export { getServiceRoot as getWorkbenchServiceRoot, readSourceSelectedOrganization as readStrictWorkbenchOrganization };

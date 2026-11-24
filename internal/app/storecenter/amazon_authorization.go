@@ -44,33 +44,14 @@ func NewAmazonAuthorizations(owner storecenter.AmazonAuthorizationStore, provide
 	return &AmazonAuthorizations{owner: owner, provider: provider, protection: protection, application: app, now: now}, nil
 }
 
-type AmazonConnectionStart struct {
-	AuthorizationURL string
-	FlowCookie       string `json:"-"`
-	ExpiresAt        time.Time
-}
-
-type AmazonLoginCallback struct {
-	FlowCookie, AmazonCallbackURI, AmazonState, SellerID, Version string
-}
-
-type AmazonRedirectCallback struct {
-	FlowCookie, State, SellerID, Code string
-}
-
-type AmazonConnectionResult struct {
-	StoreID    string
-	Generation int64
-}
-
-func (a *AmazonAuthorizations) Begin(ctx context.Context, scope storecenter.AmazonBrowserScope, storeID string, version int64) (AmazonConnectionStart, error) {
+func (a *AmazonAuthorizations) Begin(ctx context.Context, scope storecenter.AmazonBrowserScope, storeID string, version int64) (storecenter.AmazonConnectionStart, error) {
 	if !validAmazonScope(scope) || uuid.Validate(storeID) != nil || version <= 0 {
-		return AmazonConnectionStart{}, storecenter.ErrNotFound
+		return storecenter.AmazonConnectionStart{}, storecenter.ErrNotFound
 	}
 	flow := amazonRandomParameter()
 	consent, err := amazon.ConsentURL(a.application.ID, amazonRandomParameter(), a.application.Beta)
 	if err != nil {
-		return AmazonConnectionStart{}, storecenter.ErrOfficialConnectionUnavailable
+		return storecenter.AmazonConnectionStart{}, storecenter.ErrOfficialConnectionUnavailable
 	}
 	now := a.now().UTC()
 	start := storecenter.AmazonAuthorizationBegin{
@@ -78,12 +59,12 @@ func (a *AmazonAuthorizations) Begin(ctx context.Context, scope storecenter.Amaz
 		FlowDigest: amazonDigest(flow), ExpectedStoreVersion: version, Now: now, ExpiresAt: now.Add(amazonAuthorizationLifetime),
 	}
 	if err := a.owner.StartAmazonAuthorization(ctx, start); err != nil {
-		return AmazonConnectionStart{}, err
+		return storecenter.AmazonConnectionStart{}, err
 	}
-	return AmazonConnectionStart{AuthorizationURL: consent, FlowCookie: flow, ExpiresAt: start.ExpiresAt}, nil
+	return storecenter.AmazonConnectionStart{AuthorizationURL: consent, FlowCookie: flow, ExpiresAt: start.ExpiresAt}, nil
 }
 
-func (a *AmazonAuthorizations) Continue(ctx context.Context, scope storecenter.AmazonBrowserScope, callback AmazonLoginCallback) (string, error) {
+func (a *AmazonAuthorizations) Continue(ctx context.Context, scope storecenter.AmazonBrowserScope, callback storecenter.AmazonLoginCallback) (string, error) {
 	if !validAmazonScope(scope) || !validAmazonRandomParameter(callback.FlowCookie) || !validAmazonSellerID(callback.SellerID) {
 		return "", storecenter.ErrNotFound
 	}
@@ -110,8 +91,8 @@ func (a *AmazonAuthorizations) Continue(ctx context.Context, scope storecenter.A
 	return target, nil
 }
 
-func (a *AmazonAuthorizations) Complete(ctx context.Context, scope storecenter.AmazonBrowserScope, callback AmazonRedirectCallback) (AmazonConnectionResult, error) {
-	out := AmazonConnectionResult{}
+func (a *AmazonAuthorizations) Complete(ctx context.Context, scope storecenter.AmazonBrowserScope, callback storecenter.AmazonRedirectCallback) (storecenter.AmazonConnectionResult, error) {
+	out := storecenter.AmazonConnectionResult{}
 	if !validAmazonScope(scope) || !validAmazonRandomParameter(callback.FlowCookie) ||
 		!validAmazonRandomParameter(callback.State) || !validAmazonSellerID(callback.SellerID) ||
 		!visibleAmazonParameter(callback.Code, 8192) {
@@ -132,12 +113,12 @@ func (a *AmazonAuthorizations) Complete(ctx context.Context, scope storecenter.A
 		claim.Generation < 1 || claim.ActorID == "" || claim.MemberID == "" {
 		return out, storecenter.ErrOfficialExchangeUnknown
 	}
-	out = AmazonConnectionResult{StoreID: claim.StoreID, Generation: claim.Generation}
+	out = storecenter.AmazonConnectionResult{StoreID: claim.StoreID, Generation: claim.Generation}
 	if claim.Replay {
 		return out, nil
 	}
 	if err := a.exchangeAndBind(ctx, claim, callback.Code); err != nil {
-		return AmazonConnectionResult{}, err
+		return storecenter.AmazonConnectionResult{}, err
 	}
 	return out, nil
 }
