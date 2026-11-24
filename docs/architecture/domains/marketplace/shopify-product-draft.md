@@ -1,8 +1,8 @@
 # Shopify 店铺自助授权与商品草稿上传
 
-执行任务 [#1613](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1613) · Independent Architecture · **NOT_READY** · 第 1 轮已评审，本修订待复核。
+执行任务 [#1613](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1613) · Independent Architecture · **IMPLEMENTATION_READY / FROZEN**。
 
-调查基线 `7a9df541e51d1a030d32c26f6f18daf21d30f536`。下文是待评审设计。平台接口依据为公开文档，Dev Store 实证待执行。
+调查基线 `7a9df541e51d1a030d32c26f6f18daf21d30f536`。平台接口依据为公开文档，Dev Store 实证待执行。
 
 ## 用户结果与范围
 
@@ -78,7 +78,7 @@ Legacy decision 为 **EXTRACT**。复用现行 Store 角色、授权和绑定 se
 
 ## 独立架构评审
 
-第 1 轮独立检查绑定 `189fbbc6178a23044476d42c78b94fef987eba66`，结论 `NOT_READY`。三个实施级 BLOCKER 已纳入本次文档修订，处置结论待原评审者复核。
+第 1 轮独立检查绑定 `189fbbc6178a23044476d42c78b94fef987eba66`，结论 `NOT_READY`。2026-11-24，原独立评审者对 [PR #1615](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1615) 的修订 `ced51c5dfba09664ad13c12eb828f298d049dae4` 增量复核，三个实施级 BLOCKER 已解除，结论为 `IMPLEMENTATION_READY`。生产开放仍须满足受控试用和平台前置。
 
 | Finding | 受影响的 Must / 阻塞后果 | 本次设计修订 |
 | --- | --- | --- |
