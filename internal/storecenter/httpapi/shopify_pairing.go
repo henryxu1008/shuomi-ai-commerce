@@ -49,6 +49,10 @@ func (h *Handler) ShopifyPairing(c *gin.Context) {
 		h.beginShopify(c, values)
 		return
 	}
+	if values["action"] == "confirm_install" {
+		h.confirmShopifyInstallation(c, values)
+		return
+	}
 	attempt, err := canonicalUUID(values["attemptId"])
 	if err != nil || len(c.Request.Header.Values("If-Match")) != 0 || len(c.Request.Header.Values("Idempotency-Key")) != 0 {
 		writeInvalid(c, "attemptId", "invalid")
@@ -56,6 +60,8 @@ func (h *Handler) ShopifyPairing(c *gin.Context) {
 	}
 	key := storecenter.ShopifyPairingKey{OrganizationID: identity.EffectiveOrganizationID, StoreID: storeID, AttemptID: attempt}
 	switch values["action"] {
+	case "inspect_install":
+		h.inspectShopifyInstallation(c, key, values)
 	case "launch", "stage":
 		if len(values["state"]) != 43 || values["query"] == "" {
 			writeInvalid(c, "query", "invalid")
@@ -71,12 +77,8 @@ func (h *Handler) ShopifyPairing(c *gin.Context) {
 			return
 		}
 		domain, err := h.shopifyConnections.Stage(ctx, key, values["browser"], values["state"], values["query"])
-		if errors.Is(err, storecenter.ErrShopifyOwnerRequired) {
-			c.JSON(http.StatusForbidden, gin.H{"code": "SHOPIFY_OWNER_REQUIRED"})
-			return
-		}
 		if err != nil {
-			writeStoreError(c, err)
+			writeShopifyInstallationError(c, err)
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"domain": domain})
@@ -111,4 +113,44 @@ func (h *Handler) beginShopify(c *gin.Context, values map[string]string) {
 		return
 	}
 	c.JSON(http.StatusOK, start)
+}
+
+func (h *Handler) confirmShopifyInstallation(c *gin.Context, values map[string]string) {
+	service, ok := h.shopifyConnections.(shopifyStartedInstallationService)
+	if !ok || !service.StartedInstallationEnabled() {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	if values["attemptId"] != "" || values["state"] != "" || values["query"] != "" {
+		writeInvalid(c, "body", "invalid")
+		return
+	}
+	command, ok := h.connectionCommand(c, false)
+	if !ok {
+		return
+	}
+	binding, err := service.ConfirmStartedInstallation(c.Request.Context(), command, values["browser"])
+	if err != nil {
+		writeStoreError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"domain": binding.Domain})
+}
+
+func (h *Handler) inspectShopifyInstallation(c *gin.Context, key storecenter.ShopifyPairingKey, values map[string]string) {
+	service, ok := h.shopifyConnections.(shopifyStartedInstallationService)
+	if !ok || !service.StartedInstallationEnabled() {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	if values["state"] != "" || values["query"] != "" {
+		writeInvalid(c, "body", "invalid")
+		return
+	}
+	view, err := service.InspectStartedInstallation(c.Request.Context(), key, values["browser"])
+	if err != nil {
+		writeStoreError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, view)
 }

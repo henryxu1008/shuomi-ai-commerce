@@ -80,24 +80,29 @@ func (r *Repository) Acquire(ctx context.Context, reservation submission.Executi
 	if r == nil || r.db == nil || r.transactionFinalizer {
 		return submission.ExecutionAttempt{}, false, submission.ErrExecutionUnavailable
 	}
-	if existing, found, err := r.findByIntent(ctx, r.db, reservation.Attempt.OrganizationID, reservation.Attempt.IntentKey, false); err != nil {
-		return submission.ExecutionAttempt{}, false, err
-	} else if found {
-		if err := submission.ValidateExecutionReplay(existing, reservation.Attempt); err != nil {
+	if reservation.Attempt.Target.Platform != "shopify" {
+		if existing, found, err := r.findByIntent(ctx, r.db, reservation.Attempt.OrganizationID, reservation.Attempt.IntentKey, false); err != nil {
 			return submission.ExecutionAttempt{}, false, err
+		} else if found {
+			if err := submission.ValidateExecutionReplay(existing, reservation.Attempt); err != nil {
+				return submission.ExecutionAttempt{}, false, err
+			}
+			if existing.Status != submission.ExecutionClaimed && existing.Status != submission.ExecutionOutcomeUnknown {
+				return existing, false, nil
+			}
+			if matches, err := r.activeAttemptMatchesTarget(ctx, r.db, existing); err != nil {
+				return submission.ExecutionAttempt{}, false, err
+			} else if matches {
+				return existing, false, nil
+			}
 		}
-		if existing.Status != submission.ExecutionClaimed && existing.Status != submission.ExecutionOutcomeUnknown {
-			return existing, false, nil
-		}
-		if matches, err := r.activeAttemptMatchesTarget(ctx, r.db, existing); err != nil {
-			return submission.ExecutionAttempt{}, false, err
-		} else if matches {
-			return existing, false, nil
-		}
-	}
 
+	}
 	var acquired bool
 	result, err := r.write(ctx, func(tx *gorm.DB) (mutation, error) {
+		if err := requireShopifyGuard(ctx, tx, reservation.Attempt, true); err != nil {
+			return mutation{}, err
+		}
 		if err := advisoryLock(tx, "intent", reservation.Attempt.OrganizationID, reservation.Attempt.IntentKey); err != nil {
 			return mutation{}, err
 		}
@@ -294,6 +299,9 @@ func (r *Repository) ReadIntent(ctx context.Context, scope submission.ExecutionS
 	if !found {
 		return submission.ExecutionAttempt{}, submission.ErrExecutionNotFound
 	}
+	if err := visibleShopifyAttempt(ctx, r.db, attempt); err != nil {
+		return submission.ExecutionAttempt{}, err
+	}
 	return attempt, nil
 }
 
@@ -315,6 +323,9 @@ func (r *Repository) Get(ctx context.Context, scope submission.ExecutionScope, a
 	}
 	if !found {
 		return submission.ExecutionAttempt{}, submission.ErrExecutionNotFound
+	}
+	if err := visibleShopifyAttempt(ctx, r.db, attempt); err != nil {
+		return submission.ExecutionAttempt{}, err
 	}
 	return attempt, nil
 }
@@ -588,8 +599,18 @@ func (r *Repository) lockCurrentAttempt(ctx context.Context, tx *gorm.DB, organi
 }
 
 func (r *Repository) lockAttempt(ctx context.Context, tx *gorm.DB, organizationID, attemptID string) (submission.ExecutionAttempt, string, error) {
+	original, found, err := r.findByID(ctx, tx, organizationID, attemptID, false)
+	if err != nil {
+		return submission.ExecutionAttempt{}, "", err
+	}
+	if !found {
+		return submission.ExecutionAttempt{}, "", submission.ErrExecutionNotFound
+	}
+	if err := requireShopifyGuard(ctx, tx, original, false); err != nil {
+		return submission.ExecutionAttempt{}, "", err
+	}
 	var row executionAttemptRow
-	err := tx.WithContext(ctx).Table(attemptTable).Clauses(clause.Locking{Strength: "UPDATE"}).
+	err = tx.WithContext(ctx).Table(attemptTable).Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("organization_id = ? AND attempt_id = ?", organizationID, attemptID).Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return submission.ExecutionAttempt{}, "", submission.ErrExecutionNotFound

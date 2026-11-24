@@ -97,6 +97,7 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 	if err != nil {
 		return empty, err
 	}
+	storeRepo = storeRepo.WithShopifyLifecycle(capabilities.ShopifyLifecycle)
 	var executionStores storecenter.ProductExecutionReader = storeRepo
 	if d.localDraftPolicy != nil {
 		executionStores = formalDraftStores{storeRepo, d.localDraftPolicy.Scope.OrganizationID, d.localDraftPolicy.Binding.StoreID}

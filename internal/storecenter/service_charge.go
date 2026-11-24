@@ -305,7 +305,7 @@ func (r *MemberScopedStoreRepository) ApplyServiceCharge(ctx context.Context, in
 			store.Version == e.ExpectedStoreVersion && store.ConnectionRef == e.ExpectedConnectionRef {
 			// Shopify rebind locks the shop before the former Store's grant.
 			// Keep that order, while still validating the grant before reporting state changes.
-			current, lookupErr := readShopifyBinding(tx.Clauses(clause.Locking{Strength: "SHARE"}), e.OrganizationID, e.StoreID, store.ConnectionRef)
+			current, lookupErr := r.readShopifyBinding(tx.Clauses(clause.Locking{Strength: "SHARE"}), e.OrganizationID, e.StoreID, store.ConnectionRef)
 			if lookupErr != nil && !errors.Is(lookupErr, ErrNotFound) {
 				return lookupErr
 			}

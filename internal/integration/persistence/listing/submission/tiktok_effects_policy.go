@@ -45,17 +45,25 @@ func (r *Repository) requireTikTokEffect(ctx context.Context, tx *gorm.DB, a sub
 	}
 	return nil
 }
-func readCurrentOfficialEffect(ctx context.Context, tx *gorm.DB, a submission.ExecutionAttempt) (submission.OfficialIntent, record.TargetRecord, error) {
+func readOfficialAttemptIntent(ctx context.Context, tx *gorm.DB, a submission.ExecutionAttempt) (submission.OfficialIntent, error) {
 	var row struct {
 		ActorID, MemberID, RecordID, Kind, InputHash, BodyHash string
 		BodyJSON                                               []byte
 	}
 	if tx.WithContext(ctx).Table("listing_submission_official_intents").Where("organization_id=? AND intent_key=?", a.OrganizationID, a.IntentKey).Take(&row).Error != nil {
-		return submission.OfficialIntent{}, record.TargetRecord{}, submission.ErrExecutionEvidenceRequired
+		return submission.OfficialIntent{}, submission.ErrExecutionEvidenceRequired
 	}
 	var intent submission.OfficialIntent
 	if len(row.BodyJSON) > submission.MaxExecutionPayloadBytes || json.Unmarshal(row.BodyJSON, &intent) != nil || submission.ValidateOfficialIntent(intent) != nil || intent.Key != a.IntentKey || intent.Owner.OrganizationID != a.OrganizationID || intent.Owner.ActorID != row.ActorID || intent.Owner.MemberID != row.MemberID || intent.RecordID != row.RecordID || intent.Kind != row.Kind || intent.InputHash != row.InputHash || collection.Digest(intent) != row.BodyHash || intent.Target != a.Target || intent.PayloadFingerprint != a.PayloadFingerprint {
-		return submission.OfficialIntent{}, record.TargetRecord{}, submission.ErrExecutionEvidenceRequired
+		return submission.OfficialIntent{}, submission.ErrExecutionEvidenceRequired
+	}
+	return intent, nil
+}
+
+func readCurrentOfficialEffect(ctx context.Context, tx *gorm.DB, a submission.ExecutionAttempt) (submission.OfficialIntent, record.TargetRecord, error) {
+	intent, err := readOfficialAttemptIntent(ctx, tx, a)
+	if err != nil {
+		return submission.OfficialIntent{}, record.TargetRecord{}, err
 	}
 	var reference struct{ TargetID string }
 	if tx.WithContext(ctx).Raw("SELECT target_id FROM listing_target_records WHERE organization_id=? AND actor_id=? AND member_id=? AND id=?", intent.Owner.OrganizationID, intent.Owner.ActorID, intent.Owner.MemberID, intent.RecordID).Scan(&reference).Error != nil || reference.TargetID == "" {

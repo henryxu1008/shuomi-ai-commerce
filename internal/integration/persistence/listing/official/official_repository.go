@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	recordstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/record"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/shopifyguard"
 	submissionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/submission"
 	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
@@ -79,6 +80,9 @@ func (r *OfficialRepository) PrepareOfficial(ctx context.Context, proof submissi
 		return submission.OfficialIntent{}, submission.ErrExecutionUnavailable
 	}
 	defer tx.Rollback()
+	if err := guardShopifyGeneration(tx, body.Target.Platform, body.Owner.OrganizationID, body.Binding.Shopify.ShopKey, body.Binding.ConnectionRevision, true); err != nil {
+		return submission.OfficialIntent{}, err
+	}
 	if tx.Exec("SET LOCAL synchronous_commit=on").Error != nil || advisoryLock(tx, "official-intent", body.Owner.OrganizationID, body.Key) != nil {
 		return submission.OfficialIntent{}, submission.ErrExecutionUnavailable
 	}
@@ -130,10 +134,16 @@ func (r *OfficialRepository) ReadOfficialIntent(ctx context.Context, scope colle
 	ctx, cancel := context.WithTimeout(ctx, submission.ExecutionTimeout)
 	defer cancel()
 	value, err := readOfficialIntent(r.db.WithContext(ctx), scope.OrganizationID, key, false)
-	if err == nil && value.Owner != scope {
-		return submission.OfficialIntent{}, submission.ErrExecutionNotFound
+	if err != nil || value.Owner != scope {
+		if err == nil {
+			err = submission.ErrExecutionNotFound
+		}
+		return submission.OfficialIntent{}, err
 	}
-	return value, err
+	if err := guardShopifyGeneration(r.db.WithContext(ctx), value.Target.Platform, scope.OrganizationID, value.Binding.Shopify.ShopKey, value.Binding.ConnectionRevision, false); err != nil {
+		return submission.OfficialIntent{}, err
+	}
+	return value, nil
 }
 func readOfficialReceipt(db *gorm.DB, org, attemptID string) (submission.OfficialReceipt, error) {
 	var row officialReceiptRow
@@ -194,9 +204,37 @@ func (r *OfficialRepository) CompleteOfficial(ctx context.Context, proof submiss
 		return submission.OfficialReceipt{}, submission.ErrExecutionUnavailable
 	}
 	defer tx.Rollback()
+	guardErr := guardShopifyGeneration(tx, body.Target.Platform, body.Owner.OrganizationID, body.Binding.Shopify.ShopKey, body.Binding.ConnectionRevision, true)
+	frozenShopify := body.Shopify != nil && errors.Is(guardErr, submission.ErrExecutionNotFound)
+	if guardErr != nil && !frozenShopify {
+		return submission.OfficialReceipt{}, guardErr
+	}
 	intent, err := readOfficialIntent(tx, body.Owner.OrganizationID, body.IntentKey, true)
 	if err != nil || !receiptMatchesIntent(body, intent) {
 		return submission.OfficialReceipt{}, submission.ErrExecutionEvidenceRequired
+	}
+	if body.Shopify != nil {
+		if tx.Exec("SET LOCAL synchronous_commit=on").Error != nil {
+			return submission.OfficialReceipt{}, submission.ErrExecutionUnavailable
+		}
+		err = shopifyguard.ObserveDispatchEnd(tx, shopifyguard.Dispatch{Organization: body.Owner.OrganizationID, ShopKey: body.Binding.Shopify.ShopKey,
+			Generation: body.Binding.ConnectionRevision, AttemptID: claim.AttemptID, Epoch: claim.FenceEpoch},
+			claim.OwnerID, submission.ExecutionClaimTokenHash(claim.Token))
+		if frozenShopify {
+			if err == nil && tx.Commit().Error != nil {
+				return submission.OfficialReceipt{}, submission.ErrExecutionOutcomeUnknown
+			}
+			if err != nil && !errors.Is(err, shopifyguard.ErrConflict) {
+				return submission.OfficialReceipt{}, submission.ErrExecutionUnavailable
+			}
+			return submission.OfficialReceipt{}, submission.ErrExecutionNotFound
+		}
+		if errors.Is(err, shopifyguard.ErrConflict) {
+			return submission.OfficialReceipt{}, submission.ErrExecutionEvidenceRequired
+		}
+		if err != nil {
+			return submission.OfficialReceipt{}, submission.ErrExecutionUnavailable
+		}
 	}
 	if prior, err := readOfficialReceipt(tx, body.Owner.OrganizationID, body.ID); err == nil {
 		if collection.Digest(prior) != collection.Digest(body) {
@@ -240,6 +278,9 @@ func (r *OfficialRepository) CompleteOfficial(ctx context.Context, proof submiss
 	return body, nil
 }
 func (r *OfficialRepository) validateCompleted(ctx context.Context, value submission.OfficialReceipt) error {
+	if err := guardShopifyGeneration(r.db.WithContext(ctx), value.Target.Platform, value.Owner.OrganizationID, value.Binding.Shopify.ShopKey, value.Binding.ConnectionRevision, false); err != nil {
+		return err
+	}
 	attempt, err := r.core.Get(ctx, submission.ExecutionScope{OrganizationID: value.Owner.OrganizationID}, value.ID)
 	if err != nil || attempt.Status != submission.ExecutionSucceeded || attempt.Target != value.Target || attempt.IntentKey != value.IntentKey || attempt.PayloadFingerprint != value.PayloadFingerprint || attempt.Evidence == nil || attempt.Evidence.Reference != value.ID || attempt.Evidence.Fingerprint != value.ResponseHash || !attempt.Evidence.ObservedAt.Equal(value.ObservedAt) {
 		return submission.ErrExecutionUnavailable
@@ -296,6 +337,11 @@ func (r *OfficialRepository) FindOfficialTarget(ctx context.Context, org string,
 		}
 	}
 	if reference.Status == string(submission.ExecutionClaimed) || reference.Status == string(submission.ExecutionOutcomeUnknown) {
+		if target.Platform == "shopify" {
+			if _, err := r.core.Get(ctx, submission.ExecutionScope{OrganizationID: org}, reference.AttemptID); err != nil {
+				return submission.OfficialReceipt{}, err
+			}
+		}
 		return submission.OfficialReceipt{}, submission.ErrExecutionTargetClaimed
 	}
 	if reference.Status != string(submission.ExecutionSucceeded) {
@@ -305,13 +351,35 @@ func (r *OfficialRepository) FindOfficialTarget(ctx context.Context, org string,
 	if err != nil {
 		return submission.OfficialReceipt{}, err
 	}
-	if body.Target != target || r.validateCompleted(ctx, body) != nil {
+	if body.Target != target {
 		return submission.OfficialReceipt{}, submission.ErrExecutionUnavailable
+	}
+	if err := r.validateCompleted(ctx, body); err != nil {
+		return submission.OfficialReceipt{}, err
 	}
 	if body.TemuImage != nil && body.TemuImage.FenceEpoch != reference.Epoch {
 		return submission.OfficialReceipt{}, submission.ErrExecutionUnavailable
 	}
 	return body, nil
+}
+
+func guardShopifyGeneration(db *gorm.DB, platform, org, shop string, generation int64, write bool) error {
+	if platform != "shopify" {
+		return nil
+	}
+	var err error
+	if write {
+		err = shopifyguard.Check(db, org, shop, generation, "")
+	} else {
+		err = shopifyguard.Visible(db, org, shop, generation)
+	}
+	if errors.Is(err, shopifyguard.ErrFrozen) {
+		return submission.ErrExecutionNotFound
+	}
+	if err != nil {
+		return submission.ErrExecutionUnavailable
+	}
+	return nil
 }
 
 var _ submission.OfficialIntentRepository = (*OfficialRepository)(nil)

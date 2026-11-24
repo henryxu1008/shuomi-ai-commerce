@@ -22,6 +22,9 @@ func (r *OfficialRepository) ResolveOfficial(ctx context.Context, proof submissi
 		return submission.OfficialReceipt{}, submission.ErrExecutionUnavailable
 	}
 	defer tx.Rollback()
+	if err := guardShopifyGeneration(tx, body.Target.Platform, body.Owner.OrganizationID, body.Binding.Shopify.ShopKey, body.Binding.ConnectionRevision, true); err != nil {
+		return submission.OfficialReceipt{}, err
+	}
 	intent, err := readOfficialIntent(tx, body.Owner.OrganizationID, body.IntentKey, true)
 	if err != nil || collection.Digest(intent) != data.IntentHash || intent.RecordHash != data.RecordHash || !receiptMatchesIntent(body, intent) {
 		return submission.OfficialReceipt{}, submission.ErrExecutionEvidenceRequired

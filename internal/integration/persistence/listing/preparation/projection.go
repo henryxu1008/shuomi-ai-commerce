@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/shopifyguard"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
@@ -23,11 +24,23 @@ func (r *Repository) ListStageFacts(ctx context.Context, scope preparation.Scope
 		Ready                                                                                                                                                                                bool
 	}
 	rows := []projection{}
-	query := r.db.WithContext(ctx).Table("listing_preparation_sources s").Select(`s.id AS source_id,s.product_key,s.source_kind,COALESCE((SELECT string_agg(variant->>'sku',' ') FROM json_array_elements(CASE WHEN json_typeof(v.snapshot_json->'variants')='array' THEN v.snapshot_json->'variants' ELSE '[]'::json END) AS variant),'') AS sk_us,COALESCE(v.snapshot_json->>'title','') AS title,COALESCE(h.current_record_id::text,'') AS record_id,COALESCE(h.revision,0) AS record_revision,COALESCE((t.body_json->>'effectiveVersion')::bigint,0) AS effective_version,COALESCE(t.body_json->>'applyReceiptId','') AS apply_receipt_id,COALESCE((CASE WHEN t.body_json->'merchant'->>'platform'='shopify' THEN (jsonb_typeof(t.body_json->'shopify')='object' AND t.body_json->'merchant'->'shopify'->>'shopKey'=? AND t.body_json->'merchant'->>'supplier_identity_hash'=?)::text WHEN t.body_json->'merchant'->>'platform'='walmart' THEN CASE WHEN t.body_json->'walmart'->>'wireHash' IS NOT NULL THEN 'true' ELSE 'false' END WHEN t.body_json->'merchant'->>'platform'='temu' THEN t.body_json->'temu'->>'readyForUpload' WHEN t.body_json->'merchant'->>'platform'='tiktokshop' THEN t.body_json->'tiktok'->>'readyForUpload' ELSE t.body_json->'result'->>'ready_for_upload' END)::boolean,false) AS ready,COALESCE(p.body_json->>'record_id','') AS published_record_id,COALESCE(o.operation_id::text,'') AS optimization_operation_id,COALESCE(o.record_id::text,'') AS optimization_record_id,COALESCE(o.record_revision,0) AS optimization_record_revision,COALESCE(o.status,'') AS optimization_status,COALESCE(o.result_reference,'') AS result_reference,COALESCE(o.note,'') AS note`, shopifyShopKey, supplierHash).
+	db := r.db.WithContext(ctx)
+	recordGuard, receiptGuard := "", ""
+	if shopifyShopKey != "" {
+		enabled, err := shopifyguard.ProjectionEnabled(db)
+		if err != nil {
+			return nil, preparation.ErrUnavailable
+		}
+		if enabled {
+			recordGuard = " AND " + visibleShopifyProjection("t", "merchant")
+			receiptGuard = " AND " + visibleShopifyProjection("p", "binding")
+		}
+	}
+	query := db.Table("listing_preparation_sources s").Select(`s.id AS source_id,s.product_key,s.source_kind,COALESCE((SELECT string_agg(variant->>'sku',' ') FROM json_array_elements(CASE WHEN json_typeof(v.snapshot_json->'variants')='array' THEN v.snapshot_json->'variants' ELSE '[]'::json END) AS variant),'') AS sk_us,COALESCE(v.snapshot_json->>'title','') AS title,COALESCE(t.id::text,'') AS record_id,COALESCE(t.revision,0) AS record_revision,COALESCE((t.body_json->>'effectiveVersion')::bigint,0) AS effective_version,COALESCE(t.body_json->>'applyReceiptId','') AS apply_receipt_id,COALESCE((CASE WHEN t.body_json->'merchant'->>'platform'='shopify' THEN (jsonb_typeof(t.body_json->'shopify')='object' AND t.body_json->'merchant'->'shopify'->>'shopKey'=? AND t.body_json->'merchant'->>'supplier_identity_hash'=?)::text WHEN t.body_json->'merchant'->>'platform'='walmart' THEN CASE WHEN t.body_json->'walmart'->>'wireHash' IS NOT NULL THEN 'true' ELSE 'false' END WHEN t.body_json->'merchant'->>'platform'='temu' THEN t.body_json->'temu'->>'readyForUpload' WHEN t.body_json->'merchant'->>'platform'='tiktokshop' THEN t.body_json->'tiktok'->>'readyForUpload' ELSE t.body_json->'result'->>'ready_for_upload' END)::boolean,false) AS ready,COALESCE(p.body_json->>'record_id','') AS published_record_id,COALESCE(o.operation_id::text,'') AS optimization_operation_id,COALESCE(o.record_id::text,'') AS optimization_record_id,COALESCE(o.record_revision,0) AS optimization_record_revision,COALESCE(o.status,'') AS optimization_status,COALESCE(o.result_reference,'') AS result_reference,COALESCE(o.note,'') AS note`, shopifyShopKey, supplierHash).
 		Joins("JOIN product_snapshot_versions v ON v.tenant_id=s.organization_id AND v.product_key=s.product_key AND v.version=s.original_version AND v.publication_id=s.publication_id").
 		Joins("LEFT JOIN listing_preparation_targets h ON h.organization_id=s.organization_id AND h.actor_id=s.actor_id AND h.member_id=s.member_id AND h.source_id=s.id AND h.store_id=? AND h.purpose='standard' AND h.site IN ('shein-us','temu-supplier','temu-local','tiktokshop-us','walmart-us','shopify')", storeID).
-		Joins("LEFT JOIN listing_target_records t ON t.organization_id=h.organization_id AND t.actor_id=h.actor_id AND t.member_id=h.member_id AND t.id=h.current_record_id AND t.revision=h.revision").
-		Joins("LEFT JOIN LATERAL (SELECT p.* FROM listing_submission_official_receipts p WHERE p.organization_id=s.organization_id AND p.actor_id=s.actor_id AND p.member_id=s.member_id AND p.store_id=? AND (COALESCE(p.body_json->'binding'->>'platform','')='shopify')=? AND p.kind='publish' AND COALESCE(p.body_json->'tiktok'->'publication'->>'state','')<>'publication_failed' AND p.body_json->>'product_key'=s.product_key AND p.body_json->'binding'->>'supplier_identity_hash'=? ORDER BY p.body_json->>'observed_at' DESC,p.attempt_id DESC LIMIT 1) p ON true", receiptStoreID, shopifyShopKey != "", supplierHash).
+		Joins("LEFT JOIN listing_target_records t ON t.organization_id=h.organization_id AND t.actor_id=h.actor_id AND t.member_id=h.member_id AND t.id=h.current_record_id AND t.revision=h.revision"+recordGuard).
+		Joins("LEFT JOIN LATERAL (SELECT p.* FROM listing_submission_official_receipts p WHERE p.organization_id=s.organization_id AND p.actor_id=s.actor_id AND p.member_id=s.member_id AND p.store_id=? AND (COALESCE(p.body_json->'binding'->>'platform','')='shopify')=? AND p.kind='publish' AND COALESCE(p.body_json->'tiktok'->'publication'->>'state','')<>'publication_failed' AND p.body_json->>'product_key'=s.product_key AND p.body_json->'binding'->>'supplier_identity_hash'=?"+receiptGuard+" ORDER BY p.body_json->>'observed_at' DESC,p.attempt_id DESC LIMIT 1) p ON true", receiptStoreID, shopifyShopKey != "", supplierHash).
 		Joins(`LEFT JOIN LATERAL (SELECT i.* FROM listing_preparation_operation_items i JOIN listing_preparation_operations op ON op.organization_id=i.organization_id AND op.actor_id=i.actor_id AND op.member_id=i.member_id AND op.id=i.operation_id WHERE i.organization_id=s.organization_id AND i.actor_id=s.actor_id AND i.member_id=s.member_id AND i.source_id=s.id AND op.preparation_id=s.preparation_id AND op.store_id=? AND op.action='optimize' ORDER BY op.created_at DESC,op.id DESC LIMIT 1) o ON true`, storeID).
 		Where("s.organization_id=? AND s.actor_id=? AND s.member_id=? AND s.preparation_id=?", scope.OrganizationID, scope.ActorID, scope.MemberID, preparationID)
 	if after != "" {
@@ -58,4 +71,11 @@ func (r *Repository) LatestOptimization(ctx context.Context, scope preparation.S
 		return preparation.OperationItem{}, preparation.ErrUnavailable
 	}
 	return item.value(), nil
+}
+
+// These aliases and bindings come from the fixed Product queries above.
+func visibleShopifyProjection(alias, field string) string {
+	binding := alias + ".body_json->'" + field + "'"
+	return "NOT EXISTS (SELECT 1 FROM public.listing_shopify_frozen_generations g WHERE g.organization_id=" + alias +
+		".organization_id AND g.shop_key::text=" + binding + "->'shopify'->>'shopKey' AND g.generation::text=" + binding + "->>'connection_revision')"
 }

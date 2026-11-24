@@ -146,12 +146,13 @@ func (s storeCatalogSignals) ReadCatalogSignals(ctx context.Context, org string,
 	}
 	return out, nil
 }
-func buildStoreCatalog(db *gorm.DB, permissions *authz.ListingKitAuthorizer, applications *storeapp.OfficialApplicationRegistry, observations *o.Service, members *MembershipDependencies, cfg *config.Config) (*storecenter.Catalog, *storecenter.MetadataRepository, error) {
+func buildStoreCatalog(db *gorm.DB, permissions *authz.ListingKitAuthorizer, applications *storeapp.OfficialApplicationRegistry, observations *o.Service, members *MembershipDependencies, cfg *config.Config, capabilities storecenter.RuntimeCapabilities) (*storecenter.Catalog, *storecenter.MetadataRepository, error) {
 	access := currentStoreMemberAuthorizer{authorizer: permissions}
 	records, err := storecenter.NewMemberScopedStoreRepository(db, access)
 	if err != nil {
 		return nil, nil, err
 	}
+	records = records.WithShopifyLifecycle(capabilities.ShopifyLifecycle)
 	var connections *storeapp.OfficialConnections
 	if applications == nil {
 		connections, err = storeapp.NewUnconfiguredOfficialConnections(records)

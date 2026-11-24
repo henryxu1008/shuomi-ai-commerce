@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/shopifyguard"
 	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
@@ -48,6 +49,16 @@ type commandRow struct {
 }
 
 func (commandRow) TableName() string { return "listing_target_record_commands" }
+func shopifyRecordGuardError(err error) error {
+	if errors.Is(err, shopifyguard.ErrFrozen) {
+		return record.ErrNotFound
+	}
+	if err != nil {
+		return record.ErrUnavailable
+	}
+	return nil
+}
+
 func validHash(value string) bool {
 	decoded, err := hex.DecodeString(value)
 	return err == nil && len(decoded) == 32
@@ -76,6 +87,16 @@ func decodeRecord(scope collection.Scope, row recordRow) (record.TargetRecord, e
 	return value, nil
 }
 func readRecord(db *gorm.DB, scope collection.Scope, id string) (recordRow, record.TargetRecord, error) {
+	row, value, err := readRecordUnchecked(db, scope, id)
+	if err == nil && value.Shopify != nil {
+		if err = shopifyRecordGuardError(shopifyguard.Visible(db, scope.OrganizationID, value.Merchant.Shopify.ShopKey, value.Merchant.ConnectionRevision)); err != nil {
+			return row, record.TargetRecord{}, err
+		}
+	}
+	return row, value, err
+}
+
+func readRecordUnchecked(db *gorm.DB, scope collection.Scope, id string) (recordRow, record.TargetRecord, error) {
 	var row recordRow
 	result := db.Where("organization_id=? AND actor_id=? AND member_id=? AND id=?", scope.OrganizationID, scope.ActorID, scope.MemberID, id).Take(&row)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -129,6 +150,36 @@ func (r *Repository) ReadTargetCommand(ctx context.Context, scope collection.Sco
 	value, _, err := readCommand(r.db.WithContext(ctx), scope, key)
 	return value, err
 }
+
+// ReadFrozenShopifyRevision exposes only the CAS position a newly authorized
+// editor needs. It never returns the prior saved product or merchant.
+func (r *Repository) ReadFrozenShopifyRevision(ctx context.Context, scope collection.Scope, targetID string) (int64, error) {
+	db := r.db.WithContext(ctx)
+	enabled, err := shopifyguard.ProjectionEnabled(db)
+	if err != nil {
+		return 0, record.ErrUnavailable
+	}
+	if !enabled {
+		return 0, nil
+	}
+	var head headRow
+	err = db.Where("organization_id=? AND actor_id=? AND member_id=? AND id=? AND site='shopify'", scope.OrganizationID, scope.ActorID, scope.MemberID, targetID).Take(&head).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, record.ErrUnavailable
+	}
+	err = shopifyguard.CheckRecordReference(db, scope.OrganizationID, scope.ActorID, scope.MemberID, head.CurrentRecordID, false)
+	if errors.Is(err, shopifyguard.ErrFrozen) {
+		return head.Revision, nil
+	}
+	if err != nil {
+		return 0, record.ErrUnavailable
+	}
+	return 0, nil
+}
+
 func (r *Repository) ReadTargetHead(ctx context.Context, scope collection.Scope, id string) (record.TargetRecord, error) {
 	if ctx == nil || scope.Validate() != nil || !collection.ValidID(id) {
 		return record.TargetRecord{}, record.ErrInvalid
@@ -182,6 +233,11 @@ func (r *Repository) SaveTarget(ctx context.Context, proof record.TargetPrepared
 		return record.TargetReceipt{}, record.ErrUnavailable
 	}
 	defer tx.Rollback()
+	if value.Shopify != nil {
+		if err := shopifyRecordGuardError(shopifyguard.Check(tx, scope.OrganizationID, value.Merchant.Shopify.ShopKey, value.Merchant.ConnectionRevision, "")); err != nil {
+			return record.TargetReceipt{}, err
+		}
+	}
 	for _, lock := range []string{collection.Digest([]string{scope.OrganizationID, scope.ActorID, "supply-record-command", key}), collection.Digest([]string{scope.OrganizationID, scope.ActorID, "supply-target", value.TargetID})} {
 		if tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", lock).Error != nil {
 			return record.TargetReceipt{}, record.ErrUnavailable
@@ -202,7 +258,7 @@ func (r *Repository) SaveTarget(ctx context.Context, proof record.TargetPrepared
 	}
 	existing := result.Error == nil
 	if existing {
-		_, prior, e := readRecord(tx, scope, head.CurrentRecordID)
+		_, prior, e := readRecordUnchecked(tx, scope, head.CurrentRecordID)
 		if e != nil {
 			return record.TargetReceipt{}, e
 		}

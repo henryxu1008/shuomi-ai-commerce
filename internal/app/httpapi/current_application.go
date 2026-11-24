@@ -477,6 +477,15 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		AmazonAuthorization: supplied.amazonStoreAuthorization != nil,
 		GoogleMerchant:      supplied.officialStoreApplications.GoogleMerchantConfigured(),
 		Shopify:             supplied.officialStoreApplications.ShopifyConfigured(),
+
+		ShopifyStartedInstallation: supplied.officialStoreApplications.ShopifyStartedInstallationConfigured(),
+	}
+	if storeCapabilities.Shopify {
+		installed, err := storecenter.ShopifyLifecycleInstalled(ctx, supplied.storeCenterDB, supplied.officialStoreApplications.ShopifyLifecycleConfigured())
+		if err != nil {
+			return nil, err
+		}
+		storeCapabilities.ShopifyLifecycle = installed
 	}
 	if err := validateDataServicesDependencies(supplied, sourceAccountDB, cfg); err != nil {
 		return nil, err
@@ -828,7 +837,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if configurable, ok := storeCatalogModule.(interface {
 		ConfigureCatalog(*storecenter.Catalog, *storecenter.MetadataRepository)
 	}); ok {
-		catalog, metadata, err := buildStoreCatalog(supplied.storeCenterDB, authorizer, supplied.officialStoreApplications, savedObservations, supplied.membership, cfg)
+		catalog, metadata, err := buildStoreCatalog(supplied.storeCenterDB, authorizer, supplied.officialStoreApplications, savedObservations, supplied.membership, cfg, storeCapabilities)
 		if err != nil {
 			return nil, fmt.Errorf("build current Store catalog: %w", err)
 		}
@@ -1334,6 +1343,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if e != nil {
 				return nil, e
 			}
+			stores = stores.WithShopifyLifecycle(storeCapabilities.ShopifyLifecycle)
 			projectChat.attachStoreScopes(stores)
 			var chatConnections *storeapp.OfficialConnections
 			if supplied.officialStoreApplications == nil {
@@ -1355,6 +1365,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 				if e != nil {
 					return nil, e
 				}
+				executionStores = executionStores.WithShopifyLifecycle(storeCapabilities.ShopifyLifecycle)
 				var scheduledConnections *storeapp.OfficialConnections
 				if supplied.officialStoreApplications == nil {
 					scheduledConnections, e = storeapp.NewUnconfiguredOfficialConnections(executionStores)
@@ -1621,6 +1632,8 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		StoreCenter:          supplied.storeCenters > 0,
 		TikTokShop:           supplied.officialStoreApplications.TikTokConfigured(),
 		Shopify:              supplied.officialStoreApplications.ShopifyConfigured(),
+		ShopifyInstall:       storeCapabilities.ShopifyStartedInstallation,
+		ShopifyLifecycle:     supplied.officialStoreApplications.ShopifyLifecycleConfigured(),
 		GoogleMerchant:       supplied.officialStoreApplications.GoogleMerchantConfigured(),
 		StoreObservations:    supplied.storeObservations > 0,
 		Fulfillment:          supplied.fulfillments == 1,
@@ -1662,6 +1675,28 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		workbench.handler.SetStorageCapacityAvailable(cfg.StorageCapacity)
 	}
 	server := buildCurrentApplicationHTTPServer(bundle.routes, *workbench.authDependencies)
+	if storeCapabilities.ShopifyStartedInstallation {
+		expiry, ok := storeCatalogModule.(interface{ ExpireStartedShopifyInstallations(context.Context) error })
+		if !ok {
+			return nil, errors.New("Shopify-started installation proof expiry unavailable")
+		}
+		runtimeContext := supplied.runtimeContext
+		if runtimeContext == nil {
+			runtimeContext = context.Background()
+		}
+		startCommercialRecoveryLoop(runtimeContext, server, expiry.ExpireStartedShopifyInstallations, time.Minute, "Shopify installation proof expiry", logger)
+	}
+	if storeCapabilities.ShopifyLifecycle {
+		recovery, ok := storeCatalogModule.(interface{ ReconcileShopifyLifecycle(context.Context) error })
+		if !ok {
+			return nil, errors.New("Shopify lifecycle recovery unavailable")
+		}
+		runtimeContext := supplied.runtimeContext
+		if runtimeContext == nil {
+			runtimeContext = context.Background()
+		}
+		startCommercialRecoveryLoop(runtimeContext, server, recovery.ReconcileShopifyLifecycle, time.Minute, "Shopify authorization notifications", logger)
+	}
 	if projectChat != nil && projectChat.schedules != nil {
 		stopWorker, err := projectChat.schedules.Start(projectChat)
 		if err != nil || stopWorker == nil {
@@ -1773,6 +1808,8 @@ type currentApplicationOptionalRoutes struct {
 	StoreCenter          bool
 	TikTokShop           bool
 	Shopify              bool
+	ShopifyInstall       bool
+	ShopifyLifecycle     bool
 	GoogleMerchant       bool
 	StoreObservations    bool
 	LocalTrial           bool
@@ -2032,6 +2069,20 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			return errors.New("Shopify requires current Store owner")
 		}
 		admitted = append(admitted, currentApplicationRoute{Method: http.MethodPost, Path: storehttp.ShopifyPairingPath})
+	}
+	if optional.ShopifyInstall {
+		if !optional.Shopify || !optional.StoreCenter {
+			return errors.New("Shopify-started installation requires current Shopify Store owner")
+		}
+		admitted = append(admitted, currentApplicationRoute{Method: http.MethodPost, Path: storehttp.ShopifyStartedInstallationPath})
+	}
+	if optional.ShopifyLifecycle {
+		if !optional.Shopify || !optional.StoreCenter {
+			return errors.New("Shopify lifecycle requires current Shopify Store owner")
+		}
+		admitted = append(admitted,
+			currentApplicationRoute{Method: http.MethodPost, Path: storehttp.ShopifyUninstalledPath},
+			currentApplicationRoute{Method: http.MethodPost, Path: storehttp.ShopifyScopesUpdatedPath})
 	}
 	if optional.StoreObservations {
 		if !optional.StoreCenter {
@@ -2549,6 +2600,22 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			}
 			if err := validateCurrentObservationDescriptor(descriptor); err != nil {
 				return err
+			}
+		}
+		if descriptor.Path == storehttp.ShopifyStartedInstallationPath {
+			if !optional.ShopifyInstall || descriptor.Method != http.MethodPost || descriptor.Module != storehttp.ModuleName ||
+				descriptor.AuthPolicy != httproute.AuthPolicyPublic || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyNone ||
+				descriptor.Permission != "" || descriptor.OrganizationTargetResolver != nil || descriptor.RequestTimeout != storehttp.ShopifyStartedInstallationTimeout ||
+				descriptor.RejectUnreadRequestBody || descriptor.Handler == nil {
+				return errors.New("Shopify-started installation loses signed public route boundary")
+			}
+		}
+		if descriptor.Path == storehttp.ShopifyUninstalledPath || descriptor.Path == storehttp.ShopifyScopesUpdatedPath {
+			if !optional.ShopifyLifecycle || descriptor.Method != http.MethodPost || descriptor.Module != storehttp.ModuleName ||
+				descriptor.AuthPolicy != httproute.AuthPolicyPublic || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyNone ||
+				descriptor.Permission != "" || descriptor.OrganizationTargetResolver != nil || descriptor.RequestTimeout != storehttp.ShopifyLifecycleTimeout ||
+				descriptor.RejectUnreadRequestBody || descriptor.Handler == nil {
+				return errors.New("Shopify notification loses signature or request bounds")
 			}
 		}
 		if storehttp.IsAmazonAuthorizationPath(descriptor.Path) {

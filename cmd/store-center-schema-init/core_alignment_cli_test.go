@@ -35,6 +35,8 @@ func TestCoreAlignmentCommandIsExplicitAndExclusive(t *testing.T) {
 		{"retained cockpit without alignment", []string{"--retained-operations-cockpit"}, "require --align-core-contract"},
 		{"retained with browser mode", []string{"--browser-workbench", "--retained-operations-cockpit"}, "require --align-core-contract"},
 		{"explicit retained capabilities", []string{"--align-core-contract", "--retained-observations", "--retained-operations-cockpit", "--confirm-database", "retained_store", "--config", filepath.Join(t.TempDir(), "missing.json")}, "core contract alignment refused"},
+		{"Shopify lifecycle requires confirmation", []string{"--shopify-lifecycle"}, "exact database confirmation"},
+		{"Shopify lifecycle is a separate mode", []string{"--shopify-lifecycle", "--shopify"}, "cannot be combined"},
 		{"current observations require confirmation", []string{"--observations-current-store"}, "exact database confirmation"},
 		{"current observations empty confirmation", []string{"--observations-current-store", "--confirm-database="}, "exact database confirmation"},
 		{"current observations explicit mode", []string{"--observations-current-store", "--confirm-database", "trial_store", "--config", filepath.Join(t.TempDir(), "missing.json")}, "current Store observation installation refused"},

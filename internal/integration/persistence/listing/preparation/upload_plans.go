@@ -417,7 +417,11 @@ func (r *UploadPlanRepository) ReadUploadPlanOperation(ctx context.Context, scop
 	if err != nil || !preparation.ValidItemStatus(row.Status) {
 		return preparation.Operation{}, preparation.OperationItem{}, preparation.ErrUnavailable
 	}
-	return value, row.value(), nil
+	item, err := operationItemForRead(r.db.WithContext(ctx), row)
+	if err != nil {
+		return preparation.Operation{}, preparation.OperationItem{}, err
+	}
+	return value, item, nil
 }
 
 func (r *UploadPlanRepository) CancelUploadPlan(ctx context.Context, proof preparation.UploadPlanCancelCommit) (preparation.UploadPlan, error) {

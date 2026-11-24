@@ -39,6 +39,22 @@ func (k shopifyFixtureKernel) Expire(ctx context.Context, scope submission.Execu
 	return k.uploadKernel.Expire(ctx, scope, id)
 }
 
+type shopifyUploadFixtureRepository struct {
+	tiktokUploadKernelRepository
+	rejectSend bool
+}
+
+func (r *shopifyUploadFixtureRepository) VerifyShopifySend(ctx context.Context, claim submission.ExecutionClaim) error {
+	value, err := r.Get(ctx, claim.Scope, claim.AttemptID)
+	if err != nil {
+		return err
+	}
+	if r.rejectSend || value.Status != submission.ExecutionClaimed || value.FenceEpoch != claim.FenceEpoch || value.ClaimOwnerID != claim.OwnerID {
+		return submission.ErrExecutionClaimRejected
+	}
+	return nil
+}
+
 type shopifyDraftFixture struct {
 	binding         storecenter.ProductMerchantBinding
 	writes          int
@@ -67,7 +83,8 @@ func TestShopifyUploadRetainsDraftAndDoesNotResendUnknown(t *testing.T) {
 		t.Run(map[bool]string{false: "platform draft", true: "response lost"}[lost], func(t *testing.T) {
 			ctx := context.Background()
 			uploader, scope, records, legacy, ledger, receipts, _ := uploadFixture(t)
-			kernel, err := submission.NewExecutionKernel(tiktokUploadKernelRepository{kernel: ledger})
+			repository := &shopifyUploadFixtureRepository{tiktokUploadKernelRepository: tiktokUploadKernelRepository{kernel: ledger}}
+			kernel, err := submission.NewExecutionKernel(repository)
 			require.NoError(t, err)
 			uploader.dependencies.Kernel = shopifyFixtureKernel{ledger, kernel}
 			saved := &records.saved
@@ -92,6 +109,12 @@ func TestShopifyUploadRetainsDraftAndDoesNotResendUnknown(t *testing.T) {
 			require.Equal(t, submission.ExecutionNotSent, failed.Status)
 			require.Zero(t, store.writes)
 			store.preflight = nil
+			repository.rejectSend = true
+			refused, err := uploader.Upload(ctx, scope, uuid.NewString(), saved.ID)
+			require.NoError(t, err)
+			require.Equal(t, submission.ExecutionNotSent, refused.Status)
+			require.Zero(t, store.writes, "a legacy in-memory permit cannot override the Product send check")
+			repository.rejectSend = false
 			if lost {
 				store.send = errors.New("response lost")
 			}

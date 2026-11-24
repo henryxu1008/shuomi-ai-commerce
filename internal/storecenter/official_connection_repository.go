@@ -146,18 +146,20 @@ func (r *MemberScopedStoreRepository) BeginOfficialConnection(ctx context.Contex
 	return result, err
 }
 func connectionStore(tx *gorm.DB, a StoreMemberAccess, id string) (workbenchStoreRecord, error) {
-	var store workbenchStoreRecord
-	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("organization_id = ? AND id = ? AND deleted_at IS NULL AND record_status IN ?", a.OrganizationID, id, []string{string(RecordStatusActive), string(RecordStatusDisabled)}).Take(&store).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		err = ErrNotFound
-	}
+	store, err := lockConnectionStore(tx, a.OrganizationID, id)
 	if err != nil {
 		return store, err
 	}
-	if err := requireMemberGrant(tx, a, id); err != nil {
-		return store, err
+	return store, requireMemberGrant(tx, a, id)
+}
+
+func lockConnectionStore(tx *gorm.DB, org, id string) (workbenchStoreRecord, error) {
+	var store workbenchStoreRecord
+	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("organization_id = ? AND id = ? AND deleted_at IS NULL AND record_status IN ?", org, id, []string{string(RecordStatusActive), string(RecordStatusDisabled)}).Take(&store).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		err = ErrNotFound
 	}
-	return store, nil
+	return store, err
 }
 func updateConnectionRef(tx *gorm.DB, s workbenchStoreRecord, ref, actor string, now time.Time) error {
 	if s.Version == math.MaxInt64 {
