@@ -190,9 +190,25 @@ func VerifyCurrentSchemaTx(ctx context.Context, tx *sql.Tx) error {
 
 func verifyCurrentSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilities RuntimeCapabilities) error {
 	definitions := currentConstraintDefinitions
-	if capabilities.AmazonAuthorization {
+	googleInstalled, err := googleMerchantSchemaPresent(ctx, sqlDB)
+	if err != nil {
+		return err
+	}
+	if capabilities.GoogleMerchant || googleInstalled {
+		if err := verifyGoogleSchema(ctx, sqlDB); err != nil {
+			return err
+		}
+	}
+	if capabilities.AmazonAuthorization || googleInstalled {
 		definitions = maps.Clone(definitions)
-		definitions["store_platform"] = amazonStorePlatformDefinition
+		switch {
+		case capabilities.AmazonAuthorization && googleInstalled:
+			definitions["store_platform"] = amazonGoogleStorePlatformDefinition
+		case capabilities.AmazonAuthorization:
+			definitions["store_platform"] = amazonStorePlatformDefinition
+		default:
+			definitions["store_platform"] = googleStorePlatformDefinition
+		}
 	}
 	if err := verifyCoreSchema(ctx, sqlDB, capabilities, definitions); err != nil {
 		return err
@@ -385,11 +401,12 @@ const storeRuntimePermissionQuery = `SELECT current_user,
  OR ($2 AND n.nspname='operations_cockpit' AND ((r.relname IN ('facts','fact_versions','goal_heads','goal_versions','commands') AND p.privilege_type IN ('SELECT','INSERT')) OR (r.relname IN ('facts','goal_heads') AND p.privilege_type='UPDATE')))
  OR ($3 AND n.nspname='public' AND ((r.relname IN ('workbench_store_tiktok_oauth_grants','workbench_store_tiktok_oauth_attempts','workbench_store_tiktok_shop_bindings','workbench_store_tiktok_oauth_refresh_operations') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')) OR (r.relname='workbench_store_tiktok_authorization_events' AND p.privilege_type IN ('SELECT','INSERT'))))
  OR ($4 AND n.nspname='public' AND r.relname IN ('workbench_store_walmart_oauth_grants','workbench_store_walmart_oauth_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))
- OR ($5 AND n.nspname='public' AND r.relname IN ('workbench_store_amazon_grants','workbench_store_amazon_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')))) FROM (SELECT current_user::text AS runtime_role) subject`
+ OR ($5 AND n.nspname='public' AND r.relname IN ('workbench_store_amazon_grants','workbench_store_amazon_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))
+ OR (n.nspname='public' AND to_regclass('public.workbench_store_google_oauth_grants') IS NOT NULL AND r.relname IN ('workbench_store_google_oauth_grants','workbench_store_google_oauth_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')))) FROM (SELECT current_user::text AS runtime_role) subject`
 
 // RuntimeCapabilities admits only explicitly enabled feature tables.
 // The default Store boundary continues to reject every additional privilege.
-type RuntimeCapabilities struct{ Observations, OperationsCockpit, TikTokShop, WalmartUS, AmazonAuthorization bool }
+type RuntimeCapabilities struct{ Observations, OperationsCockpit, TikTokShop, WalmartUS, AmazonAuthorization, GoogleMerchant bool }
 
 func VerifyRuntimePermissions(ctx context.Context, db *gorm.DB) error {
 	return VerifyRuntimePermissionsForCapabilities(ctx, db, RuntimeCapabilities{})
@@ -433,6 +450,16 @@ func VerifyRuntimePermissionsForCapabilities(ctx context.Context, db *gorm.DB, c
 		err := sqlDB.QueryRowContext(ctx, `SELECT NOT EXISTS(SELECT 1 FROM (VALUES ('workbench_store_walmart_oauth_grants'),('workbench_store_walmart_oauth_attempts')) t(name) WHERE NOT coalesce(has_table_privilege(current_user,to_regclass('public.'||name),'SELECT') AND has_table_privilege(current_user,to_regclass('public.'||name),'INSERT') AND has_table_privilege(current_user,to_regclass('public.'||name),'UPDATE'),false))`).Scan(&complete)
 		if err != nil || !complete {
 			return errors.New("Walmart US required Store grants unavailable")
+		}
+	}
+	if capabilities.GoogleMerchant {
+		var complete bool
+		err := sqlDB.QueryRowContext(ctx, `SELECT NOT EXISTS(
+   SELECT 1 FROM (VALUES ('workbench_store_google_oauth_attempts'),('workbench_store_google_oauth_grants')) t(name)
+   CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE')) p(privilege)
+   WHERE NOT coalesce(has_table_privilege(current_user,to_regclass('public.'||t.name),p.privilege),false))`).Scan(&complete)
+		if err != nil || !complete {
+			return errors.New("Google Merchant required Store grants unavailable")
 		}
 	}
 	if capabilities.OperationsCockpit {

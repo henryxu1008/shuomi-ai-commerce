@@ -475,6 +475,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		Observations: supplied.storeObservations == 1, OperationsCockpit: supplied.operationsCockpits == 1,
 		TikTokShop: supplied.officialStoreApplications.TikTokConfigured(), WalmartUS: supplied.officialStoreApplications.WalmartConfigured(),
 		AmazonAuthorization: supplied.amazonStoreAuthorization != nil,
+		GoogleMerchant:      supplied.officialStoreApplications.GoogleMerchantConfigured(),
 	}
 	if err := validateDataServicesDependencies(supplied, sourceAccountDB, cfg); err != nil {
 		return nil, err

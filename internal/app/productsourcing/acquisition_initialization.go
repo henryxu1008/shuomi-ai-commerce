@@ -40,6 +40,7 @@ type acquisitionInitManifest struct {
 	AcquisitionPlans bool `json:"acquisitionPlans,omitempty"`
 	CompletionDrafts bool `json:"supplyCompletionDrafts,omitempty"`
 	SupplyChain      bool `json:"supplyChain,omitempty"`
+	GoogleMerchant   bool `json:"googleMerchant,omitempty"`
 	ImageSets        bool `json:"imageSets,omitempty"`
 	SupplyMarket     bool `json:"supplyMarket,omitempty"`
 	POD              bool `json:"pod,omitempty"`
@@ -95,6 +96,11 @@ func InitializeAcquisitionDatabase(ctx context.Context, manifest, confirmedDatab
 		}
 		if cfg.SupplyChain {
 			if err := InstallListingSchema(tx); err != nil {
+				return err
+			}
+		}
+		if cfg.GoogleMerchant {
+			if err := submissionstore.InstallGooglePlanSchema(ctx, tx); err != nil {
 				return err
 			}
 		}
@@ -167,7 +173,7 @@ func InitializeAcquisitionDatabase(ctx context.Context, manifest, confirmedDatab
 				return err
 			}
 		}
-		return acquisitionstore.GrantRuntimePermissions(ctx, tx, acquisitionstore.RuntimeCapabilities{OfflineRecords: cfg.OfflineRecords, Collections: cfg.Collections, AcquisitionPlans: cfg.AcquisitionPlans, CompletionDrafts: cfg.CompletionDrafts, SupplyChain: cfg.SupplyChain, SupplyMarket: cfg.SupplyMarket, POD: cfg.POD, ImageSets: cfg.ImageSets})
+		return acquisitionstore.GrantRuntimePermissions(ctx, tx, acquisitionstore.RuntimeCapabilities{OfflineRecords: cfg.OfflineRecords, Collections: cfg.Collections, AcquisitionPlans: cfg.AcquisitionPlans, CompletionDrafts: cfg.CompletionDrafts, SupplyChain: cfg.SupplyChain, SupplyMarket: cfg.SupplyMarket, POD: cfg.POD, ImageSets: cfg.ImageSets, GoogleMerchant: cfg.GoogleMerchant})
 	})
 	if err != nil {
 		return unavailable
@@ -222,7 +228,7 @@ func readAcquisitionInitManifest(manifest, confirmedDatabase string, unavailable
 	var cfg acquisitionInitManifest
 	strict, err := sigjson.UnmarshalStrict(raw, &cfg, sigjson.DisallowUnknownFields, sigjson.DisallowDuplicateFields)
 	d := cfg.Database
-	if cfg.SupplierReview && (!cfg.Collections || !cfg.DataServices) || (cfg.OfflineRecords || cfg.SupplyChain || cfg.SupplyMarket || cfg.POD || cfg.DataServices || cfg.AcquisitionPlans || cfg.CompletionDrafts) && !cfg.Collections || cfg.POD && !cfg.SupplyMarket {
+	if cfg.GoogleMerchant && !cfg.SupplyChain || cfg.SupplierReview && (!cfg.Collections || !cfg.DataServices) || (cfg.OfflineRecords || cfg.SupplyChain || cfg.SupplyMarket || cfg.POD || cfg.DataServices || cfg.AcquisitionPlans || cfg.CompletionDrafts) && !cfg.Collections || cfg.POD && !cfg.SupplyMarket {
 		return acquisitionInitManifest{}, unavailable
 	}
 	if err != nil || len(strict) > 0 || cfg.SchemaVersion != 1 || d.Host != "127.0.0.1" || d.Port < 1 || d.Port > 65535 || !acquisitionInitName.MatchString(d.User) || !acquisitionInitName.MatchString(d.Database) || confirmedDatabase != d.Database || d.User == acquisitionstore.RuntimeRole || d.Database == "postgres" || d.Database == "template0" || d.Database == "template1" || len(d.Password) < 1 || len(d.Password) > 1024 || strings.ContainsAny(d.Password, " ='\\\t\r\n\v\f\x00") {

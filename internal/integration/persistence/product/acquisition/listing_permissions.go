@@ -59,3 +59,19 @@ func GrantListingPermissions(ctx context.Context, db *gorm.DB) error {
 	}
 	return nil
 }
+
+const googlePlanRuntimeGrant = "GRANT SELECT,INSERT ON public.workbench_listing_google_upload_plans TO source_acquisition_runtime"
+
+func GrantGooglePlanPermissions(ctx context.Context, db *gorm.DB) error {
+	return db.WithContext(ctx).Exec(googlePlanRuntimeGrant).Error
+}
+
+func VerifyGooglePlanPermissions(ctx context.Context, db *gorm.DB) error {
+	var required bool
+	err := db.WithContext(ctx).Raw(`SELECT coalesce(has_table_privilege('source_acquisition_runtime',to_regclass('public.workbench_listing_google_upload_plans'),'SELECT')
+		AND has_table_privilege('source_acquisition_runtime',to_regclass('public.workbench_listing_google_upload_plans'),'INSERT'),false)`).Scan(&required).Error
+	if err != nil || !required {
+		return sourcing.ErrAcquisitionUnavailable
+	}
+	return nil
+}

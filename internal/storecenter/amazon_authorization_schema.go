@@ -23,6 +23,11 @@ func InstallAmazonAuthorizationSchemaTx(ctx context.Context, tx *sql.Tx) error {
 	if tx == nil {
 		return errors.New("Amazon Store schema requires an installation transaction")
 	}
+	// Use the same relation lock as the Google owner installer so the
+	// platform precondition and constraint replacement see one schema.
+	if _, err := tx.ExecContext(ctx, "LOCK TABLE public.workbench_stores IN ACCESS EXCLUSIVE MODE"); err != nil {
+		return err
+	}
 	var definition string
 	err := tx.QueryRowContext(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint
 		WHERE conrelid='public.workbench_stores'::regclass AND contype='c' AND conname='store_platform' AND convalidated`).Scan(&definition)

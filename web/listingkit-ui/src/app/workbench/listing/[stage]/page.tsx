@@ -35,6 +35,10 @@ export default async function Page({params,searchParams}:{params:Promise<{stage:
   if(stage.data!=="ready"||Object.keys(query).some(key=>key!=="record"))notFound();
   return <ListingPage initialStage={stage.data} initialRecord={record} reportSourcesAvailable={isReportSheinTargetAvailable()}/>;
  }
+ if(query.mode==="google"){
+  if(!full||stage.data!=="waiting"||process.env.NEXT_PUBLIC_GOOGLE_MERCHANT_ENABLED!=="true")notFound();
+  return <PreparationsPage initialPreparation={read("preparation")} sourceMaterialsAvailable={sourceMaterials}/>;
+ }
  if(query.mode!==undefined&&(query.mode!=="platform"||stage.data!=="missing"||!full)&&(query.mode!=="local"||stage.data!=="waiting"||!completion))notFound();
  if(completion&&stage.data==="missing"&&query.mode!=="platform"&&!query.plan)return <CompletionDraftsPage initialPreparation={read("preparation")} initialSource={read("source")} fullAvailable={full}/>;
  if(!full||completion&&stage.data==="waiting"&&query.mode==="local")return <PreparationsPage initialPreparation={read("preparation")} completionAvailable={completion} sourceMaterialsAvailable={sourceMaterials}/>;

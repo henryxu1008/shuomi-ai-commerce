@@ -4,6 +4,8 @@
 
 ## 按目标平台阅读
 
+- [Google Shopping 与 Meta 商品上传首版](google-meta-product-upload.md) — [#1617](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1617) 的设计候选，准入状态见 Issue。
+
 | 平台 | 当前领域合同 | 实际代码入口 |
 | --- | --- | --- |
 | SHEIN 美国站 | [SHEIN 发布、审核与首次上架](../listing/shein-publication-flow.md)、[原生校验](shein-native-validator-contract.md)、[提交动作分类](shein-submit-readiness-action-policy.md) | `internal/marketplace/shein`、`internal/listing/submission` |
