@@ -837,7 +837,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if configurable, ok := storeCatalogModule.(interface {
 		ConfigureCatalog(*storecenter.Catalog, *storecenter.MetadataRepository)
 	}); ok {
-		catalog, metadata, err := buildStoreCatalog(supplied.storeCenterDB, authorizer, supplied.officialStoreApplications, savedObservations, supplied.membership, cfg)
+		catalog, metadata, err := buildStoreCatalog(supplied.storeCenterDB, authorizer, supplied.officialStoreApplications, savedObservations, supplied.membership, cfg, storeCapabilities)
 		if err != nil {
 			return nil, fmt.Errorf("build current Store catalog: %w", err)
 		}
