@@ -22,7 +22,7 @@ export function ShopifyDraftEditor({scope, source, storeId, storeName, existing,
 }) {
  const original = source.source.source;
  const variants = source.product.variants?.length ? source.product.variants : [{sku: "", attributes: []}];
- const [currency, setCurrency] = useState("");
+ const [shopifyRules, setShopifyRules] = useState<{storeId: string; sourceId: string; currency: string; priorRevision?: number}>();
  const [prices, setPrices] = useState(existing?.input.shopify.prices ?? variants.map(() => ""));
  const [images, setImages] = useState<ApprovedImage[]>();
  const [selectedImages, setSelectedImages] = useState(existing?.input.shopify.imageIds ?? []);
@@ -30,13 +30,15 @@ export function ShopifyDraftEditor({scope, source, storeId, storeName, existing,
  const [imageError, setImageError] = useState(false);
  const sourceId = source.source.id;
  const revision = existing?.revision ?? 0;
+ const currentRules = shopifyRules?.storeId === storeId && shopifyRules.sourceId === sourceId ? shopifyRules : undefined;
+ const currency = currentRules?.currency ?? "";
  useEffect(() => {
   const controller = new AbortController();
   void shopifySupplyRules(scope, {
    sourceId, storeId, expectedRevision: revision, effectiveVersion: original.version, shopify: {currency: "", prices: []},
   }, controller.signal).then(value => {
    if (controller.signal.aborted) return;
-   if (value.merchant.store_id === storeId) setCurrency(value.shopify.currency);
+   if (value.merchant.store_id === storeId) setShopifyRules({storeId, sourceId, ...value.shopify});
    else setCurrencyError(true);
   }).catch(() => {
    if (!controller.signal.aborted) setCurrencyError(true);
@@ -53,7 +55,7 @@ export function ShopifyDraftEditor({scope, source, storeId, storeName, existing,
  }, [scope, sourceId, storeId, revision, original.version, original.publicationId]);
  const imageIds = selectedImages.filter(id => images?.some(image => image.id === id));
  const input = shopifyTargetInputSchema.safeParse({
-  sourceId, storeId, expectedRevision: revision, effectiveVersion: original.version, shopify: {currency, prices, imageIds},
+  sourceId, storeId, expectedRevision: existing?.revision ?? currentRules?.priorRevision ?? 0, effectiveVersion: original.version, shopify: {currency, prices, imageIds},
  });
  const canSave = !!source.product.title?.trim() && input.success && !disabled && (images !== undefined || imageError);
  return <form className="space-y-4" onSubmit={event => {
@@ -107,7 +109,7 @@ export function ShopifyDraftResult({scope, sourceId, storeId, publication}: {
  const [checking, setChecking] = useState(false);
  const activeCheck = useRef<AbortController>(null);
  useEffect(() => () => activeCheck.current?.abort(), []);
- const result = latest?.shopify ?? publication?.shopify;
+ const result = latest ? latest.shopify : publication?.shopify;
  const current = latest?.shopifyStatus;
  const media = current?.media ?? result?.media ?? [];
  async function check() {

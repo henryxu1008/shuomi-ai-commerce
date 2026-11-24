@@ -22,9 +22,9 @@ const receipt = {
 const readback = {...receipt, shopifyStatus: receipt.shopify};
 const adminUrl = "https://fixture-shop.myshopify.com/admin/products/12345";
 
-it("submits the confirmed Shopify price when clicking Save", async () => {
+it.each([undefined, 4])("submits confirmed Shopify prices with the visible target revision %s", async priorRevision => {
  vi.mocked(shopifySupplyRules).mockImplementation(async () => ({
-  merchant: {store_id: storeId}, shopify: {currency: "USD"},
+  merchant: {store_id: storeId}, shopify: {currency: "USD", priorRevision},
  }) as Awaited<ReturnType<typeof shopifySupplyRules>>);
  vi.mocked(supplyInventory).mockResolvedValue({
   scope: {tenant_id: "org", product_key: "fixture", target_platform: "product", source_snapshot_version: "1"},
@@ -46,7 +46,7 @@ it("submits the confirmed Shopify price when clicking Save", async () => {
  fireEvent.change(await screen.findByRole("textbox", {name: "SAMPLE"}), {target: {value: "12.50"}});
  fireEvent.click(screen.getByRole("button", {name: "保存待上传资料"}));
  expect(execute).toHaveBeenCalledExactlyOnceWith("save-target", {
-  sourceId, storeId, expectedRevision: 0, effectiveVersion: "1",
+  sourceId, storeId, expectedRevision: priorRevision ?? 0, effectiveVersion: "1",
   shopify: {currency: "USD", prices: ["12.50"], imageIds: []},
  });
 });

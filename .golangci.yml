@@ -1083,6 +1083,7 @@ linters-settings:
           - "**/internal/integration/persistence/listing/preparation/**/*.go"
           - "!**/*_test.go"
         allow:
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/shopifyguard$"
           - "$gostd"
           - "gorm.io/gorm$"
           - "gorm.io/gorm/clause$"
@@ -1113,6 +1114,7 @@ linters-settings:
           - "**/internal/integration/persistence/listing/record/**/*.go"
           - "!**/*_test.go"
         allow:
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/shopifyguard$"
           - "$gostd"
           - "gorm.io/gorm$"
           - "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target$"
@@ -1127,6 +1129,7 @@ linters-settings:
           - "!**/*_test.go"
           - "!**/internal/integration/persistence/listing/official/walmart_results.go"
         allow:
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/shopifyguard$"
           - "$gostd"
           - "gorm.io/gorm$"
           - "gorm.io/gorm/clause$"

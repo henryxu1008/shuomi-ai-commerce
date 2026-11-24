@@ -19,6 +19,10 @@ const (
 
 // The repository receives proof only after the original live gate has closed.
 // A bare ExecutionClaim or caller-supplied evidence cannot construct it.
+type shopifySendVerifier interface {
+	VerifyShopifySend(context.Context, ExecutionClaim) error
+}
+
 type TikTokNoSendRepository interface {
 	StopTikTokBeforeSend(context.Context, TikTokNoSendProof) (ExecutionAttempt, error)
 }
@@ -120,6 +124,22 @@ func (k *ExecutionKernel) beginPreparedSend(ctx context.Context, preparation *Ti
 	}
 	if g.started || g.proof != nil || !canonicalExecutionTime(k.now()).Before(g.permit.LeaseExpiresAt) {
 		return nil, ErrExecutionClaimRejected
+	}
+	if platform == "shopify" {
+		verifier, ok := k.repository.(shopifySendVerifier)
+		if !ok {
+			return nil, ErrExecutionUnavailable
+		}
+		claim := ExecutionClaim{Scope: ExecutionScope{OrganizationID: g.attempt.OrganizationID}, AttemptID: g.permit.AttemptID,
+			FenceEpoch: g.permit.FenceEpoch, OwnerID: g.permit.ClaimOwnerID, Token: g.permit.ClaimToken}
+		checkContext, cancel := context.WithTimeout(ctx, ExecutionTimeout)
+		defer cancel()
+		if err := verifier.VerifyShopifySend(checkContext, claim); err != nil {
+			return nil, err
+		}
+		if !canonicalExecutionTime(k.now()).Before(g.permit.LeaseExpiresAt) || ctx.Err() != nil {
+			return nil, ErrExecutionClaimRejected
+		}
 	}
 	g.started = true
 	permit := g.permit
