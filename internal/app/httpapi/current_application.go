@@ -511,8 +511,11 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if supplied.sourceMaterials > 1 || supplied.sourceMaterials > 0 && (supplied.sourceMaterialDB == nil || supplied.sourceMaterialDB == supplied.productAcquisitionDB || supplied.productCollections != 1 || supplied.acquisitionPlans != 1 || supplied.privateDraftTrials > 0 || cfg.ListingKit.Zitadel.TenantDirectoryToken == "" || supplied.listing != nil && supplied.listing.AssetDB != supplied.sourceMaterialDB) {
 		return nil, errors.New("source materials require one current Preparation and independent canonical Asset owner")
 	}
-	if supplied.listings > 1 || supplied.listings > 0 && (supplied.listing == nil || supplied.listing.AssetDB == nil || supplied.listing.Starter == nil || supplied.listing.NewWorker == nil || supplied.listing.Worker == nil || supplied.productCollections != 1 || supplied.productAcquisitionDB == nil || supplied.storeCenters != 1 || supplied.officialStoreApplications == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "") {
-		return nil, errors.New("supply chain requires current Product, Store, Asset and workflow owners")
+	if supplied.listings > 1 || supplied.listings > 0 && (supplied.listing == nil || supplied.listing.AssetDB == nil || supplied.productCollections != 1 || supplied.productAcquisitionDB == nil || supplied.storeCenters != 1 || supplied.officialStoreApplications == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "") {
+		return nil, errors.New("supply chain requires current Product, Store and Asset owners")
+	}
+	if supplied.listing != nil && !supplied.listing.shopifyPreviewOnly && (supplied.listing.Starter == nil || supplied.listing.NewWorker == nil || supplied.listing.Worker == nil) {
+		return nil, errors.New("supply chain execution requires its workflow owner")
 	}
 	if supplied.localTrials > 0 {
 		if supplied.localTrialDB == nil || supplied.storeCenters != 1 || supplied.storeCenterDB == nil || factories.buildLocalTrial == nil || supplied.productAcquisitionDB != nil || supplied.productAgent != nil || supplied.aiWorkbench != nil || supplied.imageAgentDB != nil {

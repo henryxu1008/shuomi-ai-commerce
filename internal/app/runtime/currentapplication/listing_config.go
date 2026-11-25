@@ -94,8 +94,12 @@ func (c *Config) validateShopifyPreview(s *SupplyChainConfig, store *StoreCenter
 	allowed := Config{
 		SchemaVersion: c.SchemaVersion, Listen: c.Listen, Identity: c.Identity,
 		SourceAccountDatabase: c.SourceAccountDatabase, CommercialOwnerDatabase: c.CommercialOwnerDatabase,
+		StorageCapacity:            c.StorageCapacity,
 		ProductAcquisitionDatabase: c.ProductAcquisitionDatabase, ProductCollections: c.ProductCollections,
 		StoreCenter: store, SupplyChain: s, Membership: c.Membership, ListingKitAuthorization: c.ListingKitAuthorization,
+	}
+	if c.StorageCapacity {
+		allowed.MoneyOwnerDatabase = c.MoneyOwnerDatabase
 	}
 	if !reflect.DeepEqual(*c, allowed) || !net.ParseIP(c.Listen.Host).IsLoopback() ||
 		s.TemporalAddress != "" || s.TemporalNamespace != "" || !s.ShopifyPreviewArtifacts.IsolatedTrialGeneratedURLs {

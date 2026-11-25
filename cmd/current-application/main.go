@@ -138,7 +138,7 @@ func execute() error {
 			return openRuntimeDB(ctx, databaseConfig(cfg))
 		},
 		OpenMoneyOwner: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
-			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
+			return openRuntimeDB(ctx, databaseConfig(cfg))
 		},
 		OpenProductAcquisition: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
 			return openRuntimeDB(ctx, databaseConfig(cfg))
