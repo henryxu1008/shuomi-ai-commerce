@@ -165,6 +165,7 @@
 ## 店铺、平台与履约
 
 - [Marketplace 领域导航：SHEIN、TEMU、TikTok Shop、Walmart 的现行协议和发布门禁](domains/marketplace/README.md) — Store 授权、Listing 提交与平台 adapter 权责分离
+- `domains/marketplace/product-image-delivery-specs.md` — [商品图片交付规格候选](domains/marketplace/product-image-delivery-specs.md)（#1643，待架构评审）。
 
 
 - `domains/sourcing/amazon-condition-quotes-draft.md` — [Amazon 新品和二手来源报价：设计草案](domains/sourcing/amazon-condition-quotes-draft.md)
