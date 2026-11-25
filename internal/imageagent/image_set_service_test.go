@@ -711,7 +711,7 @@ func TestOwnedColorImageSetFreezesNineTasksAndAdmission(t *testing.T) {
 		original := p.Catalog.Assets[0]
 		observation := p.Observations[0]
 		if i > 0 {
-			original.ID = "source-" + name
+			original.ID = "source-" + []string{"unused", "z", "a"}[i]
 			original.URL = "https://images.example.org/" + name + ".png"
 			observation.AssetID = original.ID
 			p.Catalog.Assets = append(p.Catalog.Assets, original)

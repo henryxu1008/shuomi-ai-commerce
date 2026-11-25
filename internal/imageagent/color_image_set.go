@@ -88,8 +88,12 @@ func validateColorImageSlots(plan Plan, singleSlotExecution bool) bool {
 		if len(plan.Slots) != 1 || len(plan.SourceAssetIDs) != 1 {
 			return false
 		}
-	} else if len(plan.Slots) != 3*len(group.Groups) || !slices.Equal(group.SourceIDs(), plan.SourceAssetIDs) {
-		return false
+	} else {
+		selectedIDs := group.SourceIDs()
+		slices.Sort(selectedIDs)
+		if len(plan.Slots) != 3*len(group.Groups) || !slices.Equal(selectedIDs, plan.SourceAssetIDs) {
+			return false
+		}
 	}
 	for _, slot := range plan.Slots {
 		p := slot.Recipe.Placement
