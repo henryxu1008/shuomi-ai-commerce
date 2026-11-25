@@ -1,6 +1,7 @@
 package imageagent
 
 import (
+	"maps"
 	"slices"
 	"strings"
 )
@@ -23,6 +24,16 @@ type ColorImageSelection struct {
 type ColorImageOriginal struct {
 	Color      string `json:"color"`
 	OriginalID string `json:"originalId"`
+}
+
+type colorImagePosition struct {
+	group string
+	order int
+}
+
+type colorImageTask struct {
+	purpose, brief, background, language, evidenceDigest string
+	role                                                 SlotRole
 }
 
 func (s ColorImageSelection) Valid() bool {
@@ -91,18 +102,47 @@ func validateColorImageSlots(plan Plan, singleSlotExecution bool) bool {
 	} else {
 		selectedIDs := group.SourceIDs()
 		slices.Sort(selectedIDs)
-		if len(plan.Slots) != 3*len(group.Groups) || !slices.Equal(selectedIDs, plan.SourceAssetIDs) {
+		if !slices.Equal(selectedIDs, plan.SourceAssetIDs) {
 			return false
 		}
 	}
+	layouts := make(map[string]map[colorImagePosition]colorImageTask, len(group.Groups))
 	for _, slot := range plan.Slots {
-		p := slot.Recipe.Placement
-		maxOrder := 2
-		if p.Group == "detail" {
-			maxOrder = 1
-		}
-		if p.VariantID != "" || p.Order > maxOrder || len(slot.SourceAssetIDs) != 1 ||
+		r := slot.Recipe
+		p := r.Placement
+		if p.VariantID != "" || len(slot.SourceAssetIDs) != 1 ||
 			group.OriginalFor(p.Color) != slot.SourceAssetIDs[0] {
+			return false
+		}
+		if !singleSlotExecution {
+			if layouts[p.Color] == nil {
+				layouts[p.Color] = make(map[colorImagePosition]colorImageTask)
+			}
+			layouts[p.Color][colorImagePosition{p.Group, p.Order}] = colorImageTask{
+				purpose: r.Purpose, brief: slot.Brief, background: r.Background, language: r.Language,
+				evidenceDigest: r.EvidenceDigest, role: slot.Role,
+			}
+		}
+	}
+	if singleSlotExecution {
+		return true
+	}
+	// The plan contains the full ordered selection for each color. The original
+	// and color-specific prompt may differ, while the template tasks must match.
+	first := layouts[group.Groups[0].Color]
+	if len(first) == 0 {
+		return false
+	}
+	for position := range first {
+		if position.order > 1 {
+			prior := colorImagePosition{position.group, position.order - 1}
+			if _, ok := first[prior]; !ok {
+				return false
+			}
+		}
+	}
+	for _, color := range group.Groups[1:] {
+		if !maps.Equal(layouts[color.Color], first) {
 			return false
 		}
 	}

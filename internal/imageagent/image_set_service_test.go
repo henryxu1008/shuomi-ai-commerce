@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -695,6 +696,102 @@ func TestConfirmConsumesTheOriginalAdmissionAfterImageCommitFailureAndCurrentPri
 	require.Len(t, workflows.starts, 1)
 }
 func TestOwnedColorImageSetFreezesNineTasksAndAdmission(t *testing.T) {
+	assertOwnedColorImageSet(t, nil, 9)
+}
+
+func TestOwnedColorImageSetUsesSelectedTemplateTasks(t *testing.T) {
+	assertOwnedColorImageSet(t, []string{"overview", "identity", "scene", "closeup"}, 12)
+}
+
+func assertOwnedColorImageSet(t *testing.T, selected []string, count int) {
+	t.Helper()
+	service, workflows, config, ctx, input := ownedColorSetFixture(t)
+	if selected != nil {
+		config.template.Detail = append(config.template.Detail,
+			agentconfig.ContentTask{ID: "closeup", Purpose: "detail_closeup"},
+			agentconfig.ContentTask{ID: "benefits", Purpose: "key_benefits"})
+	}
+	input.SelectedTaskIDs = selected
+	prepared, err := service.PrepareImageSet(ctx, input)
+	require.NoError(t, err)
+	require.Equal(t, count, prepared.Images)
+	require.Zero(t, prepared.Points)
+	require.Empty(t, workflows.starts)
+	for _, slot := range prepared.Projection.Plan.Slots {
+		color := slot.Recipe.Placement.Color
+		require.Contains(t, slot.Recipe.Prompt, "Selected color: "+color)
+		require.NotContains(t, slot.Recipe.Prompt, "Confirmed color: mixed")
+		require.Equal(t, []string{input.ColorImages.OriginalFor(color)}, slot.SourceAssetIDs)
+		require.NotEqual(t, "key_benefits", slot.Recipe.Purpose)
+	}
+	if selected != nil {
+		for _, group := range input.ColorImages.Groups {
+			purposes := []string{}
+			for _, slot := range prepared.Projection.Plan.Slots {
+				if slot.Recipe.Placement.Color == group.Color {
+					purposes = append(purposes, slot.Recipe.Purpose)
+				}
+			}
+			require.Equal(t, []string{"product_identity", "usage_scene", "product_overview", "detail_closeup"}, purposes)
+		}
+		changed := input
+		changed.SelectedTaskIDs = []string{"identity"}
+		_, err = service.PrepareImageSet(ctx, changed)
+		require.ErrorIs(t, err, imageagent.ErrRevisionConflict, "the same request cannot silently change its selected tasks")
+		incomplete := prepared.Projection.Plan
+		incomplete.Slots = incomplete.Slots[:len(incomplete.Slots)-1]
+		incomplete.Set = imageagent.CloneImageSetPlan(incomplete.Set)
+		incomplete.Set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(incomplete)
+		require.NoError(t, err)
+		require.ErrorIs(t, imageagent.ValidateImageSetPlan(incomplete), imageagent.ErrValidation)
+		mismatched := prepared.Projection.Plan
+		mismatched.Slots = append([]imageagent.Slot(nil), mismatched.Slots...)
+		last := &mismatched.Slots[len(mismatched.Slots)-1]
+		last.Recipe = imageagent.CloneImageSlotRecipe(last.Recipe)
+		last.Recipe.Placement.Order++
+		require.ErrorIs(t, imageagent.ValidateImageSetPlan(mismatched), imageagent.ErrValidation)
+	}
+	confirmed, err := service.ConfirmImagePlan(ctx, confirmSetInput(prepared))
+	require.NoError(t, err)
+	require.Len(t, workflows.starts, 1)
+	require.Equal(t, count, confirmed.Run.Budget.MaxModelCalls)
+	require.NoError(t, imageagent.ValidateImageSetAdmission(confirmed.Run, confirmed.Plan))
+	for _, slot := range confirmed.Plan.Slots {
+		execution, err := imageagent.ImageSetSlotExecutionInput(confirmed, slot.ID, 1)
+		require.NoError(t, err)
+		require.NoError(t, imageagent.ValidateImageSetExecution(execution))
+		digest, err := imageagent.ImageSlotGenerationInputDigest(execution)
+		require.NoError(t, err)
+		require.Len(t, digest, 64)
+		execution.Slot.Recipe.Placement.Color = "Unselected"
+		require.Error(t, imageagent.ValidateImageSetExecution(execution))
+	}
+}
+
+func TestOwnedColorImageSetRejectsInvalidTemplateSelections(t *testing.T) {
+	for _, selected := range [][]string{{}, {"unknown"}, {"identity", "identity"}} {
+		service, workflows, _, ctx, input := ownedColorSetFixture(t)
+		input.SelectedTaskIDs = selected
+		_, err := service.PrepareImageSet(ctx, input)
+		require.ErrorIs(t, err, imageagent.ErrValidation)
+		require.Empty(t, workflows.starts)
+	}
+	service, workflows, config, ctx, input := ownedColorSetFixture(t)
+	config.template.Mode = "custom"
+	config.template.Detail = nil
+	config.template.Carousel = nil
+	for i := 0; i < 11; i++ {
+		task := agentconfig.ContentTask{ID: fmt.Sprintf("custom-%d", i), Purpose: "custom", Brief: "Show the product"}
+		config.template.Carousel = append(config.template.Carousel, task)
+		input.SelectedTaskIDs = append(input.SelectedTaskIDs, task.ID)
+	}
+	_, err := service.PrepareImageSet(ctx, input)
+	require.ErrorIs(t, err, imageagent.ErrValidation)
+	require.Empty(t, workflows.starts)
+}
+
+func ownedColorSetFixture(t *testing.T) (*imageagent.Service, *recordingWorkflowClient, *setConfigurationFixture, context.Context, imageagent.PrepareImageSetInput) {
+	t.Helper()
 	service, _, workflows, config, contexts, quotes, ctx, input := imageSetServiceFixture(t)
 	input.ContextKind = imageagent.ImageSourceListing
 	input.Route = &imageagent.ImageRouteSelection{BindingID: strings.Repeat("b", 64), RevisionID: strings.Repeat("c", 64)}
@@ -730,30 +827,5 @@ func TestOwnedColorImageSetFreezesNineTasksAndAdmission(t *testing.T) {
 		Protocol: aicapability.GRSaiProductImageProtocol, BillingMode: aicapability.ModelUsageOnly,
 		ConfigurationVersion: input.Route.RevisionID, RouteReference: input.Route.BindingID,
 		CredentialReference: "grsai-key", ConnectionID: "grsai-connection"}.ImageQuote()
-	prepared, err := service.PrepareImageSet(ctx, input)
-	require.NoError(t, err)
-	require.Equal(t, 9, prepared.Images)
-	require.Zero(t, prepared.Points)
-	require.Empty(t, workflows.starts)
-	for _, slot := range prepared.Projection.Plan.Slots {
-		color := slot.Recipe.Placement.Color
-		require.Contains(t, slot.Recipe.Prompt, "Selected color: "+color)
-		require.NotContains(t, slot.Recipe.Prompt, "Confirmed color: mixed")
-		require.Equal(t, []string{selection.OriginalFor(color)}, slot.SourceAssetIDs)
-	}
-	confirmed, err := service.ConfirmImagePlan(ctx, confirmSetInput(prepared))
-	require.NoError(t, err)
-	require.Len(t, workflows.starts, 1)
-	require.Equal(t, 9, confirmed.Run.Budget.MaxModelCalls)
-	require.NoError(t, imageagent.ValidateImageSetAdmission(confirmed.Run, confirmed.Plan))
-	for _, slot := range confirmed.Plan.Slots {
-		execution, err := imageagent.ImageSetSlotExecutionInput(confirmed, slot.ID, 1)
-		require.NoError(t, err)
-		require.NoError(t, imageagent.ValidateImageSetExecution(execution))
-		digest, err := imageagent.ImageSlotGenerationInputDigest(execution)
-		require.NoError(t, err)
-		require.Len(t, digest, 64)
-		execution.Slot.Recipe.Placement.Color = "Unselected"
-		require.Error(t, imageagent.ValidateImageSetExecution(execution))
-	}
+	return service, workflows, config, ctx, input
 }

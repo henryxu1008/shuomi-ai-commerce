@@ -23,7 +23,7 @@ import {imageTemplatesPageSchema,imageTemplateSchema,carouselTasks,detailTasks,t
 import {genericImagePresetForSkill,matchesGenericImagePreset} from "@/lib/image-template-presets";
 import {ImageSetError,imageSetRequest,type ImageSetScope} from "@/lib/api/product-image-set";
 import {isAcquisitionUUID} from "@/lib/contracts/product-acquisition";
-import {imageSetApprovalSchema,imageSetRunSchema,imageSetSourcesSchema,imageSetRecentSchema,imageSetInventorySchema,imageSetPreviewSchema,imageSetAcceptedSchema,imageSetRequirementsSchema,imageSetRequestSchema,providerImageUsageUnit,type ImageSetRun,type ImageSetPrepare,type ImageSetChoice,type ImageSetSelection,type ImageSetRequirements,type ImageSetInventory,type ImageSetRoute,type ImageRouteSelection} from "@/lib/contracts/product-image-set";
+import {imageSetApprovalSchema,imageSetRunSchema,imageSetSourcesSchema,imageSetRecentSchema,imageSetInventorySchema,imageSetPreviewSchema,imageSetAcceptedSchema,imageSetRequirementsSchema,imageSetRequestSchema,maxImageSetImages,providerImageUsageUnit,type ImageSetRun,type ImageSetPrepare,type ImageSetChoice,type ImageSetSelection,type ImageSetRequirements,type ImageSetInventory,type ImageSetRoute,type ImageRouteSelection} from "@/lib/contracts/product-image-set";
 
 import {ImagePlanRoutePicker} from "./image-plan-route-picker";
 import {ImageTextCopy,imageTextLanguageNames} from "./image-text-copy";
@@ -90,7 +90,9 @@ function ScopedImageSetPanel({scope,colorGroupsAvailable,target,effectiveVersion
  const selectedColorOption=sources?.colorOptions?.find(option=>option.name===colorOption);
  const colorImages=selectedColorOption?{option:selectedColorOption.name,groups:selectedColorOption.groups.map(group=>({color:group.value,originalId:colorOriginals[group.value]??""}))}:undefined;
  const colorGroupsReady=!!colorImages&&colorImages.groups.every(group=>!!group.originalId);
- const colorTemplateReady=!!template?.image.shareOriginals&&template.image.carousel.length===2&&template.image.detail.length===1;
+ const colorTemplateReady=template?.image.shareOriginals===true;
+ const colorImageCount=(colorImages?.groups.length??0)*tasks.length;
+ const colorImageCountReady=colorImageCount>0&&colorImageCount<=maxImageSetImages;
  const [positions,setPositions]=useState<NonNullable<ImageSetPrepare["officialPlacements"]>>({});
  const [selected,setSelected]=useState<ChoiceView[]>([]),[regenerate,setRegenerate]=useState<string[]>([]);
  const [intent,setIntent]=useState<Intent|null>(null),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(""),[message,setMessage]=useState("");
@@ -296,8 +298,8 @@ function ScopedImageSetPanel({scope,colorGroupsAvailable,target,effectiveVersion
  function newPreparation(parent?:ImageSetRun){
   const content=parent?runTemplate:template,preparationSources=parent?runSources:sources;
   const grouped=!parent&&groupByColor;
-  if(locked||unresolvedRun||!routeReady||!methodReady||!content||!preparationSources||!grouped&&!(parent?regenerate:tasks).length)return;
-  if(grouped&&(!colorGroupsReady||!colorTemplateReady||!selectedOwnedRoute||platform!=="product"))return;
+  if(locked||unresolvedRun||!routeReady||!methodReady||!content||!preparationSources||!(parent?regenerate:tasks).length)return;
+  if(grouped&&(!colorGroupsReady||!colorTemplateReady||!colorImageCountReady||!selectedOwnedRoute||platform!=="product"))return;
   const selectedTasks=parent?regenerate:tasks;
   const groups=parent?{carousel:content.image.carousel.filter(t=>selectedTasks.includes(t.id)).length,detail:content.image.detail.filter(t=>selectedTasks.includes(t.id)).length}:null;
   const selectedTarget=parent?parent.plan.Target.Platform==="shein"?parent.plan.Target:{Platform:"product" as const}:platform==="shein"&&editorTarget?editorTarget:{Platform:"product" as const};
@@ -320,7 +322,6 @@ function ScopedImageSetPanel({scope,colorGroupsAvailable,target,effectiveVersion
    delete body.sharedOriginalIds;
    delete body.carouselOriginalIds;
    delete body.detailOriginalIds;
-   delete body.selectedTaskIds;
   }
   if(selectedOwnedRoute&&!grouped){
    if(!ownedImageSourcesReady(content,selectedTasks,body)||selectedTarget.Platform!=="product"){
@@ -380,7 +381,7 @@ function ScopedImageSetPanel({scope,colorGroupsAvailable,target,effectiveVersion
  const preparePositionsReady=currentOfficialPositions(tasks.map(id=>positions[id]),requirements),regeneratePositionsReady=currentOfficialPositions(regenerate.map(id=>positions[id]),requirements);
  const positionHint="请选择当前规则允许的位置和类型，并为同一图片组设置不重复的排序。";
  const canPrepare=available&&!unresolvedRun&&routeReady&&methodReady&&!!executionMode.data&&!!template&&compatibleImageTemplate(template,platform)&&tasks.length>0&&(template.image.shareOriginals?shared.length>0:(!template.image.carousel.some(t=>tasks.includes(t.id))||carousel.length>0)&&(!template.image.detail.some(t=>tasks.includes(t.id))||detail.length>0))&&(platform==="product"||preparePositionsReady)&&(!selectedOwnedRoute||platform==="product"&&ownedImageSourcesReady(template,tasks,{sharedOriginalIds:shared,carouselOriginalIds:carousel,detailOriginalIds:detail}));
- const canPrepareColors=available&&!unresolvedRun&&routeReady&&methodReady&&!!executionMode.data&&colorGroupsReady&&colorTemplateReady&&selectedOwnedRoute&&platform==="product";
+ const canPrepareColors=available&&!unresolvedRun&&routeReady&&methodReady&&!!executionMode.data&&colorGroupsReady&&colorTemplateReady&&colorImageCountReady&&selectedOwnedRoute&&platform==="product";
  const canRegenerate=available&&!unresolvedRun&&routeReady&&methodReady&&!!executionMode.data&&!!runTemplate&&compatibleImageTemplate(runTemplate,run?.plan.Target.Platform)&&!!runSources&&regenerate.length>0&&regenerate.every(id=>[...runTemplate.image.carousel,...runTemplate.image.detail].some(task=>task.id===id))&&(!needsRegenerationReview||!!regenerationTextSelection)&&(run?.plan.Target.Platform!=="shein"||regeneratePositionsReady);
  function originalChoices(group:string,values:string[],change:(next:string[])=>void){const max=selectedOwnedRoute?1:8;return <section className="space-y-3"><h4 className="text-sm font-medium">{group} · {values.length}/{max}</h4><div className="grid grid-cols-3 gap-2 sm:grid-cols-4">{sources?.originals.map((image,i)=><label key={image.id} className={`rounded-lg border p-2 ${values.includes(image.id)?"border-success-foreground bg-success":"border-border"}`}><Image src={image.displayUrl} width={100} height={100} unoptimized alt={`原始素材 ${i+1}`} className="h-20 w-full object-contain"/><span className="mt-2 flex items-center gap-1 text-xs"><input type="checkbox" aria-label={`${group} 素材 ${i+1}`} disabled={locked||!values.includes(image.id)&&values.length>=max} checked={values.includes(image.id)} onChange={e=>change(e.target.checked?[...values,image.id]:values.filter(id=>id!==image.id))}/>素材 {i+1}</span></label>)}</div></section>}
  const displayedSlots=run?.plan.ColorImages?.groups.flatMap(group=>run.slots.filter(slot=>slot.recipe.Placement.Color===group.color))??run?.slots??[];
@@ -429,15 +430,24 @@ function ScopedImageSetPanel({scope,colorGroupsAvailable,target,effectiveVersion
       </label>:null})}
      </div>}
     </fieldset>)}
-    {!colorTemplateReady?<p className="text-sm">请选择共用原图、含主图与轮播各一张及详情一张的模板。</p>:null}
-    <p className="text-sm">每个颜色各生成三张，同色不同尺码共用。图片不加文字。</p>
-    <Button disabled={locked||!canPrepareColors} onClick={()=>newPreparation()}>准备分色图组{selectedColorOption?`（${selectedColorOption.groups.length*3} 张）`:""}</Button>
+    <p className="text-sm text-muted-foreground">同色不同尺码共用这一套。分色生成的图片不加文字。</p>
    </fieldset>}
    {template&&sources&&!groupByColor&&<div hidden={correctingRegeneration}><ImageTextCopy key={textKey} scope={scope} source={sources.source} language={template.image.language} templateKey={`${template.templateId}:${template.version}`} taskIds={tasks} taskLabels={Object.fromEntries([...template.image.carousel,...template.image.detail].map(t=>[t.id,labels.get(t.purpose)??t.brief??t.id]))} ownItemId={translationItemId} initialMode={needsPreparationReview?"reviewed":"none"} disabled={locked||correctingRegeneration} onChange={value=>setTextDraft({key:textKey,tasksKey:JSON.stringify(tasks),value})}/></div>}
-   {groupByColor?null:template?<><div className="grid gap-4 md:grid-cols-2">{(["carousel","detail"] as const).map(group=><section key={group} className="space-y-3 rounded-xl border border-border p-4"><h3 className="font-semibold">{group==="carousel"?"主图 / 轮播图":"详情图"}</h3>{allTasks.filter(t=>t.group===group).map(task=>{
+   {template?<><div role="group" aria-label={groupByColor?"每个颜色要生成的图片":"要生成的图片"} className="grid gap-4 md:grid-cols-2">{(["carousel","detail"] as const).filter(group=>allTasks.some(task=>task.group===group)).map(group=><section key={group} className="space-y-3 rounded-xl border border-border p-4"><h3 className="font-semibold">{group==="carousel"?"主图 / 轮播图":"详情图"}</h3>{allTasks.filter(t=>t.group===group).map(task=>{
     const definition=[...carouselTasks,...detailTasks].find(v=>v.purpose===task.purpose),missing=definition&&"evidence" in definition&&!sources.evidence[definition.evidence];
     return <div key={task.id} className="space-y-2"><label className="flex items-start gap-2 text-sm"><input type="checkbox" disabled={locked||!!missing} checked={tasks.includes(task.id)} onChange={e=>{if(needsPreparationReview)setTextDraft(undefined);setTasks(old=>e.target.checked?[...old,task.id]:old.filter(id=>id!==task.id))}}/><span>{labels.get(task.purpose)??task.brief??"自定义任务"}{missing?<small className="block text-warning-foreground">缺少真实依据，请补充商品资料或取消该项</small>:null}</span></label>{platform==="shein"&&tasks.includes(task.id)?<OfficialPosition value={positions[task.id]} requirements={requirements} disabled={locked} generated onChange={value=>setPositions(old=>({...old,[task.id]:value}))}/>:null}</div>
-   })}</section>)}</div><p className="text-xs text-muted-foreground">背景：{template.image.background} · 文字：{template.image.language} · {template.image.shareOriginals?"两组共用原始素材，分别生成与计费":"两组分别选择原始素材，分别生成与计费"}</p>{template.image.shareOriginals?originalChoices("共用原始素材",shared,setShared):<div className="grid gap-4 md:grid-cols-2">{originalChoices("主图素材",carousel,setCarousel)}{originalChoices("详情素材",detail,setDetail)}</div>}<Button disabled={locked||correctingRegeneration||!canPrepare||!textSelection} onClick={()=>newPreparation()}>{`准备整套图片计划（${tasks.length} 项）`}</Button></>:<p className="text-sm">请在智能体配置中创建图片模板并设为默认，或选择已有模板。</p>}
+   })}</section>)}</div>
+    {groupByColor?<div className="space-y-2">
+     {!colorTemplateReady?<p className="text-sm">请选择允许共用一张原图的模板。</p>:null}
+     {colorImageCount>maxImageSetImages?<p className="text-sm text-warning-foreground">每次最多生成 {maxImageSetImages} 张，请减少要生成的图片。</p>:null}
+     {selectedColorOption?<p className="text-sm">每色 {tasks.length} 张 · {selectedColorOption.groups.length} 个颜色 · 共 {colorImageCount} 张</p>:null}
+     <Button disabled={locked||!canPrepareColors} onClick={()=>newPreparation()}>准备分色图组{selectedColorOption?`（${colorImageCount} 张）`:""}</Button>
+    </div>:<>
+     <p className="text-xs text-muted-foreground">背景：{template.image.background} · 文字：{template.image.language} · {template.image.shareOriginals?"两组共用原始素材，分别生成与计费":"两组分别选择原始素材，分别生成与计费"}</p>
+     {template.image.shareOriginals?originalChoices("共用原始素材",shared,setShared):<div className="grid gap-4 md:grid-cols-2">{originalChoices("主图素材",carousel,setCarousel)}{originalChoices("详情素材",detail,setDetail)}</div>}
+     <Button disabled={locked||correctingRegeneration||!canPrepare||!textSelection} onClick={()=>newPreparation()}>{`准备整套图片计划（${tasks.length} 项）`}</Button>
+    </>}
+   </>:<p className="text-sm">请在智能体配置中创建图片模板并设为默认，或选择已有模板。</p>}
   </>:null}
   {recentUnavailable?<p role="status">已读取页中有 {recentUnavailable} 个原任务无法读取，记录已保留。</p>:null}
    {recent.length?<label className="block space-y-2 text-sm">本商品最近任务<Select disabled={locked} value={run?.runId??""} onChange={e=>{if(e.target.value){setPreview(null);setSelected([]);void readRun(e.target.value).catch(fail)}}}><option value="">选择原任务</option>{recent.map(item=><option key={item.runId} value={item.runId}>{imageResultLabel(item.runId===run?.runId?run:item)} · {new Date(item.createdAt).toLocaleString()}</option>)}</Select></label>:null}
@@ -449,7 +459,19 @@ function ScopedImageSetPanel({scope,colorGroupsAvailable,target,effectiveVersion
    {executionDisabled?<p className="text-sm">图片执行已关闭，可查看原任务和结算记录。</p>:null}
    {run.modeUnavailableReason==="EXECUTION_MODE_CHANGED"?<p className="text-sm text-warning-foreground">权限配置已变化，本次运行不能获得新权限；请保留原请求，重新确认新运行。</p>:null}
    {run.executionMode==="read_only"?<p className="text-sm">只读模式不能生成图片或保存正式素材。</p>:null}
-   {run.plan.ColorImages?<p className="text-sm">本次分色图组：{run.plan.ColorImages.groups.map(group=>group.color).join("、")}，每色 3 张。</p>:null}
+   {run.plan.ColorImages?<section aria-label="核对本次分色图组" className="space-y-2">
+    <h4 className="font-semibold">本次分色图组</h4>
+    <p className="text-sm">{run.plan.ColorImages.groups.length} 个颜色 · 共 {run.images} 张</p>
+    <ul className="grid gap-2 sm:grid-cols-3">{run.plan.ColorImages.groups.map(group=>{
+     const original=run.originals.find(image=>image.ID===group.originalId);
+     const slots=run.slots.filter(slot=>slot.recipe.Placement.Color===group.color);
+     return <li key={group.color} className="space-y-2 rounded-lg border border-border p-3 text-sm">
+      <p className="flex items-center justify-between gap-2"><strong>{group.color}</strong><span>{slots.length} 张</span></p>
+      {original?<ImageSetPhoto photo={{url:original.DisplayURL,label:`${group.color}原图`,width:original.Width,height:original.Height}} alt={`${group.color}原图`} className="h-20 w-full object-contain" onPreview={setPhoto}/>:<p>暂时无法预览该颜色的原图。</p>}
+      <p className="text-muted-foreground">{slots.map(imageSlotPurpose).join("、")}</p>
+     </li>;
+    })}</ul>
+   </section>:null}
     {run.policyAdoption?<p className="text-sm">正式素材已按完全访问策略采用，未经逐项人工审阅。{run.status!=="completed"?"原工作流状态仍在核实，请沿用原操作编号。":""}</p>:null}
    {run.slots.some(slot=>slot.referencePriceVersion)?<p className="text-xs text-muted-foreground">本计划含图片参考估算（版本 {Array.from(new Set(run.slots.map(slot=>slot.referencePriceVersion).filter(Boolean))).join("、")}）：预留按估算参数，结算按原用量与冻结参考价；缺输入细分时按较高输入参考费率估算。缺基础用量或超出预留保持待核实，不自动补扣或重试。</p>:null}
    {!executionDisabled&&run.status==="awaiting_plan_approval"?<div className="space-y-3 rounded-xl bg-success p-4"><p>图片模型：{run.slots[0]?.recipe.Quote.Model??"原计划冻结模型"} · {run.slots[0]?.recipe.Quote.Quality??"原计划质量"} · {run.slots[0]?.recipe.Quote.Resolution??"1024x1024"}{run.plan.Route?` · 可选版本 ${run.plan.Route.RevisionID}`:" · 企业默认版本"}。修改模型需重新准备计划。</p>{run.unitVersion===providerImageUsageUnit?<p>本次计划生成 {run.images} 张，最多向 {imageRunProvider(run)} 提交 {run.images} 次。{imageRunProvider(run)==="ToAPIs"?"确认后会发送各项选用的 1688 公共原图链接。":"确认后会发送各项选用的原图。"}费用由企业向 {imageRunProvider(run)} 支付，硕米不扣点。</p>:<p>本次生成 {run.images} 张，点数上限 <strong className="text-warning-foreground">{formatMicropoints(run.points)}</strong> 点。主图与详情图分别调用模型；原图及正式素材复用不调用模型。</p>}{routeRejectedPlan?<p role="status">该计划模型版本已被明确拒绝，请重新准备计划；原计划和确认请求已保留。</p>:null}<Button disabled={locked||routeRejectedPlan||!available||!run.generationAllowed} onClick={()=>void send({action:"confirm",runId:run.runId,body:{actionId:crypto.randomUUID(),planRevision:run.planRevision,planDigest:run.planDigest,quoteDigest:run.quoteDigest}})}>{run.unitVersion===providerImageUsageUnit?`确认生成 ${run.images} 张图片`:"确认点数并生成"}</Button></div>:null}
@@ -480,8 +502,11 @@ function ScopedImageSetPanel({scope,colorGroupsAvailable,target,effectiveVersion
 }
 
 function imageSlotLabel(slot:ImageSetRun["slots"][number]){
- const {Color,Group,Order}=slot.recipe.Placement;
- if(Color)return `${Color} · ${Group==="detail"?"详情图":Order===1?"主图":"轮播图"}`;
+ const {Color}=slot.recipe.Placement;
+ return Color?`${Color} · ${imageSlotPurpose(slot)}`:imageSlotPurpose(slot);
+}
+
+function imageSlotPurpose(slot:ImageSetRun["slots"][number]){
  return labels.get(slot.recipe.Purpose)??`${slot.recipe.Placement.Group==="detail"?"详情图":"主图 / 轮播"} ${slot.recipe.Placement.Order}`;
 }
 

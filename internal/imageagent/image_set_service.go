@@ -196,7 +196,8 @@ func validPrepareImageSetInput(input PrepareImageSetInput) bool {
 	if input.ColorImages != nil {
 		return input.ColorImages.Valid() && input.ContextKind == ImageSourceListing && input.Target.Platform == "product" &&
 			input.Route != nil && input.Template != nil && input.Text != nil && input.Text.Mode == "none" && input.RegenerateFromRunID == "" &&
-			len(input.SelectedTaskIDs)+len(input.SharedOriginalIDs)+len(input.CarouselOriginalIDs)+len(input.DetailOriginalIDs) == 0
+			(input.SelectedTaskIDs == nil || len(input.SelectedTaskIDs) > 0) &&
+			len(input.SharedOriginalIDs)+len(input.CarouselOriginalIDs)+len(input.DetailOriginalIDs) == 0
 	}
 	if len(input.SharedOriginalIDs) > 0 {
 		return len(input.CarouselOriginalIDs)+len(input.DetailOriginalIDs) == 0
@@ -436,8 +437,11 @@ func buildImageSetPlan(input PrepareImageSetInput, resolved ImageSetPreparation,
 		return Plan{}, fmt.Errorf("%w: choose originals matching the template sharing mode", ErrValidation)
 	}
 	plan := Plan{Revision: 1, IdempotencyKey: input.RequestID, CreatedBy: actor, SourceAssetIDs: sources, Set: &ImageSetPlan{Method: method, Schema: ImageSetSchema, Source: resolved.Source, Target: resolved.Target, Configuration: snapshot.Ref(), ConfigurationEpoch: snapshot.Epoch, ParametersDigest: snapshot.ParametersDigest, InputDigest: snapshot.InputDigest}}
-	if input.ColorImages != nil && (len(template.Carousel) != 2 || len(template.Detail) != 1) {
-		return Plan{}, ErrValidation
+	if input.ColorImages != nil {
+		count := len(template.Carousel) + len(template.Detail)
+		if count == 0 || count*len(input.ColorImages.Groups) > MaxPlanSlots {
+			return Plan{}, fmt.Errorf("%w: choose at most %d total images across all colors", ErrValidation, MaxPlanSlots)
+		}
 	}
 	plan.Set.ColorImages = input.ColorImages
 	plan.Set.Text = CloneImageTextBinding(text)
