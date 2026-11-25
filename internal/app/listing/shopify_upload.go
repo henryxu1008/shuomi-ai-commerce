@@ -82,7 +82,7 @@ func (s *UploadService) uploadShopify(ctx context.Context, scope collection.Scop
 	if binding != saved.Merchant || !record.PublicationReady(saved) {
 		return UploadResult{}, record.ErrNotReady
 	}
-	proof, err := s.shopifyDraftFacts(ctx, scope, saved)
+	proof, _, err := s.shopifyDraftFacts(ctx, scope, saved)
 	if err != nil {
 		return UploadResult{}, err
 	}
@@ -142,12 +142,26 @@ func (s *UploadService) uploadShopify(ctx context.Context, scope collection.Scop
 		}
 		return shopifyNotSent(saved.ID, attempt.AttemptID), nil
 	}
-	if _, err = s.shopifyDraftFacts(ctx, scope, saved); err != nil {
+	_, inventory, err := s.shopifyDraftFacts(ctx, scope, saved)
+	if err != nil {
 		return stop(submission.NoSendFactsChanged)
 	}
 	writer, err := stores.VerifyDraftWrite(ctx, scope, binding)
 	if err != nil || writer == nil {
 		return stop(submission.NoSendAccessRecheckFailed)
+	}
+	staged, err := s.stageShopifyDraftImages(ctx, scope, saved, inventory, writer, &draft)
+	if err != nil {
+		return stop(submission.NoSendImageContentChanged)
+	}
+	if staged {
+		if _, _, err := s.shopifyDraftFacts(ctx, scope, saved); err != nil {
+			return stop(submission.NoSendFactsChanged)
+		}
+		writer, err = stores.VerifyDraftWrite(ctx, scope, binding)
+		if err != nil || writer == nil {
+			return stop(submission.NoSendAccessRecheckFailed)
+		}
 	}
 	permit, err := kernel.BeginShopifySend(ctx, acquired.Preparation)
 	if err != nil {
@@ -169,43 +183,43 @@ func (s *UploadService) uploadShopify(ctx context.Context, scope collection.Scop
 	return shopifyUploadResult(saved.ID, retained), nil
 }
 
-func (s *UploadService) shopifyDraftFacts(ctx context.Context, scope collection.Scope, saved record.TargetRecord) (preparation.AuthorizedSource, error) {
+func (s *UploadService) shopifyDraftFacts(ctx context.Context, scope collection.Scope, saved record.TargetRecord) (preparation.AuthorizedSource, asset.ApprovedAssetInventory, error) {
 	if err := s.authorize(ctx, scope); err != nil {
-		return preparation.AuthorizedSource{}, err
+		return preparation.AuthorizedSource{}, asset.ApprovedAssetInventory{}, err
 	}
 	if s.dependencies.ReviewGate != nil {
 		if err := s.dependencies.ReviewGate(ctx, scope, saved); err != nil {
-			return preparation.AuthorizedSource{}, err
+			return preparation.AuthorizedSource{}, asset.ApprovedAssetInventory{}, err
 		}
 	}
 	head, err := s.dependencies.Records.ReadTargetHead(ctx, scope, saved.TargetID)
 	if err != nil || head.ID != saved.ID || collection.Digest(head) != collection.Digest(saved) {
-		return preparation.AuthorizedSource{}, record.ErrConflict
+		return preparation.AuthorizedSource{}, asset.ApprovedAssetInventory{}, record.ErrConflict
 	}
 	proof, err := s.source(ctx, scope, saved)
 	if err != nil {
-		return preparation.AuthorizedSource{}, err
+		return preparation.AuthorizedSource{}, asset.ApprovedAssetInventory{}, err
 	}
 	product, err := s.dependencies.Products.ReadEffectiveTargetProduct(ctx, proof, saved.EffectiveVersion, saved.ApplyReceiptID)
 	if err != nil || product.Identity.TenantID != scope.OrganizationID || product.Identity.ProductKey != saved.Source.Source.ProductKey ||
 		product.Version != saved.EffectiveVersion || collection.Digest(product.Snapshot) != saved.ProductHash {
-		return preparation.AuthorizedSource{}, record.ErrConflict
+		return preparation.AuthorizedSource{}, asset.ApprovedAssetInventory{}, record.ErrConflict
 	}
 	assetScope := asset.InventoryScope{TenantID: scope.OrganizationID, ProductKey: product.Identity.ProductKey, TargetPlatform: "product", SourceSnapshotVersion: product.Version}
 	inventory, err := s.dependencies.Assets.GetApprovedInventory(ctx, assetScope)
 	if errors.Is(err, asset.ErrApprovedAssetsNotReady) {
 		inventory = asset.ApprovedAssetInventory{Scope: assetScope, Assets: []asset.ApprovedAsset{}}
 	} else if err != nil {
-		return preparation.AuthorizedSource{}, record.ErrUnavailable
+		return preparation.AuthorizedSource{}, asset.ApprovedAssetInventory{}, record.ErrUnavailable
 	}
 	if inventory.Scope != assetScope || collection.Digest(inventory) != saved.InventoryHash {
-		return preparation.AuthorizedSource{}, record.ErrNotReady
+		return preparation.AuthorizedSource{}, asset.ApprovedAssetInventory{}, record.ErrNotReady
 	}
 	draft, err := shopify.BuildDraft(*saved.Input.Shopify, product.Snapshot, inventory, saved.Merchant.Shopify.Currency)
 	if err != nil || collection.Digest(draft) != collection.Digest(saved.Shopify) {
-		return preparation.AuthorizedSource{}, record.ErrNotReady
+		return preparation.AuthorizedSource{}, asset.ApprovedAssetInventory{}, record.ErrNotReady
 	}
-	return proof, nil
+	return proof, inventory, nil
 }
 
 func shopifyNotSent(recordID, attemptID string) UploadResult {

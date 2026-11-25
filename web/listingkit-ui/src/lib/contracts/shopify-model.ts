@@ -17,6 +17,7 @@ export const shopifyDraft = z.strictObject({
   variants: z.array(z.strictObject({
     sku: text(1024).optional(),
     price: shopifyPrice,
+    imageIndex: z.number().int().min(1).max(10).optional(),
     values: z.array(text(1024)).max(3).optional(),
   })).min(1).max(30),
   images: z.array(z.strictObject({

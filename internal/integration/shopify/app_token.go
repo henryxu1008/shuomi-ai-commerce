@@ -29,7 +29,7 @@ func NewAppTokenIssuer(transport *http.Client, clientID, keyID string, key *ecds
 		key == nil || key.Curve != elliptic.P256() || key.D == nil || key.D.Sign() <= 0 || key.D.Cmp(key.Params().N) >= 0 {
 		return nil, ErrInvalidRequest
 	}
-	return &AppTokenIssuer{http: boundedClient(transport), clientID: clientID, keyID: keyID, key: key}, nil
+	return &AppTokenIssuer{http: boundedClientFor(transport, 10*time.Second), clientID: clientID, keyID: keyID, key: key}, nil
 }
 
 type assertionClaims struct {

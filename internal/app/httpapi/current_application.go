@@ -1109,6 +1109,19 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	if supplied.listing != nil {
 		listingDependencies := *supplied.listing
+		if supplied.officialStoreApplications.ShopifyConfigured() && !supplied.officialStoreApplications.ShopifyLifecycleConfigured() &&
+			supplied.fullImages != nil && supplied.fullImages.WorkerConfig != nil && cfg.ImageAgent.Generation.Enabled {
+			apiArtifacts := cfg.ImageAgent.ArtifactStore
+			workerArtifacts := supplied.fullImages.WorkerConfig.ImageAgent.ArtifactStore
+			if apiArtifacts.IsolatedTrialGeneratedURLs && workerArtifacts.IsolatedTrialGeneratedURLs &&
+				apiArtifacts.PublicBase == workerArtifacts.PublicBase && apiArtifacts.S3.Bucket == workerArtifacts.S3.Bucket {
+				reader, err := imageworker.NewImageSetMaterialReader(supplied.fullImages.WorkerConfig)
+				if err != nil {
+					return nil, fmt.Errorf("build isolated Shopify generated image reader: %w", err)
+				}
+				listingDependencies.shopifyGeneratedImages = reader.Read
+			}
+		}
 		if supplied.controlledLocalDraft != nil {
 			listingDependencies.localDraftPolicy = &supplied.controlledLocalDraft.Policy
 		}

@@ -27,6 +27,7 @@ export function ShopifyDraftEditor({scope, source, storeId, storeName, existing,
  const [prices, setPrices] = useState(existing?.input.shopify.prices ?? variants.map(() => ""));
  const [images, setImages] = useState<ApprovedImage[]>();
  const [selectedImages, setSelectedImages] = useState(existing?.input.shopify.imageIds ?? []);
+ const [variantImages, setVariantImages] = useState(existing?.input.shopify.variantImageIds ?? variants.map(() => ""));
  const [currencyError, setCurrencyError] = useState(false);
  const [imageError, setImageError] = useState(false);
  const sourceId = source.source.id;
@@ -55,10 +56,11 @@ export function ShopifyDraftEditor({scope, source, storeId, storeName, existing,
   return () => controller.abort();
  }, [scope, sourceId, storeId, revision, original.version, original.publicationId]);
  const imageIds = selectedImages.filter(id => images?.some(image => image.id === id));
+ const variantImageIds = variants.map((_, index) => imageIds.includes(variantImages[index]) ? variantImages[index] : "");
  const input = shopifyTargetInputSchema.safeParse({
-  sourceId, storeId, expectedRevision: existing?.revision ?? currentRules?.priorRevision ?? 0, effectiveVersion: original.version, shopify: {currency, prices, imageIds},
+  sourceId, storeId, expectedRevision: existing?.revision ?? currentRules?.priorRevision ?? 0, effectiveVersion: original.version, shopify: {currency, prices, imageIds, ...(variantImageIds.some(Boolean) ? {variantImageIds} : {})},
  });
- const canSave = !!source.product.title?.trim() && input.success && !disabled && (images !== undefined || imageError);
+ const canSave = !!source.product.title?.trim() && input.success && !disabled && (images !== undefined || imageError && selectedImages.length === 0);
  return <form className="space-y-4" onSubmit={event => {
   event.preventDefault();
   if (canSave && input.success) void command.execute("save-target", input.data);
@@ -92,10 +94,28 @@ export function ShopifyDraftEditor({scope, source, storeId, storeName, existing,
       <Image src={image.url} alt="" width={64} height={64} unoptimized className="size-16 rounded object-cover"/>
       <input type="checkbox" aria-label={`选择图片 ${index + 1}`} checked={imageIds.includes(image.id)}
        disabled={imageIds.length >= 10 && !imageIds.includes(image.id)}
-       onChange={event => setSelectedImages(event.target.checked ? [...imageIds, image.id] : imageIds.filter(id => id !== image.id))}/>
+       onChange={event => {
+        setSelectedImages(event.target.checked ? [...imageIds, image.id] : selectedImages.filter(id => id !== image.id));
+        if (!event.target.checked) setVariantImages(values => values.map(id => id === image.id ? "" : id));
+       }}/>
+      {imageIds.includes(image.id) ? <span className="text-xs">图库第 {imageIds.indexOf(image.id) + 1} 张</span> : null}
      </label>)}
     </div>}
   </fieldset>
+  {imageIds.length > 0 && variants.length <= 30 ? <fieldset className="space-y-2" disabled={disabled}>
+   <legend className="font-medium">规格配图（可选）</legend>
+   {variants.map((variant, index) => {
+    const specs = variant.attributes?.map(attribute => `${attribute.name} ${attribute.value}`).join(" · ");
+    return <label key={index} className="grid grid-cols-[minmax(0,1fr)_minmax(8ch,12ch)] items-center gap-3 text-sm">
+     <span className="break-words">{variant.sku || `规格 ${index + 1}`}{specs ? ` · ${specs}` : ""}</span>
+     <select className="h-9 rounded border bg-background px-2" value={variantImageIds[index]}
+      onChange={event => setVariantImages(values => variants.map((_, position) => position === index ? event.target.value : values[position] ?? ""))}>
+      <option value="">不单独配图</option>
+      {imageIds.map((id, position) => <option key={id} value={id}>图库第 {position + 1} 张</option>)}
+     </select>
+    </label>;
+   })}
+  </fieldset> : null}
   <Button type="submit" disabled={!canSave}>保存待上传资料</Button>
  </form>;
 }

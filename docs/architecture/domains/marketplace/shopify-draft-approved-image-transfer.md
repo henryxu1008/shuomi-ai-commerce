@@ -16,7 +16,7 @@
 
 ## 暂存与重试
 
-- 只使用 Shopify 的 stagedUploadsCreate 和照片 multipart，与现有 Shopify productSet.files / variants.file。暂存仅使用实测的固定 Shopify 存储端点 https://shopify-staged-uploads.storage.googleapis.com。2026-11-25 已从原店官方接口验证根路径 POST、相同 host 的暂存引用及 Google V4 签名表单。要求精确文件名、签名表单 key 和返回引用路径一致。，POST 目标和引用均做 HTTPS、准确 host、路径、返回表单及大小核对。拒绝非公网拨号、跳转、身份混淆、额外请求头和注册自定义 URL。临时传输使用独立无 Shopify token 的受限客户端。
+- 只使用 Shopify 的 stagedUploadsCreate 和照片 multipart，与现有 Shopify productSet.files / variants.file。暂存仅使用实测的固定 Shopify 存储端点 https://shopify-staged-uploads.storage.googleapis.com。2026-11-25 已从原店官方接口验证根路径 POST、相同 host 的暂存引用及 Google V4 签名表单。要求精确文件名、签名表单 key 和返回引用路径一致。POST 目标和引用均做 HTTPS、准确 host、路径、返回表单及大小核对。拒绝非公网拨号、跳转、身份混淆、额外请求头和注册自定义 URL。临时传输使用独立无 Shopify token 的受限客户端。
 - 提交一次暂存申请，对最多十张选中的生成图片使用受限并行，单张最多 3 MiB，整组最多 30 MiB。暂存必须在原一分钟发送租期内完成，暂存本身最多 22 秒，每张上传受 deadline 限制。取得最终写许可前重新核对原资料及授权。
 - 暂存不创建商品、媒体文件条目或可售对象。失败或响应丢失不得进入 productSet，按原协议记录未发送。短期对象交由 Shopify 到期；下一次人工确认可创建新的短期暂存。已有退场和撤权语义不变。若进入 productSet 后结果不确定，继续使用原 Shopify 自定义 ID 查原草稿，禁止重发变体或草稿。已存在外套不作为本轮请求源。
 

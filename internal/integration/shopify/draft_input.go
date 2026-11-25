@@ -2,12 +2,14 @@ package shopify
 
 import (
 	"net/url"
+	"path"
 	"regexp"
 	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/description"
 )
 
@@ -41,9 +43,10 @@ type DraftOption struct {
 }
 
 type DraftVariant struct {
-	SKU    string
-	Price  string
-	Values []string
+	ImageIndex int
+	SKU        string
+	Price      string
+	Values     []string
 }
 
 type DraftImage struct {
@@ -76,12 +79,14 @@ type selectedValue struct {
 }
 
 type draftVariant struct {
+	File         *draftFile      `json:"file,omitempty"`
 	SKU          string          `json:"sku,omitempty"`
 	Price        string          `json:"price"`
 	OptionValues []selectedValue `json:"optionValues"`
 }
 
 type draftFile struct {
+	Filename    string `json:"filename,omitempty"`
 	URL         string `json:"originalSource"`
 	Alt         string `json:"alt,omitempty"`
 	ContentType string `json:"contentType"`
@@ -110,7 +115,11 @@ func (d Draft) input() (draftInput, error) {
 			return draftInput{}, ErrInvalidRequest
 		}
 		approvedImages = append(approvedImages, image.URL)
-		result.Files = append(result.Files, draftFile{URL: image.URL, Alt: image.Alt, ContentType: "IMAGE"})
+		file := draftFile{URL: image.URL, Alt: image.Alt, ContentType: "IMAGE"}
+		if parsed, ok := stagedResource(image.URL); ok {
+			file.Filename = path.Base(parsed.Path)
+		}
+		result.Files = append(result.Files, file)
 	}
 	if description.Validate(d.DescriptionHTML, description.HTML, approvedImages) != nil {
 		return draftInput{}, ErrInvalidRequest
@@ -121,7 +130,7 @@ func (d Draft) input() (draftInput, error) {
 			return draftInput{}, ErrInvalidRequest
 		}
 		options = []DraftOption{{Name: "Title", Values: []string{"Default Title"}}}
-		variants = []DraftVariant{{SKU: variants[0].SKU, Price: variants[0].Price, Values: []string{"Default Title"}}}
+		variants = []DraftVariant{{SKU: variants[0].SKU, Price: variants[0].Price, ImageIndex: variants[0].ImageIndex, Values: []string{"Default Title"}}}
 	}
 	if !result.setOptions(options) || !result.setVariants(variants, options) {
 		return draftInput{}, ErrInvalidRequest
@@ -158,7 +167,13 @@ func (d *draftInput) setVariants(variants []DraftVariant, options []DraftOption)
 		if len(variant.Values) != len(options) || !pricePattern.MatchString(variant.Price) || variant.SKU != "" && !validText(variant.SKU, 128) {
 			return false
 		}
+		if variant.ImageIndex < 0 || variant.ImageIndex > len(d.Files) {
+			return false
+		}
 		item := draftVariant{SKU: variant.SKU, Price: variant.Price}
+		if variant.ImageIndex > 0 {
+			item.File = &d.Files[variant.ImageIndex-1]
+		}
 		for i, option := range options {
 			value := variant.Values[i]
 			if !slices.Contains(option.Values, value) {
@@ -186,5 +201,9 @@ func validImageURL(value string) bool {
 		return false
 	}
 	parsed, err := url.Parse(value)
-	return err == nil && parsed.Scheme == "https" && parsed.Hostname() != "" && parsed.User == nil && parsed.Fragment == ""
+	if err != nil || parsed.Scheme != "https" || parsed.User != nil || parsed.Fragment != "" {
+		return false
+	}
+	_, err = httpimage.ValidatePublicHTTPSURL(value)
+	return err == nil
 }

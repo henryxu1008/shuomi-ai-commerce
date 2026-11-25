@@ -22,9 +22,10 @@ var pricePattern = regexp.MustCompile(`^(?:0|[1-9][0-9]{0,11})(?:\.[0-9]{1,4})?$
 // Input contains explicit prices in the displayed shop currency and references
 // to approved images. The saved product supplies the remaining facts.
 type Input struct {
-	Currency string   `json:"currency"`
-	Prices   []string `json:"prices"`
-	ImageIDs []string `json:"imageIds,omitempty"`
+	Currency        string   `json:"currency"`
+	Prices          []string `json:"prices"`
+	ImageIDs        []string `json:"imageIds,omitempty"`
+	VariantImageIDs []string `json:"variantImageIds,omitempty"`
 }
 
 type Draft struct {
@@ -43,9 +44,10 @@ type DraftOption struct {
 }
 
 type DraftVariant struct {
-	SKU    string   `json:"sku,omitempty"`
-	Price  string   `json:"price"`
-	Values []string `json:"values,omitempty"`
+	SKU        string   `json:"sku,omitempty"`
+	Price      string   `json:"price"`
+	Values     []string `json:"values,omitempty"`
+	ImageIndex int      `json:"imageIndex,omitempty"`
 }
 
 type DraftImage struct {
@@ -91,6 +93,9 @@ func BuildDraft(input Input, snapshot catalog.ProductSnapshot, inventory asset.A
 	if len(variants) != len(input.Prices) || len(variants) > 30 || len(variants[0].Attributes) > 3 {
 		return Draft{}, ErrDraft
 	}
+	if len(input.VariantImageIDs) != 0 && len(input.VariantImageIDs) != len(variants) {
+		return Draft{}, ErrDraft
+	}
 	result := Draft{Title: snapshot.Title, Currency: currency}
 	for _, attribute := range variants[0].Attributes {
 		if !draftText(attribute.Name) || slices.ContainsFunc(result.Options, func(option DraftOption) bool { return strings.EqualFold(option.Name, attribute.Name) }) {
@@ -125,7 +130,14 @@ func BuildDraft(input Input, snapshot catalog.ProductSnapshot, inventory asset.A
 			return Draft{}, ErrDraft
 		}
 		seen[key] = true
-		result.Variants = append(result.Variants, DraftVariant{SKU: variant.SKU, Price: input.Prices[i], Values: optionValues})
+		item := DraftVariant{SKU: variant.SKU, Price: input.Prices[i], Values: optionValues}
+		if len(input.VariantImageIDs) > 0 && input.VariantImageIDs[i] != "" {
+			item.ImageIndex = slices.Index(input.ImageIDs, input.VariantImageIDs[i]) + 1
+			if item.ImageIndex == 0 {
+				return Draft{}, ErrDraft
+			}
+		}
+		result.Variants = append(result.Variants, item)
 	}
 	var included []string
 	for _, id := range input.ImageIDs {

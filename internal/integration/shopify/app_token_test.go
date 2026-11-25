@@ -47,3 +47,24 @@ func TestApplicationTokenUsesFreshShopBoundAssertion(t *testing.T) {
 		}
 	}
 }
+
+func TestApplicationTokenHasBoundedColdConnectionBudget(t *testing.T) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transport := &http.Client{Transport: transportFunc(func(req *http.Request) (*http.Response, error) {
+		deadline, ok := req.Context().Deadline()
+		if budget := time.Until(deadline); !ok || budget < 9*time.Second || budget > 10*time.Second {
+			t.Fatalf("application token request budget %v", budget)
+		}
+		return fixtureResponse(http.StatusOK, `{"access_token":"fixture-token","scope":"write_products","expires_in":3599}`), nil
+	})}
+	issuer, err := NewAppTokenIssuer(transport, "fixture-client", "fixture-key", key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := issuer.Issue(context.Background(), fixtureShop); err != nil {
+		t.Fatal(err)
+	}
+}

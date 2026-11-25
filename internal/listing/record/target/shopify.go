@@ -22,7 +22,7 @@ func validShopifyTargetInput(input TargetInput) bool {
 
 // An empty Shopify input requests the current store currency only.
 func IsShopifyRulesQuery(input TargetInput) bool {
-	return validShopifyTargetInput(input) && input.Shopify.Currency == "" && len(input.Shopify.Prices) == 0 && len(input.Shopify.ImageIDs) == 0
+	return validShopifyTargetInput(input) && input.Shopify.Currency == "" && len(input.Shopify.Prices) == 0 && len(input.Shopify.ImageIDs) == 0 && len(input.Shopify.VariantImageIDs) == 0
 }
 
 func validShopifyRecord(value TargetRecord) bool {
