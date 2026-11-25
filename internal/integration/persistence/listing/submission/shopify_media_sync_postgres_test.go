@@ -2,14 +2,24 @@ package submissionpersistence_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	listinghttp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	official "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/official"
 	prepstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/preparation"
 	recordstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/record"
@@ -17,8 +27,11 @@ import (
 	effects "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/submission"
 	catalogstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/catalog"
 	collectionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
@@ -185,18 +198,23 @@ func TestIsolatedShopifyMediaSync(t *testing.T) {
 		require.ErrorIs(t, err, submission.ErrExecutionIntentConflict)
 	})
 
+	t.Run("workbench confirmation keeps the same approved Shopify operation", func(t *testing.T) {
+		testShopifyMediaConfirmationRoute(t, ctx, db, open())
+	})
+
 	t.Run("repeat confirmation reuses the frozen plan after the gallery changes", func(t *testing.T) {
 		plan := fixtureMediaPlan("repeat-operation")
 		shop := fixtureMediaProvider(plan)
 		shop.processing = true
 		service := submission.ShopifyMediaSync{Journal: open(), Provider: shop}
 		operation := plan.Operation()
+		previewHash := plan.PreviewHash()
 		builds := 0
 		build := func(context.Context) (submission.ShopifyMediaPlan, error) {
 			builds++
 			return plan, nil
 		}
-		status, err := service.ConfirmOperation(ctx, operation, build)
+		status, err := service.ConfirmOperation(ctx, operation, previewHash, build)
 		require.NoError(t, err)
 		require.Equal(t, submission.ShopifyMediaPending, status)
 		require.Len(t, shop.gallery, 7)
@@ -206,26 +224,29 @@ func TestIsolatedShopifyMediaSync(t *testing.T) {
 		plan.BeforeHash = collection.Digest("gallery after append")
 		wrongMember := operation
 		wrongMember.Owner.MemberID = "another-member"
-		_, err = service.ConfirmOperation(ctx, wrongMember, build)
+		_, err = service.ConfirmOperation(ctx, wrongMember, previewHash, build)
 		require.ErrorIs(t, err, submission.ErrExecutionIntentConflict)
 		wrongSource := operation
 		wrongSource.SourceKey = "another-source"
-		_, err = service.ConfirmOperation(ctx, wrongSource, build)
+		_, err = service.ConfirmOperation(ctx, wrongSource, previewHash, build)
 		require.ErrorIs(t, err, submission.ErrExecutionIntentConflict)
 		wrongProduct := operation
 		wrongProduct.ProductID = "gid://shopify/Product/45"
-		_, err = service.ConfirmOperation(ctx, wrongProduct, build)
+		_, err = service.ConfirmOperation(ctx, wrongProduct, previewHash, build)
 		require.ErrorIs(t, err, submission.ErrExecutionIntentConflict)
 		require.Equal(t, 1, builds)
+		_, err = service.ConfirmOperation(ctx, operation, plan.PreviewHash(), build)
+		require.ErrorIs(t, err, submission.ErrExecutionIntentConflict)
+		require.Zero(t, shop.count(submission.ShopifyMediaAssociate))
 
 		shop.denied = true
-		_, err = service.ConfirmOperation(ctx, operation, build)
+		_, err = service.ConfirmOperation(ctx, operation, previewHash, build)
 		require.ErrorIs(t, err, submission.ErrExecutionEvidenceRequired)
 		require.Zero(t, shop.count(submission.ShopifyMediaAssociate))
 		shop.denied = false
 
 		for range 2 {
-			status, err = service.ConfirmOperation(ctx, operation, build)
+			status, err = service.ConfirmOperation(ctx, operation, previewHash, build)
 			require.NoError(t, err)
 			require.Equal(t, submission.ShopifyMediaComplete, status)
 		}
@@ -242,7 +263,7 @@ func TestIsolatedShopifyMediaSync(t *testing.T) {
 
 		require.NoError(t, db.Exec("UPDATE "+shopifyguard.MediaSyncPlanTable+" SET body_hash=? WHERE organization_id=? AND plan_id=?",
 			collection.Digest("invalid stored fingerprint"), plan.Owner.OrganizationID, plan.ID).Error)
-		_, err = service.ConfirmOperation(ctx, operation, build)
+		_, err = service.ConfirmOperation(ctx, operation, previewHash, build)
 		require.ErrorIs(t, err, submission.ErrExecutionUnavailable)
 		require.Equal(t, 1, builds)
 	})
@@ -460,6 +481,126 @@ func TestIsolatedShopifyMediaSync(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, drained)
 	})
+}
+
+type mediaFixtureAuthorizer struct {
+	scope      collection.Scope
+	denySubmit bool
+}
+
+func (a *mediaFixtureAuthorizer) Authorize(_ context.Context, permission string) (collection.Scope, error) {
+	if permission == preparation.PermissionSubmit && a.denySubmit {
+		return collection.Scope{}, preparation.ErrForbidden
+	}
+	return a.scope, nil
+}
+
+func testShopifyMediaConfirmationRoute(t *testing.T, ctx context.Context, db *gorm.DB, journal submission.ShopifyMediaJournal) {
+	t.Helper()
+	plan := fixtureMediaPlan("workbench-confirm")
+	authority := &mediaFixtureAuthorizer{scope: plan.Owner}
+	sourceID, storeID := uuid.NewString(), uuid.NewString()
+	preparationID, collectionID, itemID, publication := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
+	now := time.Now().UTC()
+	raw, err := json.Marshal(catalog.ProductSnapshot{Title: "Synthetic six-variant media fixture"})
+	require.NoError(t, err)
+	digest := sha256.Sum256(raw)
+	require.NoError(t, db.Create(&catalogstore.SnapshotVersionRecord{TenantID: plan.Owner.OrganizationID, ProductKey: plan.SourceKey, Version: 1,
+		PublicationID: publication, PayloadHash: hex.EncodeToString(digest[:]), SnapshotJSON: raw}).Error)
+	require.NoError(t, db.Exec("INSERT INTO product_collection_batches(organization_id,actor_id,member_id,id,name,kind,revision,created_at) VALUES(?,?,?,?,?,'manual',1,?)",
+		plan.Owner.OrganizationID, plan.Owner.ActorID, plan.Owner.MemberID, collectionID, "Synthetic Shopify batch", now).Error)
+	require.NoError(t, db.Exec("INSERT INTO product_collection_items(organization_id,actor_id,member_id,id,batch_id,product_key,publication_id,original_version,source_kind,source_operation_id,revision,created_at) VALUES(?,?,?,?,?,?,?,1,'own','',1,?)",
+		plan.Owner.OrganizationID, plan.Owner.ActorID, plan.Owner.MemberID, itemID, collectionID, plan.SourceKey, publication, now).Error)
+	require.NoError(t, db.Exec("INSERT INTO listing_preparations(organization_id,actor_id,member_id,id,command_key,input_hash,input_json,source_batch_id,source_revision,name,item_count,revision,created_at) VALUES(?,?,?,?,?,?,'{}',?,1,'Fixture',1,1,?)",
+		plan.Owner.OrganizationID, plan.Owner.ActorID, plan.Owner.MemberID, preparationID, uuid.NewString(), collection.Digest("shopify-prep"), collectionID, now).Error)
+	require.NoError(t, db.Exec("INSERT INTO listing_preparation_sources(organization_id,actor_id,member_id,id,preparation_id,collection_item_id,collection_revision,product_key,publication_id,original_version,source_kind,source_operation_id) VALUES(?,?,?,?,?,?,1,?,?,1,'own','')",
+		plan.Owner.OrganizationID, plan.Owner.ActorID, plan.Owner.MemberID, sourceID, preparationID, itemID, plan.SourceKey, publication).Error)
+
+	prepRepo, err := prepstore.NewRepository(ctx, db)
+	require.NoError(t, err)
+	collections, err := collection.NewService(struct{ collection.Repository }{}, authority, struct {
+		sourcing.PublishedAcquisitionReader
+	}{})
+	require.NoError(t, err)
+	preparations, err := preparation.NewService(prepRepo, collections, authority)
+	require.NoError(t, err)
+	snapshots, err := catalogstore.NewBoundedSnapshotReader(db, sourcing.MaxEncodedSnapshotBytes)
+	require.NoError(t, err)
+	sources, err := preparation.NewSourceSelector(preparations, collections, prepRepo, snapshots)
+	require.NoError(t, err)
+
+	shop := fixtureMediaProvider(plan)
+	builds := 0
+	noProof := false
+	trial := &listingapp.ShopifyMediaConfirmation{Organization: plan.Owner.OrganizationID, SourceID: sourceID, StoreID: storeID,
+		Domain: "dev-fixture.myshopify.com", Product: "44", ShopKey: plan.ShopKey, Generation: plan.Generation,
+		Sync: submission.ShopifyMediaSync{Journal: journal, Provider: shop},
+		BuildPlan: func(_ context.Context, operation submission.ShopifyMediaOperation, _ preparation.SourceItem) (submission.ShopifyMediaPlan, error) {
+			builds++
+			if noProof {
+				return submission.ShopifyMediaPlan{}, preparation.ErrConflict
+			}
+			built := plan
+			built.ID = operation.ID
+			built.ExpiresAt = time.Now().Add(time.Minute)
+			return built, nil
+		}}
+	app := &listingapp.Application{Sources: sources, Authorization: authority}
+	const path = listinghttp.ListingBasePath + "/shopify-draft-media-confirm"
+	makeRouter := func() *gin.Engine {
+		router := gin.New()
+		for _, descriptor := range listinghttp.ListingRoutes(app, func(ctx context.Context, _ string) (context.Context, error) {
+			return authidentity.WithAuthenticatedIdentity(ctx, authidentity.AuthenticatedIdentity{
+				UserID: plan.Owner.ActorID, TenantID: plan.Owner.OrganizationID, EffectiveOrganizationID: plan.Owner.OrganizationID,
+				EffectiveMemberID: plan.Owner.MemberID, TokenExpiresAt: time.Now().Add(time.Minute),
+			}), nil
+		}) {
+			if descriptor.Path == path {
+				require.Equal(t, preparation.PermissionSubmit, descriptor.Permission)
+				require.False(t, listinghttp.IsPrivateDraftReadRoute(descriptor.Method, descriptor.Path))
+				router.Handle(descriptor.Method, descriptor.Path, descriptor.Handler)
+			}
+		}
+		return router
+	}
+	confirm := func(router *gin.Engine, key, product, proof string) *httptest.ResponseRecorder {
+		body := fmt.Sprintf(`{"product":%q,"sourceId":%q,"storeId":%q,"confirmationHash":%q}`, product, sourceID, storeID, proof)
+		request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body)).WithContext(ctx)
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Idempotency-Key", key)
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+		return response
+	}
+	proof := plan.PreviewHash()
+	require.Equal(t, http.StatusNotFound, confirm(makeRouter(), plan.ID, "44", proof).Code)
+	app.ShopifyMediaConfirm = trial
+	router := makeRouter()
+	require.Equal(t, http.StatusForbidden, confirm(router, plan.ID, "45", proof).Code)
+	require.Zero(t, builds)
+	require.Equal(t, http.StatusConflict, confirm(router, plan.ID, "44", collection.Digest("stale preview")).Code)
+	noProof = true
+	require.Equal(t, http.StatusConflict, confirm(router, plan.ID, "44", proof).Code)
+	noProof = false
+	require.Zero(t, shop.count(submission.ShopifyMediaAppend))
+
+	response := confirm(router, plan.ID, "44", proof)
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	require.JSONEq(t, fmt.Sprintf(`{"operationId":%q,"status":"complete"}`, plan.ID), response.Body.String())
+	plan.BeforeHash = collection.Digest("Shopify has now appended")
+	response = confirm(router, plan.ID, "44", proof)
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	require.Equal(t, http.StatusConflict, confirm(router, plan.ID, "44", plan.PreviewHash()).Code)
+	authority.denySubmit = true
+	require.Equal(t, http.StatusForbidden, confirm(router, plan.ID, "44", proof).Code)
+	require.Equal(t, 3, builds)
+	require.Equal(t, 3, shop.count(submission.ShopifyMediaUpload))
+	require.Equal(t, 1, shop.count(submission.ShopifyMediaAppend))
+	require.Equal(t, 1, shop.count(submission.ShopifyMediaAssociate))
+	require.Equal(t, shop.desiredCovers(), shop.covers)
+	for _, id := range plan.GalleryIDs {
+		require.Contains(t, shop.gallery, id)
+	}
 }
 
 func fixtureMediaPlan(name string) submission.ShopifyMediaPlan {

@@ -74,6 +74,12 @@ func (p ShopifyMediaPlan) Fingerprint() string {
 	return collection.Digest(p)
 }
 
+func (p ShopifyMediaPlan) PreviewHash() string {
+	p.ID = ""
+	p.ExpiresAt = time.Time{}
+	return p.Fingerprint()
+}
+
 func (p ShopifyMediaPlan) StepIntentKey(phase ShopifyMediaPhase, cycle, index int) string {
 	return collection.StableID(p.Owner.OrganizationID, p.ID, string(phase), strconv.Itoa(cycle), strconv.Itoa(index))
 }
@@ -159,8 +165,8 @@ type ShopifyMediaSync struct {
 
 // ConfirmOperation resolves the original plan before rebuilding anything from
 // Shopify. The gallery may already include the images from this operation.
-func (s ShopifyMediaSync) ConfirmOperation(ctx context.Context, operation ShopifyMediaOperation, build func(context.Context) (ShopifyMediaPlan, error)) (ShopifyMediaStatus, error) {
-	if ctx == nil || s.Journal == nil || s.Provider == nil || !operation.Valid() || build == nil {
+func (s ShopifyMediaSync) ConfirmOperation(ctx context.Context, operation ShopifyMediaOperation, previewHash string, build func(context.Context) (ShopifyMediaPlan, error)) (ShopifyMediaStatus, error) {
+	if ctx == nil || s.Journal == nil || s.Provider == nil || !operation.Valid() || !validMediaHash(previewHash) || build == nil {
 		return "", ErrExecutionInvalid
 	}
 	ctx, cancel := context.WithTimeout(ctx, shopifyMediaConfirmTimeout)
@@ -172,7 +178,7 @@ func (s ShopifyMediaSync) ConfirmOperation(ctx context.Context, operation Shopif
 	if err != nil {
 		return "", err
 	}
-	if plan.Operation() != operation {
+	if plan.Operation() != operation || plan.PreviewHash() != previewHash {
 		return "", ErrExecutionIntentConflict
 	}
 	return s.Confirm(ctx, plan)

@@ -35,6 +35,7 @@ type Application struct {
 	SheinPublication        *SheinPublicationService
 	ShopifyStatus           *ShopifyStatusService
 	ShopifyMedia            *ShopifyMediaPreviewService
+	ShopifyMediaConfirm     *ShopifyMediaConfirmation
 	WalmartCatalog          WalmartRuleReader
 	Preparations            *preparation.Service
 	Sources                 *preparation.SourceSelector
