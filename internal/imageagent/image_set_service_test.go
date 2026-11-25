@@ -118,7 +118,10 @@ func (c *setContextFixture) ResolveImageSet(_ context.Context, _ imageagent.Exec
 	result.Catalog, result.Source.CatalogHash = catalog, catalog.Manifest.Hash
 	return result, err
 }
-func (c *setContextFixture) RevalidateImageSet(context.Context, imageagent.ExecutionIdentity, imageagent.RunProjection) error {
+func (c *setContextFixture) RevalidateImageSet(_ context.Context, identity imageagent.ExecutionIdentity, projection imageagent.RunProjection) error {
+	if identity.RunID != projection.Run.ID {
+		return imageagent.ErrIdentityRequired
+	}
 	return c.revalidationErr
 }
 

@@ -31,7 +31,7 @@ func (s *Service) confirmedColorImageRework(ctx context.Context, identity Execut
 	if err != nil || ValidateImageSetAdmission(winner.Run, winner.Plan) != nil || key != ConfirmedColorImageReworkKey(winner.Plan) {
 		return current, ErrColorImageReworkConfirmed
 	}
-	if _, err = s.identityForRun(identity, winner.Run); err != nil {
+	if identity, err = s.identityForRun(identity, winner.Run); err != nil {
 		return current, ErrColorImageReworkConfirmed
 	}
 	if err = s.imageSets.Contexts.RevalidateImageSet(ctx, identity, winner); err != nil {

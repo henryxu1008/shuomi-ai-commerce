@@ -259,7 +259,7 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 		if current.Plan.Set == nil || current.Plan.Set.InputDigest != inputDigest || current.Run.IdempotencyKey != input.RequestID {
 			return PreparedImageSet{}, ErrRevisionConflict
 		}
-		if _, err = s.identityForRun(identity, current.Run); err != nil {
+		if identity, err = s.identityForRun(identity, current.Run); err != nil {
 			return PreparedImageSet{}, err
 		}
 		if err = s.imageSets.Contexts.RevalidateImageSet(ctx, identity, current); err != nil {
