@@ -429,6 +429,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 		return
 	}
 	liveBinding, bound := liveSource.Source, source
+	liveBinding.OwnProduct = bound.OwnProduct && liveSource.OwnProduct
 	liveBinding.CatalogHash, bound.CatalogHash = "", ""
 	if liveBinding != bound {
 		writeFullImageError(c, imageagent.ErrRevisionConflict, false)
