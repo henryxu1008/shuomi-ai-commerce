@@ -17,6 +17,7 @@
 - [Shopify 店铺自助授权与商品草稿上传](shopify-product-draft.md)（#1613）。
 - [Shopify 草稿上传已采用商品图片](shopify-draft-approved-image-transfer.md)（#1634，隔离候选）。
 - [工作台按颜色生成商品图组](shopify-color-image-sets.md)（#1637）。
+- [工作台同步图片到已有 Shopify 草稿](shopify-draft-image-sync.md)（#1639，设计候选）。
 
 当前代码中的平台目录不证明该平台全部站点、经营模式、官方应用、API 凭据或客户验收已经可用。Amazon 研究与来源采集是独立来源/研究能力，不自动等同于当前已开通的 Amazon Listing 平台适配器。
 
