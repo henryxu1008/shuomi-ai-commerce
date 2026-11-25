@@ -35,7 +35,7 @@ func (a *Application) ShopifyMediaConfirmationEnabled() bool {
 		return false
 	}
 	trial := a.ShopifyMediaConfirm
-	return trial.Sync.Journal != nil && trial.Sync.Provider != nil && trial.BuildPlan != nil &&
+	return trial.Sync.Journal != nil && trial.Sync.Provider != nil && (a.ShopifyMedia != nil || trial.BuildPlan != nil) &&
 		collection.ValidID(trial.SourceID) && collection.ValidID(trial.StoreID) &&
 		trial.scopeMatches(ShopifyMediaPreviewRequest{SourceID: trial.SourceID, StoreID: trial.StoreID, Product: trial.Product})
 }
@@ -79,7 +79,7 @@ func (a *Application) ConfirmShopifyMedia(ctx context.Context, id string, input 
 	if err != nil {
 		return ShopifyMediaConfirmationResult{}, err
 	}
-	scope, item, _, err := selected.Read(ctx)
+	scope, item, original, err := selected.Read(ctx)
 	if err != nil || scope != submitter {
 		return ShopifyMediaConfirmationResult{}, preparation.ErrForbidden
 	}
@@ -88,6 +88,13 @@ func (a *Application) ConfirmShopifyMedia(ctx context.Context, id string, input 
 		return ShopifyMediaConfirmationResult{}, err
 	}
 	status, err := trial.Sync.ConfirmOperation(ctx, operation, input.ConfirmationHash, func(ctx context.Context) (submission.ShopifyMediaPlan, error) {
+		if a.ShopifyMedia != nil {
+			_, plan, err := a.readShopifyMediaTrial(ctx, input.ShopifyMediaPreviewRequest, operation, item, original)
+			if err == nil && !plan.Valid() {
+				err = preparation.ErrConflict
+			}
+			return plan, err
+		}
 		plan, err := trial.BuildPlan(ctx, operation, item)
 		if err == nil && plan.SourceVersion != item.Source.Version {
 			err = preparation.ErrConflict

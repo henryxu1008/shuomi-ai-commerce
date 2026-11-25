@@ -78,6 +78,21 @@ type DraftMediaEvidence struct {
 	Variants  []DraftMediaVariant
 }
 
+// MatchOriginals uses the same read evidence without fetching any media again.
+func (e DraftMediaEvidence) MatchOriginals(proofs []DraftMediaFingerprint) []DraftMediaMatch {
+	originals := make([]draftOriginal, 0, len(e.Gallery))
+	for _, media := range e.Gallery {
+		if media.Type == "IMAGE" {
+			originals = append(originals, draftOriginal{mediaID: media.ID, size: media.Size, hash: media.Hash})
+		}
+	}
+	matches := make([]DraftMediaMatch, len(proofs))
+	for i, proof := range proofs {
+		matches[i] = matchDraftOriginal(proof, originals)
+	}
+	return matches
+}
+
 type DraftMediaObservation struct {
 	ID           string
 	Title        string

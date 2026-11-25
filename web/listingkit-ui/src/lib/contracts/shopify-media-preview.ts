@@ -35,6 +35,7 @@ export const shopifyMediaPreviewSchema = z.strictObject({
    shopifyHost.test(url.host) && shopifyProductPath.test(url.pathname);
  }),
  galleryCount:z.number().int().min(0).max(60),
+ confirmationHash:z.string().regex(/^[0-9a-f]{64}$/).optional(),
  images:z.array(z.strictObject({
   id:assetId,
   url:z.string().url().max(2048).refine(value => value.startsWith("https://")),

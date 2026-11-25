@@ -1,11 +1,13 @@
 package listingapp
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
-	"errors"
 	"slices"
 	"time"
+
+	"github.com/google/uuid"
 
 	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
@@ -32,23 +34,25 @@ type ShopifyMediaPreviewRequest struct {
 }
 
 type ShopifyMediaPreview struct {
-	SourceID     string                       `json:"sourceId"`
-	StoreID      string                       `json:"storeId"`
-	Title        string                       `json:"title"`
-	AdminURL     string                       `json:"adminUrl"`
-	GalleryCount int                          `json:"galleryCount"`
-	Images       []ShopifyMediaPreviewImage   `json:"images"`
-	Variants     []ShopifyMediaPreviewVariant `json:"variants"`
+	SourceID         string                       `json:"sourceId"`
+	StoreID          string                       `json:"storeId"`
+	Title            string                       `json:"title"`
+	AdminURL         string                       `json:"adminUrl"`
+	GalleryCount     int                          `json:"galleryCount"`
+	ConfirmationHash string                       `json:"confirmationHash,omitempty"`
+	Images           []ShopifyMediaPreviewImage   `json:"images"`
+	Variants         []ShopifyMediaPreviewVariant `json:"variants"`
 }
 
 type ShopifyMediaPreviewImage struct {
-	ID       string               `json:"id"`
-	URL      string               `json:"url"`
-	Color    string               `json:"color,omitempty"`
-	Role     asset.Role           `json:"role"`
-	State    wire.DraftMediaState `json:"state"`
-	mediaID  string
-	sourceID string
+	ID         string               `json:"id"`
+	URL        string               `json:"url"`
+	Color      string               `json:"color,omitempty"`
+	Role       asset.Role           `json:"role"`
+	State      wire.DraftMediaState `json:"state"`
+	mediaID    string
+	sourceID   string
+	uploadable bool
 }
 
 type ShopifyMediaPreviewVariant struct {
@@ -78,59 +82,100 @@ func (a *Application) PreviewShopifyMedia(ctx context.Context, input ShopifyMedi
 	if item.Source.Kind != "own" {
 		return ShopifyMediaPreview{}, preparation.ErrConflict
 	}
-	selectionInput := asset.SourceSelectionRequest{ItemID: item.ID, OriginalPublicationID: original.PublicationID,
-		OriginalSnapshotVersion: original.Version, EffectiveCatalogVersion: original.Version, TargetPlatform: "product"}
-	sourceReader := SourceImageReader{Sources: a.Sources, Products: a.Products, Authorization: a.Authorization, OriginalOnly: true}
-	source, err := sourceReader.ReadSourceSelection(ctx, selectionInput)
+	if a.canPreviewShopifyMediaTrial(ctx, input, scope) {
+		op, err := a.ShopifyMediaConfirm.operation(input, uuid.NewString(), scope, item)
+		if err != nil {
+			return ShopifyMediaPreview{}, err
+		}
+		preview, plan, err := a.readShopifyMediaTrial(ctx, input, op, item, original)
+		if err == nil && plan.Valid() && a.canPreviewShopifyMediaTrial(ctx, input, scope) {
+			preview.ConfirmationHash = plan.PreviewHash()
+		}
+		return preview, err
+	}
+	selectedImages, err := a.readShopifyMediaSource(ctx, scope, item, original)
 	if err != nil {
 		return ShopifyMediaPreview{}, err
 	}
 	service := a.ShopifyMedia
-	inventoryScope := asset.InventoryScope{TenantID: scope.OrganizationID, ProductKey: source.ProductKey, SourceSnapshotVersion: source.EffectiveCatalogVersion, TargetPlatform: "product"}
-	inventory, err := service.Inventory.ReadImageSetInventory(ctx, inventoryScope)
-	if err != nil {
-		return ShopifyMediaPreview{}, err
-	}
-	images, proofs, proofPositions, err := service.previewImages(ctx, source, inventory)
-	if err != nil {
-		return ShopifyMediaPreview{}, err
-	}
 	subject := shopifyProductSubject(scope, storecenter.ProductPurposeStatus)
-	remote, adminURL, err := service.Store.InspectShopifyDraftMedia(ctx, subject, input.StoreID, input.Product, proofs)
-	switch {
-	case errors.Is(err, wire.ErrInvalidRequest):
-		return ShopifyMediaPreview{}, preparation.ErrInvalid
-	case errors.Is(err, storeapp.ErrProductAccessChanged):
-		return ShopifyMediaPreview{}, preparation.ErrForbidden
-	case errors.Is(err, wire.ErrDraftUnverified):
-		return ShopifyMediaPreview{}, preparation.ErrConflict
-	case err != nil:
-		return ShopifyMediaPreview{}, preparation.ErrUnavailable
+	remote, adminURL, err := service.Store.InspectShopifyDraftMedia(ctx, subject, input.StoreID, input.Product, selectedImages.proofs)
+	if err != nil {
+		return ShopifyMediaPreview{}, shopifyMediaPreviewError(err)
 	}
-	if len(remote.Images) != len(proofPositions) {
-		return ShopifyMediaPreview{}, preparation.ErrUnavailable
+	images, err := matchShopifyMediaPreviewImages(selectedImages, remote.Images)
+	if err != nil {
+		return ShopifyMediaPreview{}, err
 	}
-	for i, match := range remote.Images {
-		position := proofPositions[i]
-		images[position].State = match.State
-		images[position].mediaID = match.MediaID
-	}
-	variants, matches := previewShopifyVariants(original.Snapshot.Variants, remote.Variants, images, source.Images)
+	variants, matches := previewShopifyVariants(original.Snapshot.Variants, remote.Variants, images, selectedImages.source.Images)
 	if !matches {
 		return ShopifyMediaPreview{}, preparation.ErrConflict
 	}
-	if _, err := sourceReader.ReadSourceSelection(ctx, selectionInput); err != nil {
+	if err := a.recheckShopifyMediaSource(ctx, selectedImages); err != nil {
 		return ShopifyMediaPreview{}, err
-	}
-	current, err := service.Inventory.ReadImageSetInventory(ctx, inventoryScope)
-	if err != nil {
-		return ShopifyMediaPreview{}, err
-	}
-	if inventory.Head != current.Head || inventory.ApprovalActionID != current.ApprovalActionID {
-		return ShopifyMediaPreview{}, preparation.ErrConflict
 	}
 	return ShopifyMediaPreview{SourceID: input.SourceID, StoreID: input.StoreID, Title: remote.Title,
 		AdminURL: adminURL, GalleryCount: remote.GalleryCount, Images: images, Variants: variants}, nil
+}
+
+type shopifyMediaSourceEvidence struct {
+	source         asset.SourceSelection
+	reader         SourceImageReader
+	selection      asset.SourceSelectionRequest
+	inventory      asset.ImageSetInventory
+	inventoryScope asset.InventoryScope
+	images         []ShopifyMediaPreviewImage
+	proofs         []wire.DraftMediaFingerprint
+	positions      []int
+}
+
+func (a *Application) readShopifyMediaSource(ctx context.Context, scope collection.Scope, item preparation.SourceItem, original catalog.PublishedSnapshot) (shopifyMediaSourceEvidence, error) {
+	selection := asset.SourceSelectionRequest{ItemID: item.ID, OriginalPublicationID: original.PublicationID,
+		OriginalSnapshotVersion: original.Version, EffectiveCatalogVersion: original.Version, TargetPlatform: "product"}
+	reader := SourceImageReader{Sources: a.Sources, Products: a.Products, Authorization: a.Authorization, OriginalOnly: true}
+	source, err := reader.ReadSourceSelection(ctx, selection)
+	if err != nil {
+		return shopifyMediaSourceEvidence{}, err
+	}
+	inventoryScope := asset.InventoryScope{TenantID: scope.OrganizationID, ProductKey: source.ProductKey,
+		SourceSnapshotVersion: source.EffectiveCatalogVersion, TargetPlatform: "product"}
+	inventory, err := a.ShopifyMedia.Inventory.ReadImageSetInventory(ctx, inventoryScope)
+	if err != nil {
+		return shopifyMediaSourceEvidence{}, err
+	}
+	images, proofs, positions, err := a.ShopifyMedia.previewImages(ctx, source, inventory)
+	if err != nil {
+		return shopifyMediaSourceEvidence{}, err
+	}
+	return shopifyMediaSourceEvidence{source: source, reader: reader, selection: selection, inventory: inventory,
+		inventoryScope: inventoryScope, images: images, proofs: proofs, positions: positions}, nil
+}
+
+func (a *Application) recheckShopifyMediaSource(ctx context.Context, selected shopifyMediaSourceEvidence) error {
+	if _, err := selected.reader.ReadSourceSelection(ctx, selected.selection); err != nil {
+		return err
+	}
+	current, err := a.ShopifyMedia.Inventory.ReadImageSetInventory(ctx, selected.inventoryScope)
+	if err != nil {
+		return err
+	}
+	if selected.inventory.Head != current.Head || selected.inventory.ApprovalActionID != current.ApprovalActionID {
+		return preparation.ErrConflict
+	}
+	return nil
+}
+
+func matchShopifyMediaPreviewImages(selected shopifyMediaSourceEvidence, matches []wire.DraftMediaMatch) ([]ShopifyMediaPreviewImage, error) {
+	if len(matches) != len(selected.positions) {
+		return nil, preparation.ErrUnavailable
+	}
+	images := slices.Clone(selected.images)
+	for i, match := range matches {
+		position := selected.positions[i]
+		images[position].State = match.State
+		images[position].mediaID = match.MediaID
+	}
+	return images, nil
 }
 
 func (s *ShopifyMediaPreviewService) previewImages(ctx context.Context, source asset.SourceSelection, inventory asset.ImageSetInventory) ([]ShopifyMediaPreviewImage, []wire.DraftMediaFingerprint, []int, error) {
@@ -153,7 +198,8 @@ func (s *ShopifyMediaPreviewService) previewImages(ctx context.Context, source a
 		}
 		if approved.GenerationEvidence != nil {
 			content, err := s.ReadImage(ctx, source, approved, wire.MaxStagedDraftImageBytes)
-			if err == nil {
+			if err == nil && len(content) > 0 {
+				view.uploadable = bytes.HasPrefix(content, []byte("\x89PNG\r\n\x1a\n"))
 				proofs = append(proofs, wire.DraftMediaFingerprint{Size: int64(len(content)), Hash: sha256.Sum256(content)})
 				positions = append(positions, len(images))
 			}
