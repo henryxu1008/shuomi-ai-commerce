@@ -127,6 +127,8 @@ bundle 是有界文件列表，不接 zip/tar 解压；拒绝重复/大小写冲
 
 ## 8. 冻结、报价、认领及撤销竞态
 
+> 商品图组使用准确版本的 [#1641 事务范围与容量候选](product-image-agent.md#9-图片任务并行时的-skill-使用事务与容量1641) 待独立复核，实施准入为 **NOT_READY**。
+
 客户端 start 只提交 `{skillId, version, digest}`；由服务端读取资源判定 publisher/owner/操作兼容，不能上传正文代替版本。新增可比较 `agent.SkillVersionRef` 包含 kind、ID、owner kind/id、宿主 version、package digest、skill policy version；Request/ModelInput 使用零值 omitzero。只允许准确 registered content Agent + title-only 字段；其他消费者和无支持 reader 的选中请求拒绝。
 
 首次：当前个人/组织权限与企业 policy → 读取并校验完整已启用版本 → ref 放入 agentconfig StartCommand.Request → 配置输入 fingerprint、冻结 snapshot、mode intent digest → 原完整模型 Quote/preflight → 原用户确认 → 原 Store.Claim。技能全部字节、顺序规范包/摘要及 code-owned method policy 进入原 TextInputIdentity prompt、quote InputHash 和预算。原 profile/operation/工具白名单/费用归属不改；不新增 model provider route。未选 Skill 时原 system/prompt/序列化/指纹保持原合同。
