@@ -12,6 +12,11 @@ import (
 
 const dispatchTable = "public.listing_shopify_dispatches"
 
+const (
+	MediaSyncPlanTable = "public.listing_shopify_media_sync_plans"
+	MediaSyncStepTable = "public.listing_shopify_media_sync_steps"
+)
+
 type Dispatch struct {
 	Organization, ShopKey, AttemptID string
 	Generation, Epoch                int64
@@ -64,6 +69,50 @@ func ObserveDispatchEnd(tx *gorm.DB, scope Dispatch, claimOwner, claimTokenHash 
 // attempt in the disposable database. The fixture owns this database throughout
 // the run and restores only into other databases and pools.
 type LiveIsolation struct{ pool *sql.DB }
+
+// VerifyLiveIsolation restricts supplemental test-only write composition to
+// the exact pool that installed the guard before any Shopify execution.
+func VerifyLiveIsolation(db *gorm.DB, live *LiveIsolation) error {
+	if db == nil || live == nil {
+		return ErrUnavailable
+	}
+	pool, err := db.DB()
+	if err != nil || pool != live.pool {
+		return ErrUnavailable
+	}
+	_, err = installed(RequireIsolated(db))
+	return err
+}
+
+func ObserveMediaDispatchEnd(tx *gorm.DB, scope Dispatch, plan, phase, owner, tokenHash string) error {
+	if _, err := installed(RequireIsolated(tx)); err != nil {
+		return err
+	}
+	switch phase {
+	case "prepare_shopify_media", "upload_shopify_media", "append_shopify_media", "associate_shopify_media":
+	default:
+		return ErrConflict
+	}
+	result := tx.Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)}).Exec(`
+		UPDATE `+dispatchTable+` d SET response_observed=true
+		FROM `+MediaSyncStepTable+` s
+		JOIN `+MediaSyncPlanTable+` p USING (organization_id,plan_id)
+		JOIN public.listing_submission_execution_attempts a USING (organization_id,attempt_id)
+		WHERE d.organization_id=? AND d.shop_key=? AND d.generation=? AND d.attempt_id=? AND d.epoch=?
+		AND d.organization_id=s.organization_id AND d.attempt_id=s.attempt_id
+		AND d.shop_key=p.shop_key AND d.generation=p.generation AND s.plan_id=? AND s.phase=?
+		AND a.fence_epoch=d.epoch AND a.store_id=d.shop_key::text AND a.platform='shopify'
+		AND a.action=s.phase AND a.claim_owner_id=? AND a.claim_token_hash=?
+		AND NOT d.response_observed`, scope.Organization, scope.ShopKey, scope.Generation, scope.AttemptID, scope.Epoch,
+		plan, phase, owner, tokenHash)
+	if result.Error != nil {
+		return ErrUnavailable
+	}
+	if result.RowsAffected != 1 {
+		return ErrConflict
+	}
+	return nil
+}
 
 // DrainReadyIsolated checks the continuously observed test scope.
 func DrainReadyIsolated(ctx context.Context, db *gorm.DB, live *LiveIsolation, command Command) (bool, error) {
