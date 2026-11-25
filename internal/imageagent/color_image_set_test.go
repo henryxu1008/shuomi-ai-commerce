@@ -38,3 +38,16 @@ func TestGroupedImagePromptUsesOnlyFrozenColor(t *testing.T) {
 	recipe.Placement.Color = ""
 	require.Contains(t, imageTextPrompt(base, "detail", recipe), "Confirmed color: black, gray, white")
 }
+
+func TestColorImageWorkflowRejectsValuesThatCannotBeAdopted(t *testing.T) {
+	for _, color := range []string{"黑色\t加厚", "黑色\n加厚"} {
+		option := ImageColorOption{Name: "颜色", Groups: []ImageColorGroup{
+			{Value: color, OriginalIDs: []string{"black"}}, {Value: "白色", OriginalIDs: []string{"white"}},
+		}}
+		selection := ColorImageSelection{Option: option.Name, Groups: []ColorImageOriginal{
+			{Color: color, OriginalID: "black"}, {Color: "白色", OriginalID: "white"},
+		}}
+		require.False(t, option.Valid())
+		require.False(t, selection.Valid())
+	}
+}

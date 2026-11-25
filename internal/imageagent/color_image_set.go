@@ -29,7 +29,9 @@ func (o ImageColorOption) Valid() bool {
 }
 
 func validImageColor(value string) bool {
-	return canonicalImageValue(value) && !strings.Contains(value, "://")
+	// A generated color becomes an approved asset's presentation color, which
+	// cannot contain the multiline characters allowed in template text.
+	return canonicalImageValue(value) && !strings.Contains(value, "://") && !strings.ContainsAny(value, "\n\t")
 }
 
 type ImageColorGroup struct {
