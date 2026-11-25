@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"slices"
+	"sync"
+	"sync/atomic"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -68,16 +70,52 @@ func ObserveDispatchEnd(tx *gorm.DB, scope Dispatch, claimOwner, claimTokenHash 
 // LiveIsolation is issued only on successful installation before any Shopify
 // attempt in the disposable database. The fixture owns this database throughout
 // the run and restores only into other databases and pools.
-type LiveIsolation struct{ pool *sql.DB }
+type LiveIsolation struct{ state *liveIsolationState }
+
+type liveIsolationState struct {
+	installer *sql.DB
+	pool      atomic.Pointer[sql.DB]
+	mu        sync.Mutex
+	journal   bool
+}
+
+func newLiveIsolation(pool *sql.DB) *LiveIsolation {
+	state := &liveIsolationState{installer: pool}
+	state.pool.Store(pool)
+	return &LiveIsolation{state: state}
+}
+
+func (live *LiveIsolation) applies(pool *sql.DB) bool {
+	return live != nil && live.state != nil && pool != nil && pool == live.state.pool.Load()
+}
+
+// PinMediaJournal prevents transferring a witness after a journal could
+// already obtain media send permission on the currently bound pool.
+func PinMediaJournal(db *gorm.DB, live *LiveIsolation) error {
+	if db == nil || live == nil || live.state == nil {
+		return ErrUnavailable
+	}
+	pool, err := db.DB()
+	if err != nil {
+		return ErrUnavailable
+	}
+	live.state.mu.Lock()
+	defer live.state.mu.Unlock()
+	if !live.applies(pool) {
+		return ErrUnavailable
+	}
+	live.state.journal = true
+	return nil
+}
 
 // VerifyLiveIsolation restricts supplemental test-only write composition to
-// the exact pool that installed the guard before any Shopify execution.
+// the exact pool holding continuity from guard installation before any execution.
 func VerifyLiveIsolation(db *gorm.DB, live *LiveIsolation) error {
 	if db == nil || live == nil {
 		return ErrUnavailable
 	}
 	pool, err := db.DB()
-	if err != nil || pool != live.pool {
+	if err != nil || !live.applies(pool) {
 		return ErrUnavailable
 	}
 	_, err = installed(RequireIsolated(db))
@@ -120,7 +158,7 @@ func DrainReadyIsolated(ctx context.Context, db *gorm.DB, live *LiveIsolation, c
 		return false, nil
 	}
 	pool, err := db.DB()
-	if err != nil || pool != live.pool {
+	if err != nil || !live.applies(pool) {
 		return false, nil
 	}
 	var ready bool

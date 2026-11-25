@@ -182,7 +182,7 @@ func InstallIsolated(ctx context.Context, db *gorm.DB) (*LiveIsolation, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &LiveIsolation{pool: pool}, nil
+	return newLiveIsolation(pool), nil
 }
 
 // Command uses only local owner identifiers. Installation attribution is a

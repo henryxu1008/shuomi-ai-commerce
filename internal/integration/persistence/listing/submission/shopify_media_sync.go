@@ -71,6 +71,9 @@ func NewIsolatedShopifyMediaJournal(ctx context.Context, db *gorm.DB, live *shop
 	if err != nil {
 		return nil, err
 	}
+	if err := shopifyguard.PinMediaJournal(db, live); err != nil {
+		return nil, err
+	}
 	return &isolatedMediaJournal{repository: repository}, nil
 }
 

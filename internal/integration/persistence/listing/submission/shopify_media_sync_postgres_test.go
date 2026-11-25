@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"sync"
 	"testing"
 	"time"
@@ -24,6 +25,104 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+func TestIsolatedShopifyMediaServingPoolHandoff(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	container, err := tcpostgres.Run(ctx, "postgres:16-alpine", tcpostgres.WithDatabase("shopify_media"),
+		tcpostgres.WithUsername("fixture"), tcpostgres.WithPassword("isolated-fixture"), tcpostgres.BasicWaitStrategies())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, container.Terminate(context.Background())) })
+	dsn, err := container.ConnectionString(ctx, "sslmode=disable", "search_path=public")
+	require.NoError(t, err)
+	openDatabase := func(dsn string) *gorm.DB {
+		db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+		require.NoError(t, err)
+		pool, err := db.DB()
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = pool.Close() })
+		return db
+	}
+	install := func(owner *gorm.DB) *shopifyguard.LiveIsolation {
+		require.NoError(t, effects.InstallSchema(owner))
+		require.NoError(t, owner.Exec("CREATE TABLE public.listing_submission_official_intents (organization_id text, intent_key text, body_json jsonb)").Error)
+		isolation, err := shopifyguard.InstallIsolated(ctx, owner)
+		require.NoError(t, err)
+		require.NoError(t, effects.InstallIsolatedShopifyMediaSchema(ctx, owner, isolation))
+		return isolation
+	}
+	const grants = `
+		GRANT SELECT, INSERT, UPDATE ON public.listing_submission_execution_attempts,public.listing_submission_target_fences,
+			public.listing_shopify_dispatches,public.listing_shopify_media_sync_plans TO shopify_media_serve;
+		GRANT SELECT,INSERT ON public.listing_shopify_media_sync_steps,public.listing_shopify_frozen_generations,
+			public.listing_shopify_restricted_sources TO shopify_media_serve;
+		GRANT SELECT ON public.listing_submission_official_intents TO shopify_media_serve;
+	`
+	admin := openDatabase(dsn)
+	isolation := install(admin)
+	require.NoError(t, admin.Exec("CREATE ROLE shopify_media_serve LOGIN PASSWORD 'isolated-serving-fixture'").Error)
+	require.NoError(t, admin.Exec("REVOKE TEMPORARY ON DATABASE shopify_media FROM PUBLIC").Error)
+	require.NoError(t, admin.Exec(grants).Error)
+	require.NoError(t, admin.Exec("CREATE DATABASE shopify_media_other TEMPLATE shopify_media").Error)
+	require.NoError(t, admin.Exec("CREATE DATABASE shopify_media_pinned").Error)
+	servingURL, err := url.Parse(dsn)
+	require.NoError(t, err)
+	pinnedAdminURL := *servingURL
+	pinnedAdminURL.Path = "/shopify_media_pinned"
+	pinned := openDatabase(pinnedAdminURL.String())
+	pinnedIsolation := install(pinned)
+	require.NoError(t, pinned.Exec("REVOKE TEMPORARY ON DATABASE shopify_media_pinned FROM PUBLIC").Error)
+	require.NoError(t, pinned.Exec(grants).Error)
+	servingURL.User = url.UserPassword("shopify_media_serve", "isolated-serving-fixture")
+	pinnedServingURL := *servingURL
+	pinnedServingURL.Path = pinnedAdminURL.Path
+	pinnedServing := openDatabase(pinnedServingURL.String())
+	_, err = effects.NewIsolatedShopifyMediaJournal(ctx, pinned, pinnedIsolation)
+	require.NoError(t, err)
+	require.Error(t, shopifyguard.HandoffIsolatedMediaServingPool(ctx, pinned, pinnedServing, pinnedIsolation),
+		"do not transfer a witness once a journal exists on the installer pool")
+	require.NoError(t, shopifyguard.VerifyLiveIsolation(pinned, pinnedIsolation))
+
+	serving := openDatabase(servingURL.String())
+	_, err = effects.NewIsolatedShopifyMediaJournal(ctx, serving, isolation)
+	require.Error(t, err)
+	require.Error(t, shopifyguard.HandoffIsolatedMediaServingPool(ctx, admin, openDatabase(dsn), isolation))
+	otherURL := *servingURL
+	otherURL.Path = "/shopify_media_other"
+	other := openDatabase(otherURL.String())
+	require.NoError(t, admin.Exec("REVOKE TEMPORARY ON DATABASE shopify_media_other FROM PUBLIC").Error)
+	require.Error(t, shopifyguard.HandoffIsolatedMediaServingPool(ctx, admin, other, isolation))
+	require.NoError(t, admin.Exec("GRANT DELETE ON public.listing_shopify_media_sync_plans TO shopify_media_serve").Error)
+	require.Error(t, shopifyguard.HandoffIsolatedMediaServingPool(ctx, admin, serving, isolation))
+	require.NoError(t, admin.Exec("REVOKE DELETE ON public.listing_shopify_media_sync_plans FROM shopify_media_serve").Error)
+	require.NoError(t, shopifyguard.HandoffIsolatedMediaServingPool(ctx, admin, serving, isolation))
+	require.Error(t, shopifyguard.HandoffIsolatedMediaServingPool(ctx, admin, serving, isolation))
+	require.Error(t, shopifyguard.VerifyLiveIsolation(admin, isolation))
+	journal, err := effects.NewIsolatedShopifyMediaJournal(ctx, serving, isolation)
+	require.NoError(t, err)
+
+	plan := fixtureMediaPlan("serving-handoff")
+	shop := fixtureMediaProvider(plan)
+	shop.onAppend = func() {
+		freeze, err := shopifyguard.SealIsolated(ctx, serving, shopifyguard.Command{ID: uuid.NewString(),
+			Organization: plan.Owner.OrganizationID, ShopKey: plan.ShopKey, Generation: plan.Generation})
+		require.NoError(t, err)
+		drained, err := shopifyguard.DrainReadyIsolated(ctx, serving, isolation, freeze)
+		require.NoError(t, err)
+		require.False(t, drained)
+	}
+	service := submission.ShopifyMediaSync{Journal: journal, Provider: shop}
+	_, err = service.Confirm(ctx, plan)
+	require.Error(t, err)
+	require.Equal(t, 1, shop.count(submission.ShopifyMediaAppend))
+	require.Zero(t, shop.count(submission.ShopifyMediaAssociate))
+	var commandID string
+	require.NoError(t, serving.Raw("SELECT id FROM public.listing_shopify_frozen_generations WHERE organization_id=?", plan.Owner.OrganizationID).Row().Scan(&commandID))
+	drained, err := shopifyguard.DrainReadyIsolated(ctx, serving, isolation, shopifyguard.Command{ID: commandID,
+		Organization: plan.Owner.OrganizationID, ShopKey: plan.ShopKey, Generation: plan.Generation, Sources: []string{plan.SourceKey}})
+	require.NoError(t, err)
+	require.True(t, drained)
+}
 
 func TestIsolatedShopifyMediaSync(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
