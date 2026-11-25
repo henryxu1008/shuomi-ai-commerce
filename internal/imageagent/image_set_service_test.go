@@ -694,3 +694,56 @@ func TestConfirmConsumesTheOriginalAdmissionAfterImageCommitFailureAndCurrentPri
 	require.Error(t, err)
 	require.Len(t, workflows.starts, 1)
 }
+func TestOwnedColorImageSetFreezesNineTasksAndAdmission(t *testing.T) {
+	service, _, workflows, config, contexts, quotes, ctx, input := imageSetServiceFixture(t)
+	input.ContextKind = imageagent.ImageSourceListing
+	input.Route = &imageagent.ImageRouteSelection{BindingID: strings.Repeat("b", 64), RevisionID: strings.Repeat("c", 64)}
+	input.Template = &agentconfig.TemplateRef{TemplateID: "c5fd7c43-138c-43dc-8dfb-6f9be74a5e9e", Revision: "1"}
+	input.SharedOriginalIDs = nil
+	config.template.Carousel = append(config.template.Carousel, agentconfig.ContentTask{ID: "scene", Purpose: "usage_scene"})
+	p := &contexts.preparation
+	p.Source.ContextKind = input.ContextKind
+	p.OwnProduct = true
+	p.Catalog.ProductContext.Attributes = map[string]string{"color": "mixed"}
+	option := imageagent.ImageColorOption{Name: "Shade"}
+	selection := imageagent.ColorImageSelection{Option: option.Name}
+	for i, name := range []string{"Black", "Gray", "White"} {
+		original := p.Catalog.Assets[0]
+		observation := p.Observations[0]
+		if i > 0 {
+			original.ID = "source-" + name
+			original.URL = "https://images.example.org/" + name + ".png"
+			observation.AssetID = original.ID
+			p.Catalog.Assets = append(p.Catalog.Assets, original)
+			p.Observations = append(p.Observations, observation)
+		}
+		option.Groups = append(option.Groups, imageagent.ImageColorGroup{Value: name, OriginalIDs: []string{original.ID}})
+		selection.Groups = append(selection.Groups, imageagent.ColorImageOriginal{Color: name, OriginalID: original.ID})
+	}
+	catalog, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{ProductContext: p.Catalog.ProductContext, Assets: p.Catalog.Assets})
+	require.NoError(t, err)
+	p.Catalog = catalog
+	p.Source.CatalogHash = catalog.Manifest.Hash
+	p.ColorOptions = []imageagent.ImageColorOption{option}
+	input.ColorImages = &selection
+	quotes.quote = imageagent.GenerationProviderMetadata{Provider: "grsai", Model: aicapability.GRSaiProductImageModel,
+		Protocol: aicapability.GRSaiProductImageProtocol, BillingMode: aicapability.ModelUsageOnly,
+		ConfigurationVersion: input.Route.RevisionID, RouteReference: input.Route.BindingID,
+		CredentialReference: "grsai-key", ConnectionID: "grsai-connection"}.ImageQuote()
+	prepared, err := service.PrepareImageSet(ctx, input)
+	require.NoError(t, err)
+	require.Equal(t, 9, prepared.Images)
+	require.Zero(t, prepared.Points)
+	require.Empty(t, workflows.starts)
+	for _, slot := range prepared.Projection.Plan.Slots {
+		color := slot.Recipe.Placement.Color
+		require.Contains(t, slot.Recipe.Prompt, "Selected color: "+color)
+		require.NotContains(t, slot.Recipe.Prompt, "Confirmed color: mixed")
+		require.Equal(t, []string{selection.OriginalFor(color)}, slot.SourceAssetIDs)
+	}
+	confirmed, err := service.ConfirmImagePlan(ctx, confirmSetInput(prepared))
+	require.NoError(t, err)
+	require.Len(t, workflows.starts, 1)
+	require.Equal(t, 9, confirmed.Run.Budget.MaxModelCalls)
+	require.NoError(t, imageagent.ValidateImageSetAdmission(confirmed.Run, confirmed.Plan))
+}

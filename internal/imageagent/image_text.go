@@ -146,7 +146,13 @@ func imageTextPrompt(product ProductContextRef, brief string, recipe *ImageSlotR
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
+	if recipe.Placement.Color != "" {
+		fmt.Fprintf(&b, "Selected color: %s. The single reference and this color apply to this image. ", recipe.Placement.Color)
+	}
 	for _, key := range keys {
+		if recipe.Placement.Color != "" && key != "材质" && !strings.EqualFold(key, "material") {
+			continue
+		}
 		switch strings.ToLower(key) {
 		case "产品尺寸", "尺寸", "规格", "规格尺寸", "材质", "颜色", "容量", "size", "dimensions", "material", "color", "capacity":
 			if agentconfig.ValidSetText(product.Attributes[key], 512) && !strings.Contains(product.Attributes[key], "://") {

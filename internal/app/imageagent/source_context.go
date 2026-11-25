@@ -61,7 +61,14 @@ func (r *ImageSetContextReader) ResolveImageSet(ctx context.Context, identity im
 		return imageagent.ImageSetPreparation{}, imageagent.ErrRevisionConflict
 	}
 	selected := map[string]bool{}
-	for _, group := range [][]string{input.SharedOriginalIDs, input.CarouselOriginalIDs, input.DetailOriginalIDs} {
+	references := [][]string{input.SharedOriginalIDs, input.CarouselOriginalIDs, input.DetailOriginalIDs}
+	if input.ColorImages != nil {
+		if !source.OwnProduct || !input.ColorImages.Matches(source.ColorOptions) {
+			return imageagent.ImageSetPreparation{}, imageagent.ErrRevisionConflict
+		}
+		references = [][]string{input.ColorImages.SourceIDs()}
+	}
+	for _, group := range references {
 		if len(group) > agentconfig.MaxSetSourceReferences {
 			return imageagent.ImageSetPreparation{}, imageagent.ErrValidation
 		}
@@ -100,6 +107,7 @@ func (r *ImageSetContextReader) ResolveImageSet(ctx context.Context, identity im
 	source.Observations = nil
 	assets := make([]imageagent.AuthorizedAsset, 0, len(ids))
 	var total int64
+	seenHashes := map[[32]byte]bool{}
 	for _, id := range ids {
 		asset := byID[id]
 		content, readErr := r.readBytes(ctx, asset, r.maximumBytes)
@@ -120,6 +128,10 @@ func (r *ImageSetContextReader) ResolveImageSet(ctx context.Context, identity im
 			return imageagent.ImageSetPreparation{}, imageagent.ErrValidation
 		}
 		hash := sha256.Sum256(content)
+		if input.ColorImages != nil && seenHashes[hash] {
+			return imageagent.ImageSetPreparation{}, imageagent.ErrValidation
+		}
+		seenHashes[hash] = true
 		source.Observations = append(source.Observations, imageagent.ImageSourceObservation{AssetID: id, SHA256: hex.EncodeToString(hash[:]), Bytes: int64(len(content)), Width: width, Height: height, MediaType: mediaType})
 		asset.Width, asset.Height = width, height
 		assets = append(assets, asset)
@@ -150,6 +162,7 @@ func (r *ImageSetContextReader) RevalidateImageSet(ctx context.Context, identity
 	input := imageagent.PrepareImageSetInput{ContextID: identity.BusinessTaskID, Target: imageagent.ImageTargetSelection{Platform: target.Platform, StoreID: target.StoreID, Site: target.Site, CategoryID: target.CategoryID}, CarouselOriginalIDs: projection.Plan.SourceAssetIDs, OfficialPlacements: map[string]imageagent.OfficialImagePlacement{}}
 	input.EffectiveCatalogVersion, input.ApplyReceiptID = projection.Plan.Set.Source.EffectiveVersion, projection.Plan.Set.Source.ApplyReceiptID
 	input.ContextKind = projection.Plan.Set.Source.ContextKind
+	input.ColorImages = projection.Plan.Set.ColorImages
 	input.Target.RecordID = target.RecordID
 	// Reconstruct the two bounded reference groups from immutable slot recipes.
 	input.CarouselOriginalIDs = nil
@@ -209,6 +222,9 @@ func (r *ImageSetContextReader) AuthorizeImageSetSource(ctx context.Context, ide
 		return imageagent.ErrRevisionConflict
 	}
 	available := map[string]imageagent.AuthorizedAsset{}
+	if projection.Plan.Set.ColorImages != nil && !projection.Plan.Set.ColorImages.Matches(fresh.ColorOptions) {
+		return imageagent.ErrRevisionConflict
+	}
 	for _, value := range fresh.Catalog.Assets {
 		if _, exists := available[value.ID]; exists {
 			return imageagent.ErrRevisionConflict

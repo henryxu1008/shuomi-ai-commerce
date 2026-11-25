@@ -50,9 +50,10 @@ func (m fullImageModule) Register(reg *kernelmodule.Registry) error {
 }
 
 type fullImagePrepareBody struct {
-	Route *imageagent.ImageRouteSelection `json:"route,omitempty"`
-	Text  *imageagent.ImageTextSelection  `json:"text,omitempty"`
-	Skill *struct {
+	ColorImages *imageagent.ColorImageSelection `json:"colorImages,omitempty"`
+	Route       *imageagent.ImageRouteSelection `json:"route,omitempty"`
+	Text        *imageagent.ImageTextSelection  `json:"text,omitempty"`
+	Skill       *struct {
 		ID      string `json:"skillId"`
 		Version uint64 `json:"version"`
 		Digest  string `json:"digest"`
@@ -328,13 +329,21 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 		if evidence == nil {
 			evidence = map[string]string{}
 		}
-		c.JSON(http.StatusOK, gin.H{"contextKind": kind, "contextId": contextID, "source": fullImageSource(source.Source), "originals": originals, "evidence": evidence, "manualReplacementAvailable": a.manualAvailable})
+		response := gin.H{"contextKind": kind, "contextId": contextID, "source": fullImageSource(source.Source), "originals": originals, "evidence": evidence, "manualReplacementAvailable": a.manualAvailable}
+		if a.trial != nil && len(source.ColorOptions) > 0 {
+			response["colorOptions"] = source.ColorOptions
+		}
+		c.JSON(http.StatusOK, response)
 		return
 	}
 	if action == "prepare" || action == "regenerate" {
 		var body fullImagePrepareBody
 		if err = readFullImageJSON(c.Request, &body); err != nil {
 			writeFullImageError(c, err, false)
+			return
+		}
+		if body.ColorImages != nil && (a.trial == nil || action != "prepare") {
+			writeFullImageError(c, imageagent.ErrValidation, false)
 			return
 		}
 		keys := c.Request.Header.Values("Idempotency-Key")
@@ -360,6 +369,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 			input.RegenerateFromRunID = p.Run.ID
 		}
 		input.ExpectedModeRevision = body.ExpectedModeRevision
+		input.ColorImages = body.ColorImages
 		if body.Skill != nil {
 			// A frozen preparation is a readback, not a new Skill selection.
 			// Its stored publisher/policy determines the original input hash;
@@ -658,11 +668,36 @@ func fullImageSelection(p imageagent.RunProjection, body fullImageSelectionBody)
 		return asset.ImageSetCommand{}, imageagent.ErrCommandBlocked
 	}
 	source, target := p.Plan.Set.Source, p.Plan.Set.Target
+	if p.Plan.Set.ColorImages != nil && !validColorImageChoices(p, body.Choices) {
+		return asset.ImageSetCommand{}, imageagent.ErrCommandBlocked
+	}
 	command := asset.ImageSetCommand{ApprovingResult: asset.ImageSetResultBinding{RunID: p.Run.ID, PlanRevision: p.Plan.Revision, ResultDigest: p.ResultDigest}, ActionID: body.ActionID, Source: asset.SourceSelectionRequest{ContextKind: string(source.ContextKind), ItemID: source.OperationID, OriginalPublicationID: source.OriginalPublicationID, OriginalSnapshotVersion: source.OriginalVersion, EffectiveCatalogVersion: source.EffectiveVersion, ApplyReceiptID: source.ApplyReceiptID, TargetPlatform: target.Platform}, ExpectedHead: body.ExpectedHead, Choices: body.Choices, SelectionDigest: body.SelectionDigest}
 	if target.Platform != "product" {
 		command.Target = &asset.ImageSetTarget{RecordID: target.RecordID, StoreID: target.StoreID, Site: target.Site, ApplicationID: target.ApplicationID, ApplicationMode: target.ApplicationMode, CategoryID: target.CategoryID, ProductTypeID: target.ProductTypeID, AttributesDigest: target.AttributesDigest, VariantsDigest: target.VariantsDigest}
 	}
 	return command, nil
+}
+
+func validColorImageChoices(p imageagent.RunProjection, choices []asset.ImageSetChoice) bool {
+	if len(choices) != len(p.Plan.Slots) {
+		return false
+	}
+	positions := make(map[string]asset.ImagePresentation, len(p.Plan.Slots))
+	for _, slot := range p.Plan.Slots {
+		if slot.Recipe == nil {
+			return false
+		}
+		position := slot.Recipe.Placement
+		positions[slot.ID] = asset.ImagePresentation{Group: position.Group, Order: position.Order, Color: position.Color}
+	}
+	for _, choice := range choices {
+		expected, ok := positions[choice.SlotID]
+		if !ok || choice.Kind != "generated" || choice.RunID != p.Run.ID || choice.Presentation != expected {
+			return false
+		}
+		delete(positions, choice.SlotID)
+	}
+	return true
 }
 
 func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunProjection) (gin.H, error) {
@@ -730,7 +765,7 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 		_, e := imageagent.ImageSetClosedEffectsDigest(p.Plan, p.Slots, p.RecoverableEffects)
 		closed = e == nil
 	}
-	response := gin.H{"runId": p.Run.ID, "status": p.Run.Status, "planRevision": p.Plan.Revision, "planDigest": prepared.PlanDigest, "quoteDigest": prepared.QuoteDigest, "images": prepared.Images, "unitVersion": "ai-micropoint-v1", "points": strconv.FormatInt(prepared.Points, 10), "settledPoints": strconv.FormatInt(settled, 10), "plan": fullImagePlanResponse{ImageSetPlan: p.Plan.Set, Source: fullImageSource(p.Plan.Set.Source)}, "slots": slots, "resultDigest": p.ResultDigest, "originals": p.AssetCatalog.Assets, "recoverableEffects": p.RecoverableEffects, "pendingCommand": p.PendingCommand, "approvalAvailable": p.Run.Status == imageagent.RunStatusAwaitingFinalApproval && p.ResultDigest != "" && closed, "regenerationAvailable": closed, "block": p.Run.Block}
+	response := gin.H{"runId": p.Run.ID, "status": p.Run.Status, "planRevision": p.Plan.Revision, "planDigest": prepared.PlanDigest, "quoteDigest": prepared.QuoteDigest, "images": prepared.Images, "unitVersion": "ai-micropoint-v1", "points": strconv.FormatInt(prepared.Points, 10), "settledPoints": strconv.FormatInt(settled, 10), "plan": fullImagePlanResponse{ImageSetPlan: p.Plan.Set, Source: fullImageSource(p.Plan.Set.Source)}, "slots": slots, "resultDigest": p.ResultDigest, "originals": p.AssetCatalog.Assets, "recoverableEffects": p.RecoverableEffects, "pendingCommand": p.PendingCommand, "approvalAvailable": p.Run.Status == imageagent.RunStatusAwaitingFinalApproval && p.ResultDigest != "" && closed, "regenerationAvailable": closed && p.Plan.Set.ColorImages == nil, "block": p.Run.Block}
 	if p.Plan.Set.Source.OwnProduct {
 		response["unitVersion"] = agentconfig.ProviderImageUsageUnit
 		if providerImageCount > 0 {

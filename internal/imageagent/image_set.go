@@ -46,6 +46,7 @@ type ImageTarget struct {
 }
 
 type ImageSetPlan struct {
+	ColorImages                                                    *ColorImageSelection  `json:",omitempty"`
 	Route                                                          *ImageRouteSelection  `json:",omitempty"`
 	Text                                                           *ImageTextBinding     `json:",omitempty"`
 	Method                                                         *ImageMethodBinding   `json:",omitempty"`
@@ -79,6 +80,7 @@ type ImageSetRegeneration struct {
 }
 
 type ImagePlacement struct {
+	Color     string `json:",omitempty"`
 	Group     string
 	Order     int
 	VariantID string `json:",omitempty"`
@@ -247,6 +249,9 @@ func ValidateImageSetPlan(plan Plan) error {
 		if r.Quote.UsesProviderUsage() != s.Source.OwnProduct {
 			return ErrValidation
 		}
+		if s.ColorImages == nil && r.Placement.Color != "" {
+			return ErrValidation
+		}
 		if r.Quote.UsesProviderUsage() && (s.Route == nil || s.Source.ContextKind != ImageSourceListing || s.Target.Platform != "product" ||
 			len(r.References) != 1 || r.Placement.VariantID != "" || r.OfficialPlacement != nil) {
 			return ErrValidation
@@ -267,12 +272,13 @@ func ValidateImageSetPlan(plan Plan) error {
 		}
 		if r.Quote.UsesProviderUsage() {
 			original := r.References[0]
-			if prior, exists := usageOriginals[r.Placement.Group]; exists && prior != original {
+			key := r.Placement.Group + "\x00" + r.Placement.Color
+			if prior, exists := usageOriginals[key]; exists && prior != original {
 				return ErrValidation
 			}
-			usageOriginals[r.Placement.Group] = original
+			usageOriginals[key] = original
 		}
-		key := fmt.Sprintf("%s/%s/%d", r.Placement.Group, r.Placement.VariantID, r.Placement.Order)
+		key := fmt.Sprintf("%s\x00%s\x00%s\x00%d", r.Placement.Group, r.Placement.Color, r.Placement.VariantID, r.Placement.Order)
 		if positions[key] {
 			return fmt.Errorf("%w: repeated image presentation position", ErrValidation)
 		}
@@ -311,6 +317,9 @@ func ValidateImageSetPlan(plan Plan) error {
 				return fmt.Errorf("%w: source image aggregate is too large", ErrValidation)
 			}
 		}
+	}
+	if !validateColorImageSlots(plan) {
+		return ErrValidation
 	}
 	points, err := ImageSetPoints(plan)
 	if err != nil || points != s.MaxPoints {
@@ -393,6 +402,11 @@ func CloneImageSetPlan(set *ImageSetPlan) *ImageSetPlan {
 		return nil
 	}
 	clone := *set
+	if set.ColorImages != nil {
+		group := *set.ColorImages
+		group.Groups = append([]ColorImageOriginal(nil), group.Groups...)
+		clone.ColorImages = &group
+	}
 	clone.Route = CloneImageRoute(set.Route)
 	clone.Text = CloneImageTextBinding(set.Text)
 	if set.Method != nil {

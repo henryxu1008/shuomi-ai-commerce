@@ -21,6 +21,7 @@ import (
 var ErrImageRouteChanged = errors.New("selected image route version is unavailable")
 
 type PrepareImageSetInput struct {
+	ColorImages                                               *ColorImageSelection   `json:",omitempty"`
 	Route                                                     *ImageRouteSelection   `json:",omitempty"`
 	Text                                                      *ImageTextSelection    `json:",omitempty"`
 	Method                                                    *agent.SkillVersionRef `json:",omitempty"`
@@ -44,9 +45,10 @@ type ImageTargetSelection struct {
 }
 
 type ImageSetPreparation struct {
-	OwnProduct             bool   `json:"-"`
-	EffectivePublicationID string `json:"-"`
-	GeneratedArtwork       bool   `json:"-"`
+	ColorOptions           []ImageColorOption `json:"-"`
+	OwnProduct             bool               `json:"-"`
+	EffectivePublicationID string             `json:"-"`
+	GeneratedArtwork       bool               `json:"-"`
 	Source                 ImageSourceBinding
 	Target                 ImageTarget
 	Catalog                AssetCatalog
@@ -191,6 +193,11 @@ func validPrepareImageSetInput(input PrepareImageSetInput) bool {
 			seen[id] = true
 		}
 	}
+	if input.ColorImages != nil {
+		return input.ColorImages.Valid() && input.ContextKind == ImageSourceListing && input.Target.Platform == "product" &&
+			input.Route != nil && input.Template != nil && input.Text != nil && input.Text.Mode == "none" && input.RegenerateFromRunID == "" &&
+			len(input.SelectedTaskIDs)+len(input.SharedOriginalIDs)+len(input.CarouselOriginalIDs)+len(input.DetailOriginalIDs) == 0
+	}
 	if len(input.SharedOriginalIDs) > 0 {
 		return len(input.CarouselOriginalIDs)+len(input.DetailOriginalIDs) == 0
 	}
@@ -281,6 +288,9 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 	quote, err := s.imageSets.Quotes.ReadImageGenerationQuote(ctx, identity, input.Route)
 	if err != nil {
 		return PreparedImageSet{}, err
+	}
+	if input.ColorImages != nil && (!quote.UsesProviderUsage() || !input.ColorImages.Matches(resolved.ColorOptions)) {
+		return PreparedImageSet{}, ErrValidation
 	}
 	if quote.UsesProviderUsage() {
 		if !resolved.OwnProduct || input.ContextKind != ImageSourceListing || input.Target.Platform != "product" ||
@@ -377,6 +387,11 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 }
 
 func selectedImageOriginals(input PrepareImageSetInput) []string {
+	if input.ColorImages != nil {
+		ids := input.ColorImages.SourceIDs()
+		sort.Strings(ids)
+		return ids
+	}
 	seen := map[string]bool{}
 	for _, group := range [][]string{input.SharedOriginalIDs, input.CarouselOriginalIDs, input.DetailOriginalIDs} {
 		for _, id := range group {
@@ -417,10 +432,14 @@ func buildImageSetPlan(input PrepareImageSetInput, resolved ImageSetPreparation,
 	if resolved.Target.Platform != "product" && (len(input.OfficialPlacements) != len(template.Carousel)+len(template.Detail) || len(resolved.OfficialPlacements) != len(input.OfficialPlacements)) {
 		return Plan{}, ErrRevisionConflict
 	}
-	if template.ShareOriginals != (len(input.SharedOriginalIDs) > 0) {
+	if template.ShareOriginals != (len(input.SharedOriginalIDs) > 0 || input.ColorImages != nil) {
 		return Plan{}, fmt.Errorf("%w: choose originals matching the template sharing mode", ErrValidation)
 	}
 	plan := Plan{Revision: 1, IdempotencyKey: input.RequestID, CreatedBy: actor, SourceAssetIDs: sources, Set: &ImageSetPlan{Method: method, Schema: ImageSetSchema, Source: resolved.Source, Target: resolved.Target, Configuration: snapshot.Ref(), ConfigurationEpoch: snapshot.Epoch, ParametersDigest: snapshot.ParametersDigest, InputDigest: snapshot.InputDigest}}
+	if input.ColorImages != nil && (len(template.Carousel) != 2 || len(template.Detail) != 1) {
+		return Plan{}, ErrValidation
+	}
+	plan.Set.ColorImages = input.ColorImages
 	plan.Set.Text = CloneImageTextBinding(text)
 	plan.Set.Route = CloneImageRoute(input.Route)
 	for index, tasks := range [][]agentconfig.ContentTask{template.Carousel, template.Detail} {
@@ -431,40 +450,53 @@ func buildImageSetPlan(input PrepareImageSetInput, resolved ImageSetPreparation,
 		if template.ShareOriginals {
 			ids = input.SharedOriginalIDs
 		}
-		if len(tasks) > 0 && len(ids) == 0 || len(tasks) == 0 && len(ids) > 0 && !template.ShareOriginals {
+		if input.ColorImages == nil && (len(tasks) > 0 && len(ids) == 0 || len(tasks) == 0 && len(ids) > 0 && !template.ShareOriginals) {
 			return Plan{}, ErrValidation
 		}
-		for order, task := range tasks {
-			recipe := &ImageSlotRecipe{Purpose: task.Purpose, Background: template.Background, Language: template.Language, Placement: ImagePlacement{Group: group, Order: order + 1}, PromptVersion: ImageSetSchema, Quote: quote}
-			if resolved.Target.Platform != "product" {
-				placement, ok := resolved.OfficialPlacements[task.ID]
-				if !ok {
-					return Plan{}, fmt.Errorf("%w: target position for %s is unavailable", ErrValidation, task.ID)
-				}
-				requested, selected := input.OfficialPlacements[task.ID]
-				if !selected || requested != placement {
-					return Plan{}, ErrRevisionConflict
-				}
-				recipe.OfficialPlacement = &placement
+		groups := []ColorImageOriginal{{}}
+		if input.ColorImages != nil {
+			groups = input.ColorImages.Groups
+		}
+		for _, color := range groups {
+			groupIDs := ids
+			if color.Color != "" {
+				groupIDs = []string{color.OriginalID}
 			}
-			for _, id := range ids {
-				recipe.References = append(recipe.References, observations[id])
-			}
-			key := agentconfig.RequiredTaskEvidence(task.Purpose)
-			if key != "" {
-				fact := resolved.Evidence[key]
-				if fact == "" {
-					return Plan{}, fmt.Errorf("%w: supplement or deselect %s: %s evidence is required", ErrValidation, task.ID, key)
+			for order, task := range tasks {
+				if color.Color != "" {
+					task.ID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(task.ID+"\x00"+color.Color)).String()
 				}
-				recipe.EvidenceDigest = generationHash(struct {
-					Source     ImageSourceBinding
-					Key, Value string
-				}{resolved.Source, key, fact})
+				recipe := &ImageSlotRecipe{Purpose: task.Purpose, Background: template.Background, Language: template.Language, Placement: ImagePlacement{Group: group, Order: order + 1, Color: color.Color}, PromptVersion: ImageSetSchema, Quote: quote}
+				if resolved.Target.Platform != "product" {
+					placement, ok := resolved.OfficialPlacements[task.ID]
+					if !ok {
+						return Plan{}, fmt.Errorf("%w: target position for %s is unavailable", ErrValidation, task.ID)
+					}
+					requested, selected := input.OfficialPlacements[task.ID]
+					if !selected || requested != placement {
+						return Plan{}, ErrRevisionConflict
+					}
+					recipe.OfficialPlacement = &placement
+				}
+				for _, id := range groupIDs {
+					recipe.References = append(recipe.References, observations[id])
+				}
+				key := agentconfig.RequiredTaskEvidence(task.Purpose)
+				if key != "" {
+					fact := resolved.Evidence[key]
+					if fact == "" {
+						return Plan{}, fmt.Errorf("%w: supplement or deselect %s: %s evidence is required", ErrValidation, task.ID, key)
+					}
+					recipe.EvidenceDigest = generationHash(struct {
+						Source     ImageSourceBinding
+						Key, Value string
+					}{resolved.Source, key, fact})
+				}
+				recipe.TaskEvidence = resolved.Evidence[agentconfig.RequiredTaskEvidence(task.Purpose)]
+				recipe.VisibleText = imageTextLines(text, task.ID)
+				recipe.Prompt = imageTextPrompt(resolved.Catalog.ProductContext, task.Brief, recipe)
+				plan.Slots = append(plan.Slots, Slot{ID: task.ID, Role: SlotRoleForImagePurpose(task.Purpose), SourceAssetIDs: append([]string(nil), groupIDs...), Brief: task.Brief, IdempotencyKey: task.ID, Status: SlotStatusPending, Recipe: recipe})
 			}
-			recipe.TaskEvidence = resolved.Evidence[agentconfig.RequiredTaskEvidence(task.Purpose)]
-			recipe.VisibleText = imageTextLines(text, task.ID)
-			recipe.Prompt = imageTextPrompt(resolved.Catalog.ProductContext, task.Brief, recipe)
-			plan.Slots = append(plan.Slots, Slot{ID: task.ID, Role: SlotRoleForImagePurpose(task.Purpose), SourceAssetIDs: append([]string(nil), ids...), Brief: task.Brief, IdempotencyKey: task.ID, Status: SlotStatusPending, Recipe: recipe})
 		}
 	}
 	var err error
@@ -497,7 +529,7 @@ func (s *Service) validateImageSetRegeneration(ctx context.Context, identity Exe
 	if _, err = s.identityForRun(identity, parent.Run); err != nil {
 		return nil, err
 	}
-	if parent.Plan.Set == nil || parent.PendingCommand != nil || parent.Run.BusinessTaskID != input.ContextID || ValidateImageSetAdmission(parent.Run, parent.Plan) != nil {
+	if parent.Plan.Set == nil || parent.Plan.Set.ColorImages != nil || parent.PendingCommand != nil || parent.Run.BusinessTaskID != input.ContextID || ValidateImageSetAdmission(parent.Run, parent.Plan) != nil {
 		return nil, ErrCommandBlocked
 	}
 	if !ImageSetClosedRunStatus(parent.Run.Status) {
