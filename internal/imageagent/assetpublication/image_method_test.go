@@ -15,10 +15,10 @@ type selectionMethodFixture struct {
 	ref  agent.SkillVersionRef
 }
 
-func (m *selectionMethodFixture) AcquireImageMethod(_ context.Context, _ imageagent.ExecutionIdentity, ref agent.SkillVersionRef, _ string) (string, func(), error) {
+func (m *selectionMethodFixture) AcquireImageMethods(_ context.Context, uses []imageagent.ImageMethodUse) (func(), error) {
 	m.held = true
-	m.ref = ref
-	return "bounded method", func() { m.held = false }, nil
+	m.ref = uses[0].Binding.Skill
+	return func() { m.held = false }, nil
 }
 
 func TestCandidateMethodFenceUsesExactLineageAndLeavesReleaseToAssetOwner(t *testing.T) {

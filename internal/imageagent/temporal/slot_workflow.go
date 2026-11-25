@@ -12,6 +12,8 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
+const imageSlotCapacityTimeoutPatch = "image-slot-capacity-timeout-v1"
+
 // ImageSlotWorkflowV3 executes the current organization-scoped V3 protocol.
 func ImageSlotWorkflowV3(ctx workflow.Context, input SlotWorkflowV3Input) (SlotWorkflowV3Result, error) {
 	if err := validateWorkflowScope(ctx, input.Identity, input.RunID); err != nil {
@@ -50,6 +52,19 @@ func ImageSlotWorkflowV3(ctx workflow.Context, input SlotWorkflowV3Input) (SlotW
 
 	}
 	ctx = workflow.WithActivityOptions(ctx, slotWorkflowV3ActivityOptions(startToClose))
+	firstExecution := ctx
+	if input.ImageSet != nil && workflow.GetVersion(ctx, imageSlotCapacityTimeoutPatch, workflow.DefaultVersion, 1) == 1 {
+		deadline := input.LifecycleDeadlineAt
+		if input.BudgetAuthorization && !input.DeadlineAt.IsZero() && (deadline.IsZero() || input.DeadlineAt.Before(deadline)) {
+			deadline = input.DeadlineAt
+		}
+		if !deadline.IsZero() {
+			options := slotWorkflowV3ActivityOptions(startToClose)
+			options.ScheduleToCloseTimeout = addFinalizationGrace(deadline.Sub(workflow.Now(ctx)))
+			options.StartToCloseTimeout = min(options.StartToCloseTimeout, options.ScheduleToCloseTimeout)
+			firstExecution = workflow.WithActivityOptions(ctx, options)
+		}
+	}
 	activityInput := ExecuteSlotV3ActivityInput{
 		ImageSet: imageagent.CloneImageSetPlan(input.ImageSet), Artwork: imageagent.CloneArtworkPlan(input.Artwork),
 		RunID: input.RunID, Identity: input.Identity, PlanRevision: input.PlanRevision,
@@ -62,7 +77,9 @@ func ImageSlotWorkflowV3(ctx workflow.Context, input SlotWorkflowV3Input) (SlotW
 	}
 	var published imageagent.SlotEffectV3PublishedResult
 	for {
-		err := workflow.ExecuteActivity(ctx, activityName, activityInput).Get(ctx, &published)
+		future := workflow.ExecuteActivity(firstExecution, activityName, activityInput)
+		firstExecution = ctx // Original publication recovery retains its own timing.
+		err := future.Get(ctx, &published)
 		if err == nil {
 			break
 		}

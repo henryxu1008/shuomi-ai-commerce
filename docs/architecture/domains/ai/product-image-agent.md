@@ -7,6 +7,8 @@
 > 当前调查基线：main `d95807f13475d27c0b8691f044cca6320a540d06`，2026-10-09。
 > Design Basis: **Independent Architecture**。评审证据与实施状态记在 #612 / 主要 PR #616；后续范围内实现沿本冻结合同推进。
 
+> [#1641 图片 Skill 事务与连接容量设计](#9-图片任务并行时的-skill-使用事务与容量1641) 保留现行停用保证，[独立增量复核](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1646#pullrequestreview-6056890710) 已签发 **IMPLEMENTATION_READY**。
+
 ## 1. 用户结果与当前决定
 
 使用者是当前硕米内部试用企业中的商品运营人员。用户为商品配置整套主图与详情图规则，启动生成，查看逐图结果和整套进度，人工审核并保存可被现有商品详情和供应链消费的正式图片集合。
@@ -282,3 +284,67 @@ Design Basis: Reuse Existing Architecture / Ready。完整 GRSAI 模式只消费
 ### 8.5 刷新后的部分重生成模板读取（Reuse Existing Architecture / Ready）
 
 评审 finding 4235681299 分类 IMPLEMENTATION_TEST，受影响 Must 为刷新后原任务的明确部分重生成。仅补已有只读合同：Run HTTP projection 从其绑定的现配置快照读取精确 TemplateRef，按原企业/actor/member/Run/context/ref 核验；浏览器读取该不可变模板版本，部分重生成使用原任务模板和对应任务 ID、原图配方，不被当前默认模板或模板 head 覆盖。新整套计划仍沿当前显式模板选择。不改变模板事实、准入/启停、Run 状态、生成/计费/UNKNOWN 或恢复；缺少原模板读取则拒绝重生成，原审核仍可用。验证为旧自定义/旧版本与当前默认不一致时的页面 RED→GREEN，以及实际刷新后的单项新计划。
+
+## 9. 图片任务并行时的 Skill 使用事务与容量（#1641）
+
+**Independent Architecture / IMPLEMENTATION_READY。** 运营同时处理多件商品时，报价、确认、生图、配置读取和结果采用应有明确的等待期限。本批唯一方案是缩短纯读取事务、为必要的嵌套连接预留容量，并保留现行 Skill 停用保证。依据为 [#1641](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1641)、本页 §6、§7.2、§7.6、[官方标题与图片方法产品决定](../../../product/final-ui-ia-authority.md#官方标题与图片方法2026-10-18-用户批准)及 [已完成的复现与方向复核](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1646#pullrequestreview-6056394884)。Legacy decision 为 N/A。范围包括商品图组的配置、Skill 使用、现有 ImageAgent worker 装配及原请求的容量反馈。真实供应商、发布、页面改版、通用调度及标题/Chat Skill 语义在范围外。
+
+### 9.1 根因与复现
+
+[PR #1631](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1631) 记录了 5 个活动 Skill/image 操作占满 5 个连接、灰色计划停在派发前。试用将原池上限调到 8。源码基线为 `5edddae5834842e6c6d1aec4e654a2afa1405d93`。当前应用把同一个 `configurationDB` 交给 Skill、配置和 worker 的模式/来源重验。图片 API、worker 的效果库角色、商用结算和 Asset 另有各自的连接池。 [装配](../../../../internal/app/httpapi/image_set_application.go) · [运行入口](../../../operations/product-image-agent.md)
+
+`AcquireUseForTarget` 用一个连接开启事务，对 `organization_agents` 中的图片 Agent 行和 `skill_capability.skills` 中的 Skill 行取得 `FOR SHARE`，并通过该锁保护精确版本读取。生成和图位报价在外围函数退出时才释放。进入 `GenerateQuotedSlot` 后，来源、用量、授权、配置、派发与获取供应商结果可能跨越多个 owner。生成授权复核会进入 `modeBoundImageContexts` 等原消费者。准备和确认也会在外层 Skill 事务持有期间对配置池另开事务。采用路径为不同 Skill ref 逐个借连接，跨来源组合存在单请求耗尽的风险，尚未在本轮执行该路径。 [Skill 准入](../../../../internal/integration/persistence/skill/use.go) · [生成](../../../../internal/imageagent/generation_execution.go) · [图片集消费者](../../../../internal/imageagent/image_set_service.go) · [采用](../../../../internal/imageagent/assetpublication/image_set_candidate.go)
+
+隔离复现使用 PostgreSQL 16.16，应用池 `MaxOpen=2 / MaxIdle=2`，只用于取证的独立会话上限 1。用原 `GenerationExecution`、`skillimage.Context`、PostgreSQL Skill/AgentConfiguration Store 和现有 Run/GenerationFact/Resource 测试夹具。两次场景均由不同 Run 驱动，首个 Run 通过原派发 CAS 进入进程内模拟供应商，第二个 Run 在真实 Skill 准入后的测试注入点调用真实 `ReadAgent`。一个场景卡在 `QuoteSlot → PrepareProvider`，另一个卡在 `GenerateQuotedSlot → RevalidateProvider`。测试以渠道通知派发和进入查询，以 `DB.Stats` 判断等待成立。独立配置读取期限设为 350ms。
+
+| 场景 | 持有和等待 | 取消后 |
+| --- | --- | --- |
+| 慢供应商下 A 生图、B 图位报价 | 2/2 个连接在用，2 个 PG 会话事务内空闲。两个 `FOR UPDATE NOWAIT` 探针分别在 Agent、Skill 行返回 `55P03`。B 和独立查询令 `WaitCount` 增 2，独立读取超时。 | 取消 B 后在用数降为 1，配置读取成功。取消 A 后在用数为 0，A 保留 `UNKNOWN`，相同 attempt 重入后模拟发送计数仍为 A=1、B=0。 |
+| 慢供应商下 A 生图、B 生图复核 | 同上。B 已准备效果和资源预留，卡在测试注入的配置复核，未取得发送许可。 | B 为 `GenerationNoEffect`，预留 `released`。A 为 `UNKNOWN`，归还连接并重入后发送计数仍为 A=1、B=0。 |
+
+测试命令为 `go test ./internal/imageagent/store -run '^TestIssue1641SharedSkillPoolSpike$' -count=1 -v`，两个子用例通过。效果和资源夹具使用临时 SQLite，来源字节、IAM 和供应商为测试替身。配置读取注入到真实方法的回调接缝，未经完整 HTTP 装配、Temporal 或真实供应商网络。这证明真实 Skill 事务占用配置池及两条生图相关消费者的等待条件。整套报价、采用、异步轮询、实际流量容量和修复后的表现尚待执行。临时夹具、命令与日志摘要在 Draft PR 记录，源码不进入仓库。
+
+### 9.2 事务生命周期和原派发许可
+
+**当前停用合同。** [已批准的 #795 图片方法设计 §5 步骤 7–8](https://github.com/henryxu1008/shuomi-ai-commerce/blob/70c0622059966cb1cadc9613dce065f24323fbe4/docs/architecture/official-skills-and-image-method-v1.md#5-合同--实现--注入--消费者)要求新效果在预留和派发前持 Skill 读锁，直到原供应商调用返回（含 UNKNOWN）。新整套确认持锁到配置准入写入和 ImageDB CAS 返回。新采用持锁到原 Asset 提交返回。原准确回执与原效果核实仍可以沿各自权限恢复。[#301 退休后基线](https://github.com/henryxu1008/shuomi-ai-commerce/blob/a4b3dfc9dc78b70bc5a8bee98e79424faa469cdd/docs/architecture/official-skills-and-image-method-v1.md#5-合同--实现--注入--消费者)仍含上述步骤，[文档归并](https://github.com/henryxu1008/shuomi-ai-commerce/commit/0dca66876ac2243b92a95c82663dd75025530cae)保留行为门禁，[#774 关闭核对](https://github.com/henryxu1008/shuomi-ai-commerce/issues/774#issuecomment-6552651245)确认原撤销栅栏保留。本轮未找到更改这两处顺序的后续产品决定。
+
+现代码的新确认 `defer release()` 还覆盖 ImageDB CAS 之后的 `StartManual`，长于步骤 8 写明的范围。本批确认在 CAS 返回后释放，再向 Temporal 发出原启动请求。原 `GenerateQuotedSlot` 持锁跨提交、同步等待或异步轮询及原结果处理，本批保留该释放点。 [新确认](../../../../internal/imageagent/image_set_service.go) · [生成](../../../../internal/imageagent/generation_execution.go)
+
+事实归属沿原 owner。Skill 保存准确不可变版本、归属、摘要、可用状态和使用锁。AgentConfiguration 保存精确快照和一次性整套确认回执。ImageAgent Store 持有原 run/revision/slot/attempt 效果 CAS、供应商任务 ID 和 proof。商用 Resource 保存点数、月限与结算。企业自有渠道沿原用量合同，供应商侧费用继续由原供应商计量。Asset 保有采用事务及原动作回执。应用组装依赖与运行上限。无跨库写入合并、第二许可表或新恢复 owner。
+
+| 消费者 | 事务范围及同时使用的配置连接上限 |
+| --- | --- |
+| 图位 `GenerationExecution.QuoteSlot` | 原 live 身份、企业、成员和来源核对后，短事务只读当前有效的精确 Skill ref/policy、摘要和有界材料。完成校验后显式释放，再构造 provider 报价。只会顺序使用 1 条配置连接。材料留在本次内存，原报价指纹仍绑定准确 ref。 |
+| HTTP `prepare/regenerate → ResolveSelectionForTarget → PrepareImageSet` | HTTP 新选择解析拥有者及短 Skill 事务已在 service 调用前发生。先检查原准备回执。新准备在读取 Skill 前取得 1 个名额。`PrepareImageSet` 读取准确材料后释放再做其余工作。原 `PrepareImageConfiguration` 在快照事务内以可信 principal 再核 ref、摘要、归属和 ENABLED，顺序为原 mode-subject → Agent → Skill。注入 Skill 存储的图片目标事务内检查，沿现有标题事务内检查接缝，图片仍用 ImageTarget。完整准备回执按原键读回。若只有配置快照、尚未写入原图组 Run，继续形成新准备时同事务仍复核精确 ref。缺接线、scope 或版本不符则拒绝。应用内单次最多 1 条配置连接。 |
+| HTTP `confirm → ConfirmImagePlan` | 先按原企业、成员、action、plan、quote、input 检查 ImageDB 既有确认。仍待首次写入 ImageDB 的带 Skill 路径在 `ReadImageRunAdmission` 前一次取得 2 个名额，无 Skill 只计 1 个。准确已有配置回执走原 CAS/启动恢复，无回执才按当前来源、模式、报价和 Skill 进入新确认。保持外层 Skill 锁及 `AdmitImageRun` 的独立配置写事务，直到原 ImageDB CAS 返回。ACK 未明时只读原回执。归还事务与容量后再调用 `StartManual`。 |
+| Worker `ExecuteSlotV3 → GenerateQuotedSlot` | 带 Skill 的图位在核验原效果后、进入可能派发的分支且在任何配置读取或新预算预留前，一次取得 2 个名额。该活动中的短预报价沿同一额度，无 Skill 图位计 1 个。保持原 Skill 事务到整个生成执行返回，覆盖原预留、CAS、供应商返回和 UNKNOWN。第二条用于原 `generationResourceAuthorizer`、派发前授权及异步查询中串行的配置/模式复核，包括 `CheckModeSnapshot` 的原事务。路由/凭据照旧复核。已有 effect 先按原入口核实，重入无法取得新的发送许可。 |
+| 新预览、采用 | HTTP `preview/approve`、worker `PrepareImageSetPolicyAdoption` 的预览，以及 `PublishApprovedImageSet → ImageSetPublisher → ImageSetService.Select` 的人工和策略采用均进入预算。原 Asset 回执先读，纯预览在一次短事务内核对全部准确 ref 后释放。新采用先收集和复核每个不可变 lineage、proof、当前来源、成员和模式，再用一个事务按 Agent → Skill UUID → version 批量核对所有去重 ref，持有到原 Asset commit 返回。单次最多 1 条配置连接，持锁后无逐 ref 新事务。 |
+
+新确认的配置回执必须先于 ImageDB CAS 持久化。用承载 Skill 行锁的事务来提交配置回执会先释放锁。外层锁加原独立配置写入仍需两条连接。现 `AdmitImageRun` 的 mode-subject → Agent `FOR SHARE` 与外层 Agent → Skill `FOR SHARE` 在 PostgreSQL 已有排队停用写者用例。生成同样保留两条预算。`modeBoundImageContexts` 通过 `LoadImageConfiguration → CheckImageExecutionMode → CheckModeSnapshot` 串行借第二条。把 mode-subject 锁直接移入已取得 Agent/Skill 锁的事务会倒置配置侧锁序，本批沿现有调用保留嵌套。采用写入继续核原 expected head、动作和来源。两库 ACK 未明沿原回执核实。 [配置事务](../../../../internal/integration/persistence/agentconfig/image_configuration.go) · [锁序测试](../../../../internal/integration/persistence/agentconfig/image_skill_lock_postgres_test.go) · [模式复核](../../../../internal/app/httpapi/image_agent_execution_mode.go) · [资源授权](../../../../internal/app/worker/imageagent/generation_runtime.go)
+
+**保留原效果和原动作。** 请求等待、取消及重复进入均使用冻结的请求键、action、Run、plan/slot/attempt、provider task ID、资源身份和原绝对 deadline。只有原 GenerationFact CAS 的明确胜者能走原发送；超时或 ACK 丢失沿原 proof 和 UNKNOWN 核实。保留已有点数预留、结算、原供应商计量、确切 Asset 回执和 GET-only 恢复。任何容量拒绝都不能覆盖已存在的 effect 或把 UNKNOWN 写成未发送。 [原 CAS](../../../../internal/imageagent/store/generation_fact.go) · [原供应商任务核实](../../../../internal/imageagent/generation_provider_usage_execution.go)
+
+**本批范围外待决。** 派发 CAS ACK 后但首个 POST 前释放，会允许停用先成功、原胜者随后才首次发送。配置回执提交后但首个 ImageDB CAS 前释放，会允许停用先成功、首次确认随后才写入 ImageDB。两者均继续搁置。企业关闭图片 Agent 时，带 Skill 的图位与采用仍经 `checkUseForTarget` 校验 ENABLED，无 Skill 路径沿原入口。两条路径各自适用的 `CheckImageExecutionMode` 仍检查当前 activation/epoch，这与 §7.2 的整套准入表述需另行核定。本批保留实际分支，与 Skill 停用顺序分别处理。 [Skill 合同 §8](skill-capability.md#8-冻结报价认领及撤销竞态) · [配置模式代码](../../../../internal/integration/persistence/agentconfig/image_mode.go)
+
+### 9.3 活动并发、等待预算和恢复
+
+完整图片 worker 内嵌在每个启用生图的 `current-application` 进程，每个进程创建一个 org worker。当前 `sdkworker.Options{}` 未显式限制该池容量；单 run 默认 4 图位。历史隔离的 pool8 API 启停日志各见一个 organization worker。2026-11-25 18:53（SGT）在同一试用 Temporal `default/image-agent-organization-v1` 的只读 activity queue 查询见 1 个近期 poller。历史所有进程是否一度重叠、其他环境的副本数与物理连接预算均未证实。每进程上限覆盖该进程内多个 run。多进程须把实例数及滚动更新重叠计入，且分别核对每个池和后端物理数据库可用连接，不能用 task queue 每秒速率代替并发。 [运行入口](../../../operations/product-image-agent.md) · [Worker 装配](../../../../internal/imageagent/temporal/worker.go) · [Temporal WorkerOptions v1.43.0](https://pkg.go.dev/go.temporal.io/sdk@v1.43.0/worker)
+
+**装配与入场。** `buildFullImageApplication` 在完整执行分支从 `configurationDB.DB().Stats().MaxOpenConnections` 取实际 `P`。这个 pool 来自 `productAgent.database`，与 ImageDB worker pool 的上限分别读取。每个实际配置 pool 建立一个现有 `x/sync/semaphore.Weighted`，图片操作合计可取 `P−2` 个名额。注入同一个容量检查到 HTTP 新准备入口、`ConfirmImagePlan` 新写入路、HTTP 选择服务入口，以及 `ImageAgentTemporalDependencies → Activities` 的图位、策略预览、采用入口。应用同时把活动上限经 `NewOrganizationImageSetWorker → NewWorker` 传给 SDK。每个外层入口按上表用一次 `TryAcquire(1/2)` 原子取得全部名额，内部调用使用外层额度。worker 的 `RecoverEffectV3` 原任务查询也按最多 1 条进同一门，原 effect 只读回执和无需配置池的结算照原入口。没有名额时不开始配置 SQL、Skill 查找、`BEGIN` 或新效果写入。归还发生在相关 SQL/事务已结束后，错误和取消同样执行归还。 [组装与选择服务](../../../../internal/app/httpapi/image_set_application.go) · [HTTP 入口](../../../../internal/app/httpapi/image_set_module.go) · [策略预览](../../../../internal/app/httpapi/image_set_policy_adoption.go) · [worker 依赖](../../../../internal/app/runtime/image_agent_temporal_runtime.go) · [任务核实活动](../../../../internal/imageagent/temporal/activities_recovery_v3.go)
+
+| 配置池上限 | 图片容量 / SDK `MaxConcurrentActivityExecutionSize` | 可执行的组合 |
+| --- | --- | --- |
+| 5 | 3 / 1 | 一个双连接的新确认可进入。第二个双连接确认在取得第一条连接前收到繁忙反馈。一个带 Skill 的活动可以与一个单连接报价/预览并行。该活动进行期间，需同时占两条的新确认等原操作再次提交。可以有两个 Run，在同一 worker 排队执行图位。 |
+| 8 | 6 / 2 | 两个带 Skill 的活动和一个双连接新确认可以同进，合计占用最多 6。也可调度等额的预览或采用。保留 2 条供配置读取和原核实/收尾。 |
+
+同样的算法给 4 连池保留 2 个图片名额与 1 个活动。池更小时，预算不足的双连接新操作沿原入口返回容量反馈，原只读和核实入口继续。首试限定经过核对的单 worker 进程。多进程或轮换有重叠时须以实际各池与物理 PostgreSQL 预算核算。余量用于阻止本批活动占尽池，普通配置 GET、Skill 候选目录、标题/Chat Skill、POD/其他 Agent 的配置读取和管理操作仍共享余量。目录 `CandidatesForTarget` 串行读取，无外层 Skill 锁。标题 dispatch/adoption 及 Skill 管理持锁入口属于现有其他消费者。本批不修改其停用合同或并发；首试验证记录实际重叠。配置回执、采用和预览的工作流入口均计入图片容量，纯控制与读回沿原路径。 [配置池](../../../operations/product-image-agent.md#配置与启动) · [目录读取](../../../../internal/integration/persistence/skill/directory.go)
+
+**满额与期限。** 新 HTTP 操作容量不足时立即使用已有 503 `IMAGE_UNAVAILABLE` 响应。仅确定在操作入口就拒绝时添加 `Retry-After: 1`，由现 BFF 在已校验的图片错误响应中透传此提示。现图片面板对该明确分支保留原动作与参数，沿“继续原确认/继续原操作”重试。当前通用 `IMAGE_UNAVAILABLE` 会清除新 intent，需为明确的容量反馈补这个有界分支。无需自动发新命令，也无需把明确拒绝表述为结果未知。已读到 ImageDB 准入的确认照原回执核实与原工作流启动。原配置准入刚提交但尚未写入 ImageDB 的同 action 请求，即使满额，也保留原确认编号等待恢复。 [错误映射](../../../../internal/app/httpapi/image_set_module.go) · [BFF 错误响应](../../../../web/listingkit-ui/src/lib/server/workbench-proxy.ts) · [原请求面板](../../../../web/listingkit-ui/src/components/workbench/acquisition/product-image-set-panel.tsx)
+
+SQL 借连接/锁等待的首次试用上限为 1 秒，取阶段上限和调用上下文剩余期限的较小值。对持续持锁的事务，短 checkout context 只用于取得连接，事务用保有原 provider/HTTP deadline 的上下文，行锁语句用同事务 `lock_timeout` 限时。不能用一秒的事务 context，否则会在原供应商调用期间提前回滚。HTTP 保留现 32 秒 BFF 窗口，采用继续用原 30 秒上限。Temporal 以现 task queue 和 SDK activity 上限排队，无本地无限等等。活动被派发时若容量不足，走现有有界 activity retry，沿原 attempt 在任何新预留/CAS 前退回。对新图位 activity 使用到原 `DeadlineAt` 与 `LifecycleDeadlineAt` 较早者的剩余时间，加原 60 秒收尾窗口作为 `ScheduleToCloseTimeout`，按既有 workflow patch/replay 机制保留历史分支。出队、活动重试和原 CAS 前复核同一绝对 deadline，provider、心跳/取消、原结果核实与结算仍沿原限制。仅有原未发送证明时才映射为未发送，队列或重试超时本身不能证明旧 attempt 从未发送。 [Temporal Activity 超时](https://docs.temporal.io/encyclopedia/detecting-activity-failures) · [图位 Activity](../../../../internal/imageagent/temporal/slot_workflow.go) · [原尝试执行](../../../../internal/imageagent/temporal/activities_execution_v3.go)
+
+### 9.4 实施验证与准入
+
+- 复用 §9.1 RED 及既有 Skill 目标/归属、配置写者排队、回执、冻结输入、结算和 Asset lineage 测试。两连接 PostgreSQL 夹具只验证释放短读后同池报价/配置前进、配置快照同事务复核，以及带两条额度的嵌套操作能推进并在满额拒绝时不借第一条。用屏障保持慢操作占住第一条，断言短报价在借唯一剩余连接读取材料后归还，再在同一池完成依赖读取。此夹具用于连接层因果，完整 HTTP 和 worker 使用 5/8 配置验证。
+- 使用现 HTTP、Temporal 和模拟 provider 夹具，把两个 Run 分别置于 5 和 8 连接预算。用屏障核对饱和时查询可读、双连接确认满额反馈及同键重试、8 的实际活动并行、5 的等待状态、多个 Skill ref 采用最多一条配置连接。分别卡住配置回执后的 ImageDB CAS、原供应商返回和 Asset 提交，验证停用等待、取消后归还额度、停用后拒绝新动作。纯准备读后在快照事务前停用或改变 ref，验证拒绝新快照。
+- 用既有并发回执和恢复夹具补缺口：原确认/采用 ACK 丢失、排队跨 deadline、活动满额重试、跨 scope 和取消不会新增 attempt、刷新报价或重发。用原 task 查询、结算和相同 attempt 断言保存的 proof/费用不变。在窗口到期后若已有 effect，验证核实或 UNKNOWN 状态继续由原 owner 处理。真实环境试用与用户验收各沿原授权。独立增量复核和 #1641 正文均已记录实施准入，正式试用仍需最终独立核对。

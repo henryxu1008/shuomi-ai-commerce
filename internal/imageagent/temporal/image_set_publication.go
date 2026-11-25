@@ -43,7 +43,12 @@ func (a *Activities) PublishApprovedImageSet(ctx context.Context, input PublishI
 			return nil
 		}
 	}
-	ctx, err := a.restoreExecutionIdentity(ctx, input.RunID, input.Identity)
+	releaseCapacity, err := a.configurationCapacity.Acquire(ctx, 1)
+	if err != nil {
+		return err
+	}
+	defer releaseCapacity()
+	ctx, err = a.restoreExecutionIdentity(ctx, input.RunID, input.Identity)
 	if err != nil {
 		return err
 	}

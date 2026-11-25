@@ -6,7 +6,9 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 	d "github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	"gorm.io/gorm"
+	"sort"
 	"sync"
+	"time"
 )
 
 func (s *Store) UsesPool(db *gorm.DB) bool {
@@ -22,6 +24,17 @@ func (s *Store) UsesPool(db *gorm.DB) bool {
 // All callers resolve live identity/grants before supplying this trusted principal.
 func (s *Store) CheckUseInTransaction(ctx context.Context, tx *gorm.DB, p d.Principal, ref agent.SkillVersionRef) (d.Package, error) {
 	return s.checkUseForTarget(ctx, tx, p, ref, d.TitleTarget, false)
+}
+
+// CheckImageUseInTransaction joins the configuration owner's snapshot write
+// after the application has resolved the trusted principal.
+func (s *Store) CheckImageUseInTransaction(ctx context.Context, tx *gorm.DB, p d.Principal, ref agent.SkillVersionRef) error {
+	material, err := s.checkUseForTarget(ctx, tx, p, ref, d.ImageTarget, false)
+	if err != nil {
+		return err
+	}
+	_, err = d.ImageVisualBrief(material)
+	return err
 }
 
 func (s *Store) checkUseForTarget(ctx context.Context, tx *gorm.DB, p d.Principal, ref agent.SkillVersionRef, target string, completedReview bool) (d.Package, error) {
@@ -138,7 +151,85 @@ func (s *Store) AcquireAuthoring(ctx context.Context, ref agent.SkillVersionRef)
 }
 
 func (s *Store) AcquireUseForTarget(ctx context.Context, p d.Principal, ref agent.SkillVersionRef, target string) (d.Package, func(), error) {
+	if target == d.ImageTarget {
+		packages, release, err := s.acquireImageUses(ctx, p, []agent.SkillVersionRef{ref})
+		if err != nil {
+			return d.Package{}, nil, err
+		}
+		return packages[0], release, nil
+	}
 	return s.acquireUseForTarget(ctx, p, ref, target, false)
+}
+
+func (s *Store) AcquireImageUses(ctx context.Context, p d.Principal, refs []agent.SkillVersionRef) (func(), error) {
+	if len(refs) == 0 || len(refs) > 40 {
+		return nil, d.ErrInvalid
+	}
+	ordered := append([]agent.SkillVersionRef(nil), refs...)
+	sort.Slice(ordered, func(i, j int) bool {
+		if ordered[i].ID == ordered[j].ID {
+			return ordered[i].Version < ordered[j].Version
+		}
+		return ordered[i].ID < ordered[j].ID
+	})
+	packages, release, err := s.acquireImageUses(ctx, p, ordered)
+	if err != nil {
+		return nil, err
+	}
+	for _, material := range packages {
+		if _, err := d.ImageVisualBrief(material); err != nil {
+			release()
+			return nil, err
+		}
+	}
+	return release, nil
+}
+
+func (s *Store) acquireImageUses(ctx context.Context, p d.Principal, refs []agent.SkillVersionRef) ([]d.Package, func(), error) {
+	pool, err := s.db.DB()
+	if err != nil {
+		return nil, nil, d.ErrUnavailable
+	}
+	wait, cancelWait := context.WithTimeout(ctx, time.Second)
+	conn, err := pool.Conn(wait)
+	cancelWait()
+	if err != nil {
+		return nil, nil, d.ErrUnavailable
+	}
+	bound := s.db.WithContext(ctx)
+	bound.Statement.ConnPool = conn
+	tx := bound.Begin()
+	if tx.Error != nil {
+		_ = conn.Close()
+		return nil, nil, d.ErrUnavailable
+	}
+	closeConnection := sync.OnceFunc(func() {
+		_ = tx.Rollback().Error
+		_ = conn.Close()
+	})
+	stopClose := context.AfterFunc(ctx, closeConnection)
+	release := func() {
+		stopClose()
+		closeConnection()
+	}
+	// Only acquisition is short. Begin uses the operation context so a slow
+	// authorized supplier call cannot expire an otherwise valid fence.
+	lock, cancelLock := context.WithTimeout(ctx, time.Second)
+	defer cancelLock()
+	if err := tx.WithContext(lock).Exec("SET LOCAL lock_timeout = '1s'").Error; err != nil {
+		release()
+		return nil, nil, d.ErrUnavailable
+	}
+	packages := make([]d.Package, 0, len(refs))
+	for _, ref := range refs {
+		material, err := s.checkUseForTarget(lock, tx, p, ref, d.ImageTarget, false)
+		if err != nil {
+			release()
+			return nil, nil, err
+		}
+		packages = append(packages, material)
+	}
+	return packages, release, nil
 }
 
 // AcquireCompletedTitleScriptReview holds the live Skill grant for an already

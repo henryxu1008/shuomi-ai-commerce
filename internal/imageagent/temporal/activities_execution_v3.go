@@ -69,6 +69,20 @@ type slotPublicationRecoveryDetails struct {
 	Fence          int64         `json:"fence"`
 }
 
+func slotProviderAdmissionError(input ExecuteSlotV3ActivityInput, budgeted imageagent.BudgetedStagedSlotExecutor) error {
+	if input.BudgetAuthorization && budgeted == nil {
+		return sdktemporal.NewNonRetryableApplicationError("image agent provider cannot produce a conservative usage quote", imageagent.BudgetQuoteUnavailableCode, imageagent.ErrBudgetQuoteUnavailable)
+	}
+	now := time.Now()
+	if !input.LifecycleDeadlineAt.IsZero() && !now.Before(input.LifecycleDeadlineAt) {
+		return sdktemporal.NewNonRetryableApplicationError("image agent lifecycle deadline elapsed", imageagent.WorkflowLifecycleElapsedCode, imageagent.ErrBudgetExceeded)
+	}
+	if input.BudgetAuthorization && !input.DeadlineAt.IsZero() && !now.Before(input.DeadlineAt) {
+		return sdktemporal.NewNonRetryableApplicationError("image agent budget deadline elapsed", imageagent.BudgetElapsedCode, imageagent.ErrBudgetExceeded)
+	}
+	return nil
+}
+
 func (a *Activities) ExecuteSlotV3(ctx context.Context, input ExecuteSlotV3ActivityInput) (v3Result imageagent.SlotEffectV3PublishedResult, err error) {
 	if a.slotEffectsV3 == nil || a.stagedSlotExecutor == nil || a.artifactStore == nil || a.publicationOwner == nil {
 		return v3Result, fmt.Errorf("image agent v3 activity dependencies are incomplete")
@@ -91,6 +105,9 @@ func (a *Activities) ExecuteSlotV3(ctx context.Context, input ExecuteSlotV3Activ
 	}
 	reservation := slotEffectReservationV3(executionInput)
 	var budgeted imageagent.BudgetedStagedSlotExecutor
+	if input.BudgetAuthorization {
+		budgeted, _ = a.stagedSlotExecutor.(imageagent.BudgetedStagedSlotExecutor)
+	}
 	providerCtx := ctx
 	var cancelProvider context.CancelFunc
 	persisted, getErr := a.slotEffectsV3.GetSlotExternalEffectV3(ctx, reservation.Identity)
@@ -114,21 +131,33 @@ func (a *Activities) ExecuteSlotV3(ctx context.Context, input ExecuteSlotV3Activ
 		}
 	}
 	providerDispatchPossible := !hasPersistedEffect || persisted.Phase == imageagent.SlotEffectV3ProviderNotDispatched || (persisted.Phase == imageagent.SlotEffectV3ProviderClaimed && persisted.BudgetStatus == imageagent.SlotBudgetReleased)
-	if input.BudgetAuthorization && providerDispatchPossible {
-		var ok bool
-		budgeted, ok = a.stagedSlotExecutor.(imageagent.BudgetedStagedSlotExecutor)
-		if !ok {
-			return v3Result, sdktemporal.NewNonRetryableApplicationError("image agent provider cannot produce a conservative usage quote", imageagent.BudgetQuoteUnavailableCode, imageagent.ErrBudgetQuoteUnavailable)
+	if providerDispatchPossible {
+		if err := slotProviderAdmissionError(input, budgeted); err != nil {
+			return v3Result, err
 		}
 	}
-	if providerDispatchPossible && !input.LifecycleDeadlineAt.IsZero() && !time.Now().UTC().Before(input.LifecycleDeadlineAt) {
-		return v3Result, sdktemporal.NewNonRetryableApplicationError("image agent lifecycle deadline elapsed", imageagent.WorkflowLifecycleElapsedCode, imageagent.ErrBudgetExceeded)
+	// A concurrent invocation can close a claimed effect as not sent before
+	// ReserveSlotProviderV3 rechecks it. Reserve capacity for that path too.
+	if providerDispatchPossible || hasPersistedEffect && persisted.Phase == imageagent.SlotEffectV3ProviderClaimed {
+		connections := int64(1)
+		if input.ImageSet != nil && input.ImageSet.Method != nil {
+			connections = 2
+		}
+		releaseCapacity, err := a.configurationCapacity.Acquire(ctx, connections)
+		if err != nil {
+			return v3Result, err
+		}
+		defer releaseCapacity()
 	}
-	if input.BudgetAuthorization && providerDispatchPossible && !input.DeadlineAt.IsZero() && !time.Now().UTC().Before(input.DeadlineAt) {
-		return v3Result, sdktemporal.NewNonRetryableApplicationError("image agent budget deadline elapsed", imageagent.BudgetElapsedCode, imageagent.ErrBudgetExceeded)
+	var deadline time.Time
+	if input.ImageSet != nil {
+		deadline = input.LifecycleDeadlineAt
 	}
-	if input.BudgetAuthorization && providerDispatchPossible && !input.DeadlineAt.IsZero() {
-		providerCtx, cancelProvider = context.WithDeadline(ctx, input.DeadlineAt)
+	if input.BudgetAuthorization && !input.DeadlineAt.IsZero() && (deadline.IsZero() || input.DeadlineAt.Before(deadline)) {
+		deadline = input.DeadlineAt
+	}
+	if !deadline.IsZero() {
+		providerCtx, cancelProvider = context.WithDeadline(ctx, deadline)
 		defer cancelProvider()
 	}
 	if input.BudgetAuthorization && !hasPersistedEffect {
@@ -170,10 +199,16 @@ func (a *Activities) ExecuteSlotV3(ctx context.Context, input ExecuteSlotV3Activ
 	}()
 	if effect.Phase == imageagent.SlotEffectV3ProviderClaimed {
 		if claimed {
+			// Another activity can close a previous claim after our read.
+			// Recheck the original deadline for the actual reserve winner.
+			admissionErr := slotProviderAdmissionError(input, budgeted)
 			var generateErr error
-			if budgeted != nil {
+			switch {
+			case admissionErr != nil:
+				generateErr = &imageagent.ProviderDispatchError{State: imageagent.ProviderRejectedBeforeEffect, Err: admissionErr}
+			case budgeted != nil:
 				generated, generateErr = budgeted.GenerateQuotedSlot(providerCtx, executionInput, reservation.Quote)
-			} else {
+			default:
 				generated, generateErr = a.stagedSlotExecutor.GenerateSlot(ctx, executionInput)
 			}
 			if generateErr != nil {
@@ -183,6 +218,9 @@ func (a *Activities) ExecuteSlotV3(ctx context.Context, input ExecuteSlotV3Activ
 					defer cancelFinalization()
 					if _, recordErr := a.slotEffectsV3.RecordSlotProviderNotDispatchedV3(finalizationCtx, reservation); recordErr != nil {
 						return v3Result, fmt.Errorf("record provider rejection before dispatch: %w", persistedSlotEffectV3RepositoryError(recordErr))
+					}
+					if admissionErr != nil {
+						return v3Result, admissionErr
 					}
 					if errors.Is(generateErr, storagecapacity.ErrExceeded) {
 						return v3Result, sdktemporal.NewNonRetryableApplicationError("enterprise storage capacity is exhausted", imageagent.StorageLimitExceededCode, generateErr)

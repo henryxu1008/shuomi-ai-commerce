@@ -352,10 +352,11 @@ func validateRecoverEffectProjection(command imageagent.RecoverEffectCommand) (i
 }
 
 type WorkerConfig struct {
-	Client     sdkclient.Client
-	Activities *Activities
-	WireMode   WorkerWireMode
-	TaskQueue  string
+	MaxConcurrentActivities int
+	Client                  sdkclient.Client
+	Activities              *Activities
+	WireMode                WorkerWireMode
+	TaskQueue               string
 }
 
 func NewWorker(config WorkerConfig) (sdkworker.Worker, error) {
@@ -372,7 +373,7 @@ func NewWorker(config WorkerConfig) (sdkworker.Worker, error) {
 	if config.Activities.recoveryWorkflowStarter == nil {
 		config.Activities.recoveryWorkflowStarter = newRecoveryWorkflowStarter(config.Client, queue)
 	}
-	worker := sdkworker.New(config.Client, queue, sdkworker.Options{})
+	worker := sdkworker.New(config.Client, queue, sdkworker.Options{MaxConcurrentActivityExecutionSize: config.MaxConcurrentActivities})
 	if err := RegisterWorkerForMode(worker, config.Activities, config.WireMode); err != nil {
 		return nil, err
 	}

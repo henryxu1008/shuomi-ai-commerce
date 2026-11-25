@@ -88,12 +88,13 @@ type ImageGenerationOptionsReader interface {
 }
 
 type ImageSetDependencies struct {
-	ConfirmedCopy ImageTextReviewReader
-	Configuration agentconfig.ImageConfigurationRepository
-	Contexts      ImageSetContextReader
-	Quotes        ImageSetQuoteReader
-	HardLimits    agentconfig.ImageRunLimits
-	Now           func() time.Time
+	ConfigurationCapacity ImageConfigurationCapacity
+	ConfirmedCopy         ImageTextReviewReader
+	Configuration         agentconfig.ImageConfigurationRepository
+	Contexts              ImageSetContextReader
+	Quotes                ImageSetQuoteReader
+	HardLimits            agentconfig.ImageRunLimits
+	Now                   func() time.Time
 }
 
 func WithImageSetDependencies(d ImageSetDependencies) ServiceOption {
@@ -273,7 +274,7 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 		if err != nil {
 			return PreparedImageSet{}, err
 		}
-		defer release()
+		release()
 		methodText = text
 	}
 	if resolved.Source.ContextKind != input.ContextKind || resolved.Source.OperationID != input.ContextID || resolved.Source.CatalogHash != resolved.Catalog.Manifest.Hash || resolved.Target.Platform != input.Target.Platform || resolved.Target.StoreID != input.Target.StoreID || resolved.Target.Site != input.Target.Site || resolved.Target.CategoryID != input.Target.CategoryID || resolved.Target.RecordID != input.Target.RecordID {
@@ -327,7 +328,9 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 		ordered = append(ordered, ref)
 	}
 	sourceDigest := ImageSourceObservationsDigest(resolved.Source, ordered)
-	snapshot, err := s.imageSets.Configuration.PrepareImageConfiguration(ctx, agentconfig.ImageStartCommand{ExpectedModeRevision: input.ExpectedModeRevision, Scope: agent.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}, MemberID: identity.MemberID, RequestKey: input.RequestID, ContextID: input.ContextID, RunID: runID, TargetPlatform: input.Target.Platform, SourceDigest: sourceDigest, InputDigest: inputDigest, Template: input.Template, HardLimits: s.imageSets.HardLimits})
+	configCtx, cancelConfig := context.WithTimeout(ctx, time.Second)
+	snapshot, err := s.imageSets.Configuration.PrepareImageConfiguration(configCtx, agentconfig.ImageStartCommand{ExpectedModeRevision: input.ExpectedModeRevision, Scope: agent.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}, MemberID: identity.MemberID, RequestKey: input.RequestID, ContextID: input.ContextID, RunID: runID, TargetPlatform: input.Target.Platform, SourceDigest: sourceDigest, InputDigest: inputDigest, Template: input.Template, HardLimits: s.imageSets.HardLimits, ImageSkillRef: input.Method})
+	cancelConfig()
 	if err != nil {
 		return PreparedImageSet{}, err
 	}
@@ -613,7 +616,23 @@ func (s *Service) ConfirmImagePlan(ctx context.Context, input ConfirmImagePlanIn
 	}
 	limits := imageSetLimits(current.Plan, int64(current.Run.Budget.MaxElapsed/time.Second))
 	command := agentconfig.ImageRunAdmissionCommand{Scope: agent.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}, Snapshot: current.Plan.Set.Configuration, MemberID: identity.MemberID, RunID: input.RunID, ConfirmActionID: input.ActionID, SourceDigest: ImageSetSourceDigest(current.Plan.Set.Source, current.Plan), InputDigest: current.Plan.Set.InputDigest, PlanDigest: input.PlanDigest, QuoteDigest: input.QuoteDigest, Limits: limits}
-	receipt, err := s.imageSets.Configuration.ReadImageRunAdmission(ctx, command.Scope, command.Snapshot)
+	connections := int64(1)
+	if current.Plan.Set.Method != nil {
+		connections = 2
+	}
+	releaseCapacity, err := s.imageSets.ConfigurationCapacity.Acquire(ctx, connections)
+	if err != nil {
+		return current, err
+	}
+	defer releaseCapacity()
+	releaseMethod := func() {}
+	defer func() { releaseMethod() }()
+	readAdmission := func() (agentconfig.ImageRunAdmissionReceipt, error) {
+		readCtx, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+		return s.imageSets.Configuration.ReadImageRunAdmission(readCtx, command.Scope, command.Snapshot)
+	}
+	receipt, err := readAdmission()
 	if errors.Is(err, agentconfig.ErrNotFound) {
 		// Source access gates NEW admission. Restoring an original receipt must
 		// reach its workflow so dispatch checks can close revoked sources.
@@ -632,7 +651,7 @@ func (s *Service) ConfirmImagePlan(ctx context.Context, input ConfirmImagePlanIn
 		if methodErr != nil {
 			return RunProjection{}, methodErr
 		}
-		defer release()
+		releaseMethod = release
 		// Only a new admission consumes the current quote. A durable original
 		// receipt remains authoritative after ImageDB persistence/ACK loss.
 		quote, err := s.imageSets.Quotes.ReadImageGenerationQuote(ctx, identity, current.Plan.Set.Route)
@@ -644,10 +663,12 @@ func (s *Service) ConfirmImagePlan(ctx context.Context, input ConfirmImagePlanIn
 				return RunProjection{}, ErrRevisionConflict
 			}
 		}
-		receipt, err = s.imageSets.Configuration.AdmitImageRun(ctx, command, s.imageSets.HardLimits)
+		configCtx, cancelConfig := context.WithTimeout(ctx, time.Second)
+		receipt, err = s.imageSets.Configuration.AdmitImageRun(configCtx, command, s.imageSets.HardLimits)
+		cancelConfig()
 		if err != nil {
 			originalErr := err
-			receipt, err = s.imageSets.Configuration.ReadImageRunAdmission(ctx, command.Scope, command.Snapshot)
+			receipt, err = readAdmission()
 			if err != nil {
 				return current, originalErr
 			}
@@ -665,6 +686,9 @@ func (s *Service) ConfirmImagePlan(ctx context.Context, input ConfirmImagePlanIn
 		return current, err
 	}
 	confirmed, err := s.repository.CommitProjection(ctx, ProjectionCommit{Scope: scope, CommitID: "confirm:" + input.ActionID, ExpectedProjectionVersion: current.ProjectionVersion, ExpectedRunVersion: current.Run.Version, Snapshot: next, RunMutation: &RunMutation{ImageAdmission: &receipt, Status: next.Run.Status, CurrentNode: next.Run.CurrentNode, ActivePlanRevision: input.ExpectedRevision}, EventType: "run.confirmed", EventPayload: json.RawMessage(`{}`)})
+	releaseMethod()
+	releaseMethod = func() {}
+	releaseCapacity()
 	if err != nil {
 		return current, err
 	}
