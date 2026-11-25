@@ -2,6 +2,7 @@ package listinghttp
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -9,7 +10,7 @@ import (
 	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
-	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 const GoogleListingPath = ListingBasePath + "/google"
@@ -49,16 +50,10 @@ func GoogleRoutes(service *listingapp.GooglePublication, bind func(context.Conte
 					var key string
 					key, err = listingBodyLimit(c.Request, &input, true, 32768)
 					if err == nil {
-						var plan submission.GooglePlan
-						plan, err = service.Prepare(ctx, key, input)
+						plan, prepareErr := service.Prepare(ctx, key, input)
+						err = prepareErr
 						if err == nil {
-							result = struct {
-								submission.GooglePlan
-								AccountID       string `json:"accountId"`
-								DataSourceID    string `json:"dataSourceId"`
-								ContentLanguage string `json:"contentLanguage"`
-								FeedLabel       string `json:"feedLabel"`
-							}{plan, plan.Target.AccountID, plan.Target.DataSourceID, plan.Target.ContentLanguage, plan.Target.FeedLabel}
+							result = listingapp.ViewGooglePlan(plan)
 						}
 					}
 				case "/confirm", "/result":
@@ -74,7 +69,16 @@ func GoogleRoutes(service *listingapp.GooglePublication, bind func(context.Conte
 					}
 				}
 				if err != nil {
-					listingError(c, err)
+					switch {
+					case errors.Is(err, storecenter.ErrGoogleReauthorization):
+						c.JSON(http.StatusConflict, gin.H{"code": "STORE_AUTHORIZATION_REJECTED"})
+					case errors.Is(err, storecenter.ErrNotFound):
+						listingError(c, preparation.ErrForbidden)
+					case errors.Is(err, storecenter.ErrVersionConflict):
+						listingError(c, preparation.ErrConflict)
+					default:
+						listingError(c, err)
+					}
 					return
 				}
 				c.JSON(http.StatusOK, result)
