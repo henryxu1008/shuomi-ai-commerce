@@ -106,7 +106,7 @@ func TestGoogleStoreRuntimeRequiresNarrowGrants(t *testing.T) {
 	require.ErrorContains(t, storecenter.VerifyRuntimePermissionsForCapabilities(ctx, db, googleEnabled), "Google Merchant required Store grants unavailable")
 
 	require.NoError(t, db.Exec("RESET ROLE").Error)
-	require.NoError(t, db.Exec("GRANT SELECT, INSERT, UPDATE ON workbench_store_google_oauth_attempts, workbench_store_google_oauth_grants TO store_center_runtime").Error)
+	require.NoError(t, db.Exec("GRANT SELECT, INSERT, UPDATE ON workbench_store_google_oauth_attempts, workbench_store_google_oauth_grants, workbench_store_google_oauth_refresh TO store_center_runtime").Error)
 	require.NoError(t, db.Exec("SET ROLE store_center_runtime").Error)
 	require.NoError(t, storecenter.VerifyRuntimePermissionsForCapabilities(ctx, db, googleEnabled))
 	require.NoError(t, storecenter.VerifyRuntimePermissions(ctx, db))
@@ -139,4 +139,27 @@ func TestGoogleStoreSchemaPreservesIsolatedAmazonAuthorization(t *testing.T) {
 	require.Error(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, storecenter.RuntimeCapabilities{
 		GoogleMerchant: true,
 	}), "an isolated Amazon schema still requires explicit admission")
+}
+
+func TestGoogleStoreSchemaInstallsRenewalOverFirstRelease(t *testing.T) {
+	ctx := context.Background()
+	db := newTikTokStoreDatabase(t)
+	pool, err := db.DB()
+	require.NoError(t, err)
+	tx, err := pool.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	require.NoError(t, storecenter.InstallGoogleMerchantSchemaTx(ctx, tx))
+	require.NoError(t, tx.Commit())
+	// Simulate a correctly installed Google schema before renewal was admitted.
+	require.NoError(t, db.Exec("DROP TABLE workbench_store_google_oauth_refresh").Error)
+	enabled := storecenter.RuntimeCapabilities{GoogleMerchant: true, TikTokShop: true, WalmartUS: true}
+	require.ErrorContains(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, enabled), "renewal schema unavailable")
+	tx, err = pool.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	require.NoError(t, storecenter.InstallGoogleMerchantSchemaTx(ctx, tx))
+	require.NoError(t, storecenter.InstallGoogleMerchantSchemaTx(ctx, tx))
+	require.NoError(t, tx.Commit())
+	require.NoError(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, enabled))
+	require.NoError(t, db.Exec("ALTER TABLE workbench_store_google_oauth_refresh DROP CONSTRAINT google_refresh_phase").Error)
+	require.ErrorContains(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, enabled), "renewal schema unavailable")
 }

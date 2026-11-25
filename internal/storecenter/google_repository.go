@@ -185,6 +185,11 @@ func (r *MemberScopedStoreRepository) BindGoogleConnection(ctx context.Context, 
 			if update.RowsAffected != 1 {
 				return ErrVersionConflict
 			}
+			if err := tx.Model(&googleRefreshRow{}).Where("organization_id = ? AND store_id = ?", grant.OrganizationID, grant.StoreID).
+				Updates(map[string]any{"generation": grant.Generation, "revision": 1, "phase": GoogleRefreshIdle,
+					"claim_id": nil, "deadline": nil}).Error; err != nil {
+				return err
+			}
 		}
 		return updateGoogleAttempt(tx, current, "bound", "", "", now)
 	})
@@ -205,16 +210,33 @@ func (r *MemberScopedStoreRepository) ReadGoogleGrant(ctx context.Context, org, 
 		if err != nil {
 			return err
 		}
-		if publish {
-			now := time.Now()
-			if grant.Revoked || grant.AttemptID != store.ConnectionRef || store.RecordStatus != string(RecordStatusActive) ||
-				store.ServiceStatus == nil || *store.ServiceStatus != string(ServiceStatusActive) ||
-				store.ServiceStartedAt == nil || store.ServiceExpiresAt == nil || now.Before(*store.ServiceStartedAt) || !now.Before(*store.ServiceExpiresAt) {
-				return ErrOfficialConnectionUnavailable
-			}
-		}
 		if grant.AttemptID != store.ConnectionRef {
 			grant.Revoked = true
+		}
+		if grant.Revoked {
+			if publish {
+				return ErrGoogleReauthorization
+			}
+			return nil
+		}
+		refresh, _, err := googleRefreshMetadata(tx, grant)
+		if err != nil {
+			return err
+		}
+		grant.RefreshUnavailable = refresh.Phase == GoogleRefreshReauthorize
+		if publish || refresh.Phase == GoogleRefreshPossible {
+			now, err := googleDatabaseTime(tx)
+			if err != nil {
+				return err
+			}
+			if publish && (store.RecordStatus != string(RecordStatusActive) ||
+				store.ServiceStatus == nil || *store.ServiceStatus != string(ServiceStatusActive) ||
+				store.ServiceStartedAt == nil || store.ServiceExpiresAt == nil || now.Before(*store.ServiceStartedAt) || !now.Before(*store.ServiceExpiresAt)) {
+				return ErrOfficialConnectionUnavailable
+			}
+			if refresh.Phase == GoogleRefreshPossible {
+				grant.RefreshUnavailable = !now.Before(*refresh.Deadline)
+			}
 		}
 		return nil
 	})

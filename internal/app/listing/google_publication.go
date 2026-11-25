@@ -21,8 +21,10 @@ import (
 
 type GooglePublicationStore interface {
 	PublicationBinding(context.Context, string, string) (storeapp.GooglePublicationBinding, error)
-	Publish(context.Context, string, string, storeapp.GooglePublicationBinding, market.Offer, func(context.Context) error) (market.Receipt, error)
-	ReadProduct(context.Context, string, string, string) (market.Observation, error)
+	AcquirePublicationCredential(context.Context, string, string, storeapp.GooglePublicationBinding, func(context.Context) error) (storeapp.GoogleCredentialRef, error)
+	CheckPublicationCredential(context.Context, string, string, storeapp.GooglePublicationBinding, storeapp.GoogleCredentialRef, func(context.Context) error) error
+	Publish(context.Context, string, string, storeapp.GooglePublicationBinding, storeapp.GoogleCredentialRef, market.Offer, func(context.Context) error, func(context.Context) error) (market.Receipt, error)
+	ReadProduct(context.Context, string, string, market.Target, string, storeapp.GoogleCredentialRef, func(context.Context) error) (market.Observation, error)
 }
 
 type GooglePublicationKernel interface {
@@ -60,8 +62,23 @@ type GooglePrepareInput struct {
 }
 
 type GooglePublicationResult struct {
-	ID    string             `json:"id"`
-	Items []GoogleItemResult `json:"items"`
+	ID                  string             `json:"id"`
+	Items               []GoogleItemResult `json:"items"`
+	PendingPlan         *GooglePlanView    `json:"pendingPlan,omitempty"`
+	ConfirmationBlocked string             `json:"confirmationBlocked,omitempty"`
+	LookupStatus        string             `json:"lookupStatus,omitempty"`
+}
+
+type GooglePlanView struct {
+	submission.GooglePlan
+	AccountID       string `json:"accountId"`
+	DataSourceID    string `json:"dataSourceId"`
+	ContentLanguage string `json:"contentLanguage"`
+	FeedLabel       string `json:"feedLabel"`
+}
+
+func ViewGooglePlan(plan submission.GooglePlan) GooglePlanView {
+	return GooglePlanView{plan, plan.Target.AccountID, plan.Target.DataSourceID, plan.Target.ContentLanguage, plan.Target.FeedLabel}
 }
 
 type GoogleItemResult struct {
@@ -80,17 +97,9 @@ func (s *GooglePublication) source(ctx context.Context, id string, write, requir
 	if !s.available() || !collection.ValidID(id) {
 		return collection.Scope{}, catalog.PublishedSnapshot{}, asset.ApprovedAssetInventory{}, preparation.ErrInvalid
 	}
-	required := []string{preparation.PermissionRead}
-	if write {
-		required = append(required, preparation.PermissionManage, preparation.PermissionSubmit)
-	}
-	var scope collection.Scope
-	for _, permission := range required {
-		current, err := s.Authorization.Authorize(ctx, permission)
-		if err != nil || current.Validate() != nil || scope.OrganizationID != "" && current != scope {
-			return scope, catalog.PublishedSnapshot{}, asset.ApprovedAssetInventory{}, preparation.ErrForbidden
-		}
-		scope = current
+	scope, err := s.authorize(ctx, write)
+	if err != nil {
+		return scope, catalog.PublishedSnapshot{}, asset.ApprovedAssetInventory{}, err
 	}
 	selected, err := s.Sources.Select(ctx, id)
 	if err != nil {
@@ -105,6 +114,32 @@ func (s *GooglePublication) source(ctx context.Context, id string, write, requir
 	}
 	inventory, err := s.approvedAssets(ctx, scope, product)
 	return scope, product, inventory, err
+}
+
+func (s *GooglePublication) authorize(ctx context.Context, write bool) (collection.Scope, error) {
+	required := []string{preparation.PermissionRead}
+	if write {
+		required = append(required, preparation.PermissionManage, preparation.PermissionSubmit)
+	}
+	var scope collection.Scope
+	for _, permission := range required {
+		current, err := s.Authorization.Authorize(ctx, permission)
+		if err != nil || current.Validate() != nil || scope.OrganizationID != "" && current != scope {
+			return scope, preparation.ErrForbidden
+		}
+		scope = current
+	}
+	return scope, nil
+}
+
+func (s *GooglePublication) recheck(plan submission.GooglePlan, write bool) func(context.Context) error {
+	return func(ctx context.Context) error {
+		scope, err := s.authorize(ctx, write)
+		if err != nil || scope != plan.Owner {
+			return preparation.ErrForbidden
+		}
+		return nil
+	}
 }
 
 func (s *GooglePublication) approvedAssets(ctx context.Context, scope collection.Scope, product catalog.PublishedSnapshot) (asset.ApprovedAssetInventory, error) {
@@ -262,27 +297,63 @@ func googlePlanMatchesSource(plan submission.GooglePlan, product catalog.Publish
 }
 
 func (s *GooglePublication) Confirm(ctx context.Context, sourceID, id string) (GooglePublicationResult, error) {
-	plan, err := s.load(ctx, sourceID, id, true)
+	plan, err := s.load(ctx, sourceID, id, false)
 	if err != nil {
 		return GooglePublicationResult{}, err
 	}
-	current, err := s.Stores.PublicationBinding(ctx, plan.Owner.OrganizationID, plan.StoreID)
-	if err != nil {
+	authorize := s.recheck(plan, true)
+	if err := authorize(ctx); err != nil {
 		return GooglePublicationResult{}, err
 	}
-	if current.Target != plan.Target || current.Generation != plan.Generation {
-		return GooglePublicationResult{}, record.ErrConflict
-	}
+	binding := storeapp.GooglePublicationBinding{Target: plan.Target, Generation: plan.Generation}
 	result := GooglePublicationResult{ID: id, Items: make([]GoogleItemResult, 0, len(plan.Offers))}
+	var ref storeapp.GoogleCredentialRef
+	var checkedSource, acquired, hasPending bool
 	for _, offer := range plan.Offers {
-		if err := ctx.Err(); err != nil {
-			return result, err
-		}
-		item, err := s.send(ctx, plan, current, offer)
+		item, exists, err := s.readGoogleItem(ctx, plan, offer)
 		if err != nil {
 			return result, err
 		}
+		if !exists && result.ConfirmationBlocked == "" {
+			if !checkedSource {
+				if _, err := s.load(ctx, sourceID, id, true); err != nil {
+					return result, err
+				}
+				checkedSource = true
+			}
+			var credentialErr error
+			if acquired {
+				credentialErr = s.Stores.CheckPublicationCredential(ctx, plan.Owner.OrganizationID, plan.StoreID, binding, ref, authorize)
+			} else {
+				ref, credentialErr = s.Stores.AcquirePublicationCredential(ctx, plan.Owner.OrganizationID, plan.StoreID, binding, authorize)
+				acquired = credentialErr == nil
+			}
+			switch {
+			case credentialErr == nil:
+				item, err = s.send(ctx, plan, binding, ref, offer, authorize)
+				exists = true
+			case errors.Is(credentialErr, storecenter.ErrGoogleRefreshUnavailable), errors.Is(credentialErr, storecenter.ErrGoogleReauthorization):
+				result.ConfirmationBlocked = "retry"
+				if errors.Is(credentialErr, storecenter.ErrGoogleReauthorization) {
+					result.ConfirmationBlocked = "reauthorize"
+				}
+				// A concurrent confirmation may already own this offer.
+				item, exists, err = s.readGoogleItem(ctx, plan, offer)
+			default:
+				return result, credentialErr
+			}
+			if err != nil {
+				return result, err
+			}
+		}
+		hasPending = hasPending || !exists
 		result.Items = append(result.Items, item)
+	}
+	if !hasPending {
+		result.ConfirmationBlocked = ""
+	} else if result.ConfirmationBlocked == "retry" {
+		view := ViewGooglePlan(plan)
+		result.PendingPlan = &view
 	}
 	return result, nil
 }
@@ -291,7 +362,9 @@ func googleIntent(plan submission.GooglePlan, offer market.Offer) string {
 	return collection.StableID(plan.Owner.OrganizationID, "google-product-insert", plan.ID, offer.ID)
 }
 
-func (s *GooglePublication) send(ctx context.Context, plan submission.GooglePlan, binding storeapp.GooglePublicationBinding, offer market.Offer) (GoogleItemResult, error) {
+func (s *GooglePublication) send(ctx context.Context, plan submission.GooglePlan, binding storeapp.GooglePublicationBinding, ref storeapp.GoogleCredentialRef,
+	offer market.Offer, authorize func(context.Context) error,
+) (GoogleItemResult, error) {
 	scope := submission.ExecutionScope{OrganizationID: plan.Owner.OrganizationID}
 	key := googleIntent(plan, offer)
 	payload, err := json.Marshal([]any{plan.Version, plan.ProductHash, plan.InventoryHash, binding, offer})
@@ -310,7 +383,7 @@ func (s *GooglePublication) send(ctx context.Context, plan submission.GooglePlan
 		return googleResult(offer.ID, a.Attempt), nil
 	}
 	var permit *submission.SendPermit
-	remote, sendErr := s.Stores.Publish(ctx, scope.OrganizationID, plan.StoreID, binding, offer, func(sendCtx context.Context) error {
+	remote, sendErr := s.Stores.Publish(ctx, scope.OrganizationID, plan.StoreID, binding, ref, offer, authorize, func(sendCtx context.Context) error {
 		current, product, inventory, err := s.source(sendCtx, plan.SourceID, true, true)
 		if err != nil {
 			return err
@@ -371,34 +444,80 @@ func googleResult(offer string, attempt submission.ExecutionAttempt) GoogleItemR
 	return result
 }
 
+func (s *GooglePublication) readGoogleItem(ctx context.Context, plan submission.GooglePlan, offer market.Offer) (GoogleItemResult, bool, error) {
+	scope := submission.ExecutionScope{OrganizationID: plan.Owner.OrganizationID}
+	attempt, err := s.Kernel.ReadIntent(ctx, scope, googleIntent(plan, offer))
+	if errors.Is(err, submission.ErrExecutionNotFound) {
+		return GoogleItemResult{OfferID: offer.ID, Status: submission.ExecutionNotSent}, false, nil
+	}
+	if err != nil {
+		return GoogleItemResult{}, false, err
+	}
+	if attempt.Status == submission.ExecutionClaimed && !time.Now().Before(attempt.LeaseExpiresAt) {
+		if expired, err := s.Kernel.Expire(ctx, scope, attempt.AttemptID); err == nil {
+			attempt = expired
+		}
+	}
+	return googleResult(offer.ID, attempt), true, nil
+}
+
 func (s *GooglePublication) Result(ctx context.Context, sourceID, id string) (GooglePublicationResult, error) {
 	plan, err := s.load(ctx, sourceID, id, false)
 	if err != nil {
 		return GooglePublicationResult{}, err
 	}
 	result := GooglePublicationResult{ID: id, Items: make([]GoogleItemResult, 0, len(plan.Offers))}
-	scope := submission.ExecutionScope{OrganizationID: plan.Owner.OrganizationID}
+	authorize := s.recheck(plan, false)
+	var ref storeapp.GoogleCredentialRef
+	var acquisitionTried, acquired, hasPending bool
 	for _, offer := range plan.Offers {
-		attempt, err := s.Kernel.ReadIntent(ctx, scope, googleIntent(plan, offer))
-		if errors.Is(err, submission.ErrExecutionNotFound) {
-			result.Items = append(result.Items, GoogleItemResult{OfferID: offer.ID, Status: submission.ExecutionNotSent})
-			continue
-		}
+		item, exists, err := s.readGoogleItem(ctx, plan, offer)
 		if err != nil {
 			return result, err
 		}
-		item := googleResult(offer.ID, attempt)
-		if item.Status == submission.ExecutionClaimed && !time.Now().Before(attempt.LeaseExpiresAt) {
-			if expired, err := s.Kernel.Expire(ctx, scope, attempt.AttemptID); err == nil {
-				item = googleResult(offer.ID, expired)
-			}
-		}
+		hasPending = hasPending || !exists
 		if item.Status == submission.ExecutionSucceeded || item.Status == submission.ExecutionOutcomeUnknown {
-			if observation, err := s.Stores.ReadProduct(ctx, plan.Owner.OrganizationID, plan.StoreID, offer.ID); err == nil {
-				item.Observation = &observation
+			if !acquisitionTried {
+				acquisitionTried = true
+				ref, err = s.Stores.AcquirePublicationCredential(ctx, plan.Owner.OrganizationID, plan.StoreID,
+					storeapp.GooglePublicationBinding{Target: plan.Target}, authorize)
+				acquired = err == nil
+				if err != nil {
+					result.LookupStatus = googleLookupStatus(err)
+				}
+			}
+			if acquired {
+				observation, err := s.Stores.ReadProduct(ctx, plan.Owner.OrganizationID, plan.StoreID, plan.Target, offer.ID, ref, authorize)
+				if err == nil {
+					item.Observation = &observation
+				} else if !errors.Is(err, market.ErrNotObserved) {
+					result.LookupStatus = googleLookupStatus(err)
+				}
 			}
 		}
 		result.Items = append(result.Items, item)
 	}
+	if hasPending {
+		if _, err := s.load(ctx, sourceID, id, true); err == nil {
+			binding, err := s.Stores.PublicationBinding(ctx, plan.Owner.OrganizationID, plan.StoreID)
+			if err == nil && binding.Generation == plan.Generation && binding.Target == plan.Target {
+				view := ViewGooglePlan(plan)
+				result.PendingPlan = &view
+			} else if errors.Is(err, storecenter.ErrGoogleReauthorization) {
+				result.ConfirmationBlocked = "reauthorize"
+			}
+		}
+	}
+	// A fresh Listing read is required if access was lost during the lookup.
+	if err := authorize(ctx); err != nil {
+		return GooglePublicationResult{}, err
+	}
 	return result, nil
+}
+
+func googleLookupStatus(err error) string {
+	if errors.Is(err, storecenter.ErrGoogleReauthorization) {
+		return "reauthorize"
+	}
+	return "unavailable"
 }

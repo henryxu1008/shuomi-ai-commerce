@@ -30,6 +30,7 @@ type GoogleGrant struct {
 	KeyID                                                      string
 	Ciphertext                                                 string `json:"-"`
 	Revoked                                                    bool
+	RefreshUnavailable                                         bool `gorm:"-" json:"-"`
 	AccessExpiresAt, CreatedAt, UpdatedAt                      time.Time
 }
 

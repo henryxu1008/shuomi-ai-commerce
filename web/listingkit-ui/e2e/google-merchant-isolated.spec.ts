@@ -77,7 +77,19 @@ test("authorizes Google, uploads a product and finds the saved submission", asyn
   await expect(preview.getByText("123", { exact: true })).toBeVisible();
   await expect(preview.getByText("456", { exact: true })).toBeVisible();
   await expect(preview.getByText("en / US", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "确认上传到 Google" }).click();
+  const confirmation = page.getByRole("button", { name: "确认上传到 Google" });
+  const refusal = page.waitForResponse(response => response.url().endsWith("/google/confirm"));
+  await confirmation.click();
+  const blocked = await (await refusal).json();
+  expect(blocked.confirmationBlocked).toBe("retry");
+  await expect(page.getByRole("alert").filter({ hasText: "暂时无法连接 Google" })).toBeVisible();
+  await expect(preview.getByText("456", { exact: true })).toBeVisible();
+  // The isolated OAuth fixture returned a one-second Retry-After.
+  await new Promise(resolve => setTimeout(resolve, 1100));
+  const accepted = page.waitForResponse(response => response.url().endsWith("/google/confirm"));
+  await confirmation.click();
+  const saved = await (await accepted).json();
+  expect(saved.id).toBe(blocked.id);
   await expect(page.getByText("Google 已收到商品")).toBeVisible();
 
   await page.goto(productPath);
