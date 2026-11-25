@@ -115,12 +115,21 @@ func TestIsolatedShopifyMediaServingPoolHandoff(t *testing.T) {
 	require.NoError(t, err)
 
 	plan := fixtureMediaPlan("serving-handoff")
+	stop, err := shopifyguard.NewIsolatedMediaFreeze(ctx, serving, isolation, plan.Owner.OrganizationID, plan.ShopKey, plan.Generation)
+	require.NoError(t, err)
+	_, err = shopifyguard.NewIsolatedMediaFreeze(ctx, admin, isolation, plan.Owner.OrganizationID, plan.ShopKey, plan.Generation)
+	require.Error(t, err)
+	require.Error(t, stop(ctx, plan.Owner.OrganizationID, plan.ShopKey, plan.Generation+1))
 	shop := fixtureMediaProvider(plan)
+	readFreeze := func() shopifyguard.Command {
+		var commandID string
+		require.NoError(t, serving.Raw("SELECT id FROM public.listing_shopify_frozen_generations WHERE organization_id=?", plan.Owner.OrganizationID).Row().Scan(&commandID))
+		return shopifyguard.Command{ID: commandID, Organization: plan.Owner.OrganizationID, ShopKey: plan.ShopKey,
+			Generation: plan.Generation, Sources: []string{plan.SourceKey}}
+	}
 	shop.onAppend = func() {
-		freeze, err := shopifyguard.SealIsolated(ctx, serving, shopifyguard.Command{ID: uuid.NewString(),
-			Organization: plan.Owner.OrganizationID, ShopKey: plan.ShopKey, Generation: plan.Generation})
-		require.NoError(t, err)
-		drained, err := shopifyguard.DrainReadyIsolated(ctx, serving, isolation, freeze)
+		require.NoError(t, stop(ctx, plan.Owner.OrganizationID, plan.ShopKey, plan.Generation))
+		drained, err := shopifyguard.DrainReadyIsolated(ctx, serving, isolation, readFreeze())
 		require.NoError(t, err)
 		require.False(t, drained)
 	}
@@ -129,12 +138,15 @@ func TestIsolatedShopifyMediaServingPoolHandoff(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, 1, shop.count(submission.ShopifyMediaAppend))
 	require.Zero(t, shop.count(submission.ShopifyMediaAssociate))
-	var commandID string
-	require.NoError(t, serving.Raw("SELECT id FROM public.listing_shopify_frozen_generations WHERE organization_id=?", plan.Owner.OrganizationID).Row().Scan(&commandID))
-	drained, err := shopifyguard.DrainReadyIsolated(ctx, serving, isolation, shopifyguard.Command{ID: commandID,
-		Organization: plan.Owner.OrganizationID, ShopKey: plan.ShopKey, Generation: plan.Generation, Sources: []string{plan.SourceKey}})
+	first := readFreeze()
+	require.NoError(t, stop(ctx, plan.Owner.OrganizationID, plan.ShopKey, plan.Generation))
+	require.Equal(t, first, readFreeze(), "a retry cannot invent a new freeze command")
+	drained, err := shopifyguard.DrainReadyIsolated(ctx, serving, isolation, first)
 	require.NoError(t, err)
 	require.True(t, drained)
+	_, err = service.Confirm(ctx, plan)
+	require.ErrorIs(t, err, shopifyguard.ErrFrozen)
+	require.Zero(t, shop.count(submission.ShopifyMediaAssociate))
 }
 
 func TestIsolatedShopifyMediaSync(t *testing.T) {

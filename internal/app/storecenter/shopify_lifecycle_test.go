@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -87,4 +88,64 @@ func TestShopifyLifecycleSignedNoticeSuspendsNewServiceChargesBeforeProviderChec
 	require.Equal(t, storecenter.ConnectionStatusDisconnected, before())
 	require.NoError(t, connections.ReconcileShopifyLifecycle(ctx))
 	require.Equal(t, 2, calls, "terminal receipt is not redispatched")
+}
+
+func TestShopifyTrialNoticeKeepsOriginalInstallationPausedUntilProductFreeze(t *testing.T) {
+	f := newServiceChargeFixtureForPlatform(t, storecenter.PlatformShopify)
+	ctx := context.Background()
+	const secret = "dedicated-trial-shopify-secret"
+	oauth, err := wire.NewOAuthClient(nil, "fixture-client", secret, "https://fixture.invalid/callback")
+	require.NoError(t, err)
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	issuer, err := wire.NewAppTokenIssuer(nil, "fixture-client", "fixture-key", key)
+	require.NoError(t, err)
+	protection, err := wire.NewPairingProtection("fixture-key", []byte(strings.Repeat("k", 32)))
+	require.NoError(t, err)
+	config := ShopifyApplication{AppID: f.shopify.AppID, InstallURL: "https://apps.shopify.com/fixture",
+		OAuth: oauth, Admin: wire.NewDevelopmentAdminClient(nil), Issuer: issuer, Protection: protection, LifecycleNotifications: true}
+	var calls int
+	var freezeErr = errors.New("isolated Product database not available")
+	freeze := func(_ context.Context, organization, shopKey string, generation int64) error {
+		calls++
+		require.Equal(t, f.shopify.OrganizationID, organization)
+		require.Equal(t, f.shopify.ShopKey, shopKey)
+		require.Equal(t, f.shopify.Generation, generation)
+		return freezeErr
+	}
+	connections, err := NewShopifyTrialConnections(f.repo, config, f.shopify, freeze)
+	require.NoError(t, err)
+	send := func(c *ShopifyConnections, id, signingKey, body string) error {
+		raw := []byte(body)
+		mac := hmac.New(sha256.New, []byte(signingKey))
+		mac.Write(raw)
+		return c.ReceiveShopifyLifecycle(ctx, wire.TopicAppUninstalled, id, base64.StdEncoding.EncodeToString(mac.Sum(nil)), raw)
+	}
+	const body = `{"id":19}`
+	require.ErrorIs(t, send(connections, "fixture-event", "old-app-secret", body), storecenter.ErrOfficialAuthorizationRejected)
+	require.ErrorIs(t, send(connections, "fixture-event", secret, `{"id":20}`), storecenter.ErrNotFound)
+	different := f.shopify
+	different.InstallationID = "gid://shopify/AppInstallation/28"
+	wrong, err := NewShopifyTrialConnections(f.repo, config, different, freeze)
+	require.NoError(t, err)
+	require.ErrorIs(t, send(wrong, "fixture-event", secret, body), storecenter.ErrNotFound)
+	require.Zero(t, calls)
+
+	require.ErrorIs(t, send(connections, "fixture-event", secret, body), storecenter.ErrOfficialConnectionUnavailable)
+	require.Equal(t, 1, calls)
+	checkPaused := func() {
+		status, err := connections.Status(f.member, f.shopify.OrganizationID, f.shopify.StoreID)
+		require.NoError(t, err)
+		require.Equal(t, storecenter.ConnectionStatusUnavailable, status)
+	}
+	checkPaused()
+	require.NoError(t, connections.ReconcileShopifyLifecycle(ctx))
+	checkPaused()
+	freezeErr = nil
+	require.NoError(t, send(connections, "fixture-event", secret, body))
+	require.NoError(t, send(connections, "fixture-event", secret, body))
+	checkPaused()
+	require.Equal(t, 3, calls)
+	require.ErrorIs(t, send(connections, "fixture-event", secret, `{"id":19,"name":"different"}`), storecenter.ErrVersionConflict)
+	require.Equal(t, 3, calls, "a conflicting Store retry cannot touch Product")
 }

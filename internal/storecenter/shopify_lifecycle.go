@@ -88,6 +88,19 @@ func (r *MemberScopedStoreRepository) ReadShopifyLifecycleRevision(ctx context.C
 }
 
 func (r *MemberScopedStoreRepository) ReceiveShopifyLifecycle(ctx context.Context, notice ShopifyLifecycleNotice, received time.Time) error {
+	return r.receiveShopifyLifecycle(ctx, notice, received, nil)
+}
+
+// ReceivePairedShopifyTrialLifecycle records a notice only for the pinned
+// paired installation. It must also accept the exact pending receipt on retry.
+func (r *MemberScopedStoreRepository) ReceivePairedShopifyTrialLifecycle(ctx context.Context, notice ShopifyLifecycleNotice, received time.Time, expected ShopifyBinding) error {
+	if !expected.ShopifyInstallation.valid() || expected.AppID != notice.AppID || expected.ShopID != notice.ShopID {
+		return ErrNotFound
+	}
+	return r.receiveShopifyLifecycle(ctx, notice, received, &expected)
+}
+
+func (r *MemberScopedStoreRepository) receiveShopifyLifecycle(ctx context.Context, notice ShopifyLifecycleNotice, received time.Time, expected *ShopifyBinding) error {
 	if !r.shopifyLifecycle || !shopifyNoticeID.MatchString(notice.EventID) || !shopifyDigest.MatchString(notice.BodyHash) ||
 		(notice.Topic != "app/uninstalled" && notice.Topic != "app/scopes_update") || received.IsZero() {
 		return ErrNotFound
@@ -96,10 +109,16 @@ func (r *MemberScopedStoreRepository) ReceiveShopifyLifecycle(ctx context.Contex
 		if err := lockShopifyLifecycle(tx, notice.AppID, notice.ShopID); err != nil {
 			return err
 		}
+		if expected != nil {
+			if err := checkPairedTrialLifecycleBinding(tx, *expected); err != nil {
+				return err
+			}
+		}
 		var prior shopifyLifecycleReceipt
 		err := tx.Where("app_id=? AND shop_id=? AND topic=? AND event_id=?", notice.AppID, notice.ShopID, notice.Topic, notice.EventID).Take(&prior).Error
 		if err == nil {
-			if prior.BodyHash != notice.BodyHash {
+			if prior.BodyHash != notice.BodyHash || expected != nil &&
+				(prior.OrganizationID != expected.OrganizationID || prior.ShopKey != expected.ShopKey || prior.Generation != expected.Generation || prior.Status != "pending") {
 				return ErrVersionConflict
 			}
 			return nil
@@ -125,6 +144,29 @@ func (r *MemberScopedStoreRepository) ReceiveShopifyLifecycle(ctx context.Contex
 		}
 		return nil
 	})
+}
+
+func checkPairedTrialLifecycleBinding(tx *gorm.DB, expected ShopifyBinding) error {
+	shop, err := findShopifyShop(tx, expected.AppID, expected.ShopID)
+	if err != nil {
+		return err
+	}
+	if shop.OrganizationID != expected.OrganizationID || shop.StoreID != expected.StoreID ||
+		shop.ShopKey != expected.ShopKey || shop.ShopKey == "" || shop.Generation != expected.Generation {
+		return ErrNotFound
+	}
+	var auth shopifyAuthorizationRow
+	err = tx.Where("organization_id=? AND shop_key=? AND generation=?", shop.OrganizationID, shop.ShopKey, shop.Generation).Take(&auth).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return ErrOfficialConnectionUnavailable
+	}
+	if auth.InstallationID != expected.InstallationID || auth.Domain != expected.Domain || auth.Currency != expected.Currency {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r *MemberScopedStoreRepository) ClaimShopifyLifecycle(ctx context.Context, app string, now time.Time) (*ShopifyLifecycleCheck, error) {
