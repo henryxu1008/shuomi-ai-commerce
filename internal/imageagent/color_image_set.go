@@ -6,9 +6,32 @@ import (
 	"strings"
 )
 
+// MaxImageColorOptions is the workbench image-sources response limit.
+const MaxImageColorOptions = 30
+
 type ImageColorOption struct {
 	Name   string            `json:"name"`
 	Groups []ImageColorGroup `json:"groups"`
+}
+
+// Valid reports whether the option can be offered by the image-set workflow.
+// A group may be shown before it has an eligible reference image.
+func (o ImageColorOption) Valid() bool {
+	if !canonicalImageValue(o.Name) || len(o.Groups) < 2 || len(o.Groups) > 3 {
+		return false
+	}
+	for _, group := range o.Groups {
+		if !validImageColor(group.Value) {
+			return false
+		}
+	}
+	return true
+}
+
+func validImageColor(value string) bool {
+	// A generated color becomes an approved asset's presentation color, which
+	// cannot contain the multiline characters allowed in template text.
+	return canonicalImageValue(value) && !strings.Contains(value, "://") && !strings.ContainsAny(value, "\n\t")
 }
 
 type ImageColorGroup struct {
@@ -42,7 +65,7 @@ func (s ColorImageSelection) Valid() bool {
 	}
 	colors, originals := make(map[string]bool), make(map[string]bool)
 	for _, group := range s.Groups {
-		if !canonicalImageValue(group.Color) || strings.Contains(group.Color, "://") ||
+		if !validImageColor(group.Color) ||
 			!canonicalImageValue(group.OriginalID) || colors[group.Color] || originals[group.OriginalID] {
 			return false
 		}
