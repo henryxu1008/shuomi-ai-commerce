@@ -16,12 +16,12 @@ import (
 	"unicode/utf8"
 
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
-	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 )
 
 const (
 	ProductImageModel          = "gpt-image-2.6"
-	ProductImageBaseURL        = aicapability.GRSaiProductImageBaseURL
+	ProductImageBaseURL        = "https://grsaiapi.com"
+	ProductImageChinaBaseURL   = "https://grsai.dakka.com.cn"
 	ProductImageMaxSourceBytes = 3 << 20
 
 	maxProductImageReplyBytes = 1 << 20
@@ -124,7 +124,7 @@ func (c *Client) ReadProductImageResult(ctx context.Context, taskID string) (Pro
 }
 
 func (c *Client) productImageConfigured() bool {
-	return c != nil && aicapability.GRSaiProductImageRegion(c.cfg.SubmitURL) != "" && c.cfg.Model == ProductImageModel && strings.TrimSpace(c.cfg.APIKey) != ""
+	return c != nil && (c.cfg.SubmitURL == ProductImageBaseURL || c.cfg.SubmitURL == ProductImageChinaBaseURL) && c.cfg.Model == ProductImageModel && strings.TrimSpace(c.cfg.APIKey) != ""
 }
 
 func (c *Client) readProductImageResponse(ctx context.Context, method, endpoint string, body io.Reader) (submitResponse, error) {

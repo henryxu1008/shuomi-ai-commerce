@@ -17,7 +17,7 @@ type productImageTransport func(*http.Request) (*http.Response, error)
 func (f productImageTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func TestProductImageAsyncUsesOriginalTaskAndExactReference(t *testing.T) {
-	for _, origin := range []string{ProductImageBaseURL, "https://grsai.dakka.com.cn"} {
+	for _, origin := range []string{ProductImageBaseURL, ProductImageChinaBaseURL} {
 		t.Run(origin, func(t *testing.T) { testProductImageAsyncUsesOriginalTaskAndExactReference(t, origin) })
 	}
 }
