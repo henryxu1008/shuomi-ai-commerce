@@ -127,7 +127,9 @@ bundle 是有界文件列表，不接 zip/tar 解压；拒绝重复/大小写冲
 
 ## 8. 冻结、报价、认领及撤销竞态
 
-> 商品图组使用准确版本的 [#1641 事务范围与容量候选](product-image-agent.md#9-图片任务并行时的-skill-使用事务与容量1641) 待独立复核，实施准入为 **NOT_READY**。
+> [#1641 商品图组的 Skill 事务与容量设计](product-image-agent.md#9-图片任务并行时的-skill-使用事务与容量1641) 本批保留现行停用保证，实施准入为 **NOT_READY**，待独立增量复核。
+
+仅图片消费使用以下约定。纯图位报价和准备短读准确版本与材料后释放。新配置快照由配置 owner 在原提交事务内，以已复核的 principal 和同一精确 ref 进入 Skill 存储的图片目标检查。维持 PLATFORM/当前 ORGANIZATION、共享与 ENABLED、图片 Agent 当前准入、版本/摘要及图片目标等既有检查。Skill 新采用批量校验全部准确引用，在同一事务中按 Agent → Skill UUID → version 持锁到原 Asset commit。新确认仍持锁到原配置回执和 ImageDB CAS 返回，新生成仍持锁到原执行返回（含供应商返回与 UNKNOWN）。已有效果、确认及采用回执沿原权限按原身份读回。新操作按图片配置池容量先取得完整名额，再借连接。图片设计具体定义调用点、两连接使用方与 5/8 连接预算。提前释放派发或首次确认的持锁两项继续作为本批范围外待决。
 
 客户端 start 只提交 `{skillId, version, digest}`；由服务端读取资源判定 publisher/owner/操作兼容，不能上传正文代替版本。新增可比较 `agent.SkillVersionRef` 包含 kind、ID、owner kind/id、宿主 version、package digest、skill policy version；Request/ModelInput 使用零值 omitzero。只允许准确 registered content Agent + title-only 字段；其他消费者和无支持 reader 的选中请求拒绝。
 
