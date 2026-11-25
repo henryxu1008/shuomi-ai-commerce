@@ -238,6 +238,38 @@ func TestArtworkAdmissionBlocksNewPaidWorkButPreservesOriginalRecovery(t *testin
 }
 
 type artworkReadinessPublisher struct{ imageagent.ArtworkPublisher }
+type ownedImageReadinessQuote struct{}
+
+func (ownedImageReadinessQuote) ReadImageGenerationQuote(context.Context, imageagent.ExecutionIdentity, *imageagent.ImageRouteSelection) (imageagent.ImageGenerationQuote, error) {
+	return imageagent.ImageGenerationQuote{}, imageagent.ErrBudgetQuoteUnavailable
+}
+
+func (ownedImageReadinessQuote) ReadImageGenerationOptions(context.Context, imageagent.ExecutionIdentity) ([]imageagent.ImageGenerationOption, error) {
+	return []imageagent.ImageGenerationOption{{
+		UnitVersion: agentconfig.ProviderImageUsageUnit,
+		Route:       &imageagent.ImageRouteSelection{BindingID: "owned-binding", RevisionID: "owned-revision"},
+		Model:       "gpt-image-2.6",
+	}}, nil
+}
+
+func TestOwnedProductImageChannelWorksWithoutDefaultModel(t *testing.T) {
+	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{
+		TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member",
+	})
+	authorize := func(context.Context, ...string) (agent.Scope, error) {
+		return agent.Scope{OrganizationID: "org", ActorID: "actor"}, nil
+	}
+	runtime := &fullImageApplication{
+		artwork: artworkReadinessPublisher{},
+		quotes:  ownedImageReadinessQuote{},
+		gate:    imageagent.TenantAllowlistStartGate{Enabled: true, AllowedTenantIDs: []string{"org"}},
+	}
+	product := configuredImageAgentCapabilities(ctx, agentconfig.ImageAgentID, authorize, runtime)
+	require.Equal(t, "AVAILABLE", product[0].Readiness)
+	artwork := configuredImageAgentCapabilities(ctx, agentconfig.ArtworkAgentID, authorize, runtime)
+	require.Equal(t, "NEEDS_CONFIGURATION", artwork[0].Readiness)
+}
+
 type artworkReadinessQuote struct{ calls int }
 
 func (q *artworkReadinessQuote) ReadImageGenerationQuote(ctx context.Context, identity imageagent.ExecutionIdentity, route *imageagent.ImageRouteSelection) (imageagent.ImageGenerationQuote, error) {
