@@ -363,6 +363,12 @@ runPlan:
 				wait.AddFuture(timer, func(workflow.Future) {})
 			}
 			wait.Select(ctx)
+			if projection.PendingCommand != nil && projection.PendingCommand.Phase == imageagent.ColorImageReworkApprovalNotSaved {
+				if err := workflow.Await(ctx, func() bool { return workflow.AllHandlersFinished(ctx) }); err != nil {
+					return WorkflowResult{}, err
+				}
+				return projection, nil
+			}
 			if lifecycleElapsed() {
 				return persistLifecycleDeadlineBlock(result)
 			}
@@ -1200,6 +1206,19 @@ func (s *workflowUpdateState) applyApproveResults(ctx workflow.Context, signal r
 				return CommandAcknowledgement{}, imageagent.ErrCommandBlocked
 			}
 			if err := s.effects.publishImageSet(ctx, PublishImageSetActivityInput{RunID: s.input.RunID, Identity: s.input.Identity, PlanRevision: s.input.Plan.Revision, ResultDigest: signal.ResultDigest, Selection: *imageagent.CloneImageSetCommand(signal.Selection)}); err != nil {
+				var outcome *sdktemporal.ApplicationError
+				if s.input.Plan.Set.ColorImageRework() != nil && errors.As(err, &outcome) && outcome.Type() == imageagent.ColorImageReworkApprovalNotSaved {
+					record.phase = imageagent.ColorImageReworkApprovalNotSaved
+					record.failureCode = "inventory_head_changed"
+					record.failureCategory = "publication"
+					record.failureMessage = "商品素材已更新，本次图片未保存"
+					if persistErr := s.persistActionReceipt(ctx, signal.ActionID, record, "command:"+signal.ActionID+":not_saved"); persistErr != nil {
+						record.phase = updatePhaseApprovalPublishStarted
+						return CommandAcknowledgement{}, persistErr
+					}
+					s.projection.PendingCommand = s.pendingReceipt(signal.ActionID, record)
+					return CommandAcknowledgement{RunID: signal.RunID, PlanRevision: signal.PlanRevision, ActionID: signal.ActionID, Status: imageagent.RunStatusAwaitingFinalApproval}, nil
+				}
 				return CommandAcknowledgement{}, err
 			}
 		} else {
@@ -1697,6 +1716,12 @@ func (s *workflowUpdateState) pendingReceipt(actionID string, record *workflowUp
 	if command, ok := resultAdoptionCommand(record.command); ok && command.Selection != nil {
 		receipt.SelectionDigest = command.Selection.SelectionDigest
 		receipt.ResultDigest = command.ResultDigest
+		if s.input.Plan.Set.ColorImageRework() != nil {
+			receipt.RequestDigest = productasset.ImageSetRequestDigest(*command.Selection)
+		}
+	}
+	if record.phase == imageagent.ColorImageReworkApprovalNotSaved {
+		receipt.Status = "failed"
 	}
 	if command, ok := resultAdoptionCommand(record.command); ok && s.input.Plan.Artwork != nil {
 		receipt.ResultDigest = command.ResultDigest

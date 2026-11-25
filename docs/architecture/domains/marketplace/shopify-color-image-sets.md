@@ -21,7 +21,7 @@
 
 ## #1642 分色图组单张返工设计候选
 
-**Independent Architecture · NOT_READY。** 依据 [#137 图片业务决定](https://github.com/henryxu1008/shuomi-ai-commerce/issues/137)、[#1642 当前范围](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1642)与[用户确认的单图构图要求](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1642#issuecomment-7163836222)。此节供独立架构复核。上文是 #1637 已交付的整组规则，继续约束初次生成与整组采用。此候选只为明确选中的一个分色图位提出有界返工规则。
+**Independent Architecture · IMPLEMENTATION_READY。** 依据 [#137 图片业务决定](https://github.com/henryxu1008/shuomi-ai-commerce/issues/137)、[#1642 当前范围](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1642) 与 [用户确认的单图构图要求](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1642#issuecomment-7163836222)。固定设计已经独立复核。上文是 #1637 已交付的整组规则，继续约束初次生成与整组采用。此候选只为明确选中的一个分色图位提出有界返工规则。
 
 ### 用户结果与范围
 
@@ -41,7 +41,7 @@
 | [普通重新生成准入](../../../../internal/imageagent/image_set_service.go#L531)、[分色槽位校验](../../../../internal/imageagent/color_image_set.go#L112)和[工作台](../../../../web/listingkit-ui/src/components/workbench/acquisition/product-image-set-panel.tsx#L300) | 普通返工验证父运行已收束且任务 ID 存在，但显式拒绝含 `ColorImages` 的父计划。分色槽位 ID 由模板任务 ID 和颜色派生。完整分色计划要求所有颜色有同一布局，普通 UI 使用未派生的模板任务 ID。 | 通过父计划里的稳定分色槽位选择一项。完整组和返工子计划分别验证。 |
 | [分色采用校验](../../../../internal/imageagent/image_set_selection.go#L97)、[候选谱系](../../../../internal/imageagent/assetpublication/image_set_candidate.go#L163)和[素材选择](../../../../internal/product/asset/image_set_service.go) | 当前分色采用只接受此运行的全套生成候选。普通候选读取能沿已记录的 regeneration 父链核验。Asset 已支持从批准回执选用正式素材，保存新的完整集合。 | 只准一个当前返工候选进入指定位置，其余位置严格引用基线回执的正式图片。 |
 | [企业 GRSai 合同](../ai/enterprise-grsai-product-image.md)、[#1628 恢复验收](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1628)和[#1631 隔离记录](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1631) | 原 effect 可按已持久的供应商任务号核实或继续取回。#1637 实测恢复无追加生成。#1631 有三项尚无原任务号的请求待核实。 | 子计划沿同一恢复入口；待核实的返工不会通过父图组的新请求绕过。 |
-| [#1641 组合核对](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1642#issuecomment-7163309460)与[实际 main CI](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/45617745393) | #1641 已合入实际 main，主线必需 CI 通过。Skill 准入和同池容量约束覆盖准备、确认、派发及采用。 | 确认唯一键继续使用原 ImageDB CAS。构图要求进入原配方和原回执摘要，复用合入版 Skill 与事务边界。 |
+| [#1641 组合核对](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1642#issuecomment-7163309460) 与 [实际 main CI](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/45617745393) | #1641 已合入实际 main，主线必需 CI 通过。Skill 准入和同池容量约束覆盖准备、确认、派发及采用。 | 确认唯一键继续使用原 ImageDB CAS。构图要求进入原配方和原回执摘要，复用合入版 Skill 与事务边界。 |
 
 ### 生成计划、身份与报价
 
@@ -116,4 +116,4 @@
 
 可复用现有服务层已知终态子集返工和自有分色计划测试，按现有三色计划模型构造合成的 12 图及原采用回执。Provider POST 数量、实际入参与恢复沿现有模拟执行夹具；并发采用沿现有 PostgreSQL head CAS 夹具、原保存 ACK 沿 Temporal 测试；工作台沿现有分色报价、冻结模板和原请求恢复用例扩展。改变的业务行为先验证目标测试失败，再完成局部实现及必要合成回归。 [准备与返工 fixture](../../../../internal/imageagent/image_set_service_test.go#L265) · [分色计划 fixture](../../../../internal/imageagent/image_set_service_test.go#L700) · [模拟派发与丢 ACK](../../../../internal/imageagent/store/generation_execution_test.go#L309) · [PostgreSQL 并发采用](../../../../internal/integration/persistence/product/asset/image_set_postgres_test.go#L18) · [Temporal 原采用恢复](../../../../internal/imageagent/temporal/image_set_selection_test.go#L79) · [工作台分色报价和原图](../../../../web/listingkit-ui/src/components/workbench/acquisition/product-image-set-panel.test.tsx#L175) · [#1641 容量夹具](../../../../internal/app/imageagent/configuration_capacity_test.go#L11)
 
-主线已同步 #1641 的实际合入提交及通过的必需 CI。原 ImageDB 唯一键和 Asset 回执已由独立增量复核覆盖。构图要求采纳后的组合以本设计提交交协调方复核，功能验收、隔离合成验证和真实实测均为 NOT_RUN。正式开工以协调方完成增量复核并更新 [#1642](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1642) 正文为 `IMPLEMENTATION_READY` 为准。 [先前架构复核](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1649#pullrequestreview-6057938332) · [#1641 实际组合核对](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1642#issuecomment-7163309460)
+主线已同步 #1641 的实际合入提交及通过的必需 CI。原 ImageDB 唯一键和 Asset 回执已由独立增量复核覆盖。构图要求增量已按固定设计完成独立复核，[#1642](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1642) 正文明示准入。实际实现与验证证据见 [PR #1649](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1649)。 [准入复核](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1649#pullrequestreview-6058545495) · [先前架构复核](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1649#pullrequestreview-6057938332) · [#1641 实际组合核对](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1642#issuecomment-7163309460)

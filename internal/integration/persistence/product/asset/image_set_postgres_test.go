@@ -50,6 +50,9 @@ func TestPostgresImageSetConcurrentSaveHasOneHeadWinner(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			head := productasset.ImageInventoryHead{}
+			scope := productasset.InventoryScope{TenantID: "org-source", ProductKey: "product-source", TargetPlatform: "product", SourceSnapshotVersion: 1}
+			var baselineSource productasset.SourceSelectionRequest
+			outcomes := writers[0].(productasset.ColorReworkSaveReader)
 			if !initial {
 				first := setCommit("first", head)
 				_, err = writers[0].CommitApproval(ctx, first)
@@ -57,6 +60,16 @@ func TestPostgresImageSetConcurrentSaveHasOneHeadWinner(t *testing.T) {
 				hash, err := approvalPayloadHash(first)
 				require.NoError(t, err)
 				head = productasset.ImageInventoryHead{ActionID: first.ActionID, PayloadHash: hash}
+				baselineSource = first.ImageSet.Source
+				inFlight := pools[1].Begin()
+				require.NoError(t, inFlight.Error)
+				require.NoError(t, inFlight.Create(&ApprovalReceiptRecord{
+					TenantID: scope.TenantID, ActionID: "save-a", PayloadHash: hash, AssetIDsJSON: []byte("[]"),
+				}).Error)
+				notSaved, err := outcomes.ColorReworkSaveNotCommitted(ctx, scope, baselineSource, "save-a", head)
+				require.NoError(t, inFlight.Rollback().Error)
+				require.NoError(t, err)
+				require.False(t, notSaved, "an in-flight approval with an unchanged head remains unresolved")
 			}
 			start := make(chan struct{})
 			done := make(chan error, 2)
@@ -78,13 +91,30 @@ func TestPostgresImageSetConcurrentSaveHasOneHeadWinner(t *testing.T) {
 			}
 			require.Equal(t, 1, wins)
 			require.Equal(t, 1, conflicts)
-			inventory, err := writers[0].(productasset.ImageSetInventoryReader).ReadImageSetInventory(ctx, productasset.InventoryScope{TenantID: "org-source", ProductKey: "product-source", TargetPlatform: "product", SourceSnapshotVersion: 1})
+			inventory, err := writers[0].(productasset.ImageSetInventoryReader).ReadImageSetInventory(ctx, scope)
 			require.NoError(t, err)
 			require.Len(t, inventory.Assets, 2)
 			require.Contains(t, []string{"save-a", "save-b"}, inventory.Head.ActionID)
 			var receipts int64
 			require.NoError(t, pools[0].Model(&ApprovalReceiptRecord{}).Where("action_id IN ?", []string{"save-a", "save-b"}).Count(&receipts).Error)
 			require.EqualValues(t, 1, receipts)
+			if !initial {
+				loser := "save-a"
+				if inventory.Head.ActionID == loser {
+					loser = "save-b"
+				}
+				notSaved, err := outcomes.ColorReworkSaveNotCommitted(ctx, scope, baselineSource, loser, head)
+				require.NoError(t, err)
+				require.True(t, notSaved)
+				_, err = writers[0].CommitApproval(ctx, setCommit("later", inventory.Head))
+				require.NoError(t, err)
+				notSaved, err = outcomes.ColorReworkSaveNotCommitted(ctx, scope, baselineSource, inventory.Head.ActionID, head)
+				require.NoError(t, err)
+				require.False(t, notSaved, "the original successful action cannot become a rejection when the head moves again")
+				commit, err := writers[0].(productasset.ApprovalCommitReader).ReadApprovalCommit(ctx, scope.TenantID, inventory.Head.ActionID)
+				require.NoError(t, err)
+				require.Equal(t, inventory.Assets, commit.Assets)
+			}
 		})
 	}
 }

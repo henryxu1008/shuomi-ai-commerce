@@ -17,6 +17,7 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,6 +37,9 @@ func (c *setConfigurationFixture) PrepareImageConfiguration(_ context.Context, i
 	}
 	c.snapshot = agentconfig.ImageConfigurationSnapshot{ID: "91d39d8d-3819-4a7c-ae7f-04ce91951f9a", Digest: strings.Repeat("a", 64), Scope: input.Scope, MemberID: input.MemberID, RequestKey: input.RequestKey, ContextID: input.ContextID, RunID: input.RunID, TargetPlatform: input.TargetPlatform, SourceDigest: input.SourceDigest, InputDigest: input.InputDigest, Parameters: c.template, ParametersDigest: strings.Repeat("b", 64), Epoch: "1", AgentVersion: agentconfig.ImageAgentVersion, HardLimits: input.HardLimits}
 	c.snapshot.ExpectedModeRevision = input.ExpectedModeRevision
+	if input.Template != nil {
+		c.snapshot.Template = *input.Template
+	}
 	c.snapshot.ModeSnapshotRef = agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: input.RequestKey, Digest: strings.Repeat("c", 64)}
 	return c.snapshot, nil
 }
@@ -93,8 +97,26 @@ func (c *setContextFixture) ReadConfirmedImageText(context.Context, imageagent.E
 	return *c.copy, nil
 }
 
-func (c *setContextFixture) ResolveImageSet(context.Context, imageagent.ExecutionIdentity, imageagent.PrepareImageSetInput) (imageagent.ImageSetPreparation, error) {
-	return c.preparation, nil
+func (c *setContextFixture) ResolveImageSet(_ context.Context, _ imageagent.ExecutionIdentity, input imageagent.PrepareImageSetInput) (imageagent.ImageSetPreparation, error) {
+	result := c.preparation
+	if input.ColorRework == nil {
+		return result, nil
+	}
+	original := input.SharedOriginalIDs[0]
+	result.Catalog.Assets, result.Observations = nil, nil
+	for _, asset := range c.preparation.Catalog.Assets {
+		if asset.ID == original {
+			result.Catalog.Assets = append(result.Catalog.Assets, asset)
+		}
+	}
+	for _, ref := range c.preparation.Observations {
+		if ref.AssetID == original {
+			result.Observations = append(result.Observations, ref)
+		}
+	}
+	catalog, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{ProductContext: result.Catalog.ProductContext, Assets: result.Catalog.Assets})
+	result.Catalog, result.Source.CatalogHash = catalog, catalog.Manifest.Hash
+	return result, err
 }
 func (c *setContextFixture) RevalidateImageSet(context.Context, imageagent.ExecutionIdentity, imageagent.RunProjection) error {
 	return c.revalidationErr
@@ -705,6 +727,36 @@ func TestOwnedColorImageSetUsesSelectedTemplateTasks(t *testing.T) {
 	assertOwnedColorImageSet(t, []string{"overview", "identity", "scene", "closeup"}, 12)
 }
 
+func TestColorImageReworkPlanKeepsOneExactSlotAndBindsComposition(t *testing.T) {
+	service, _, config, ctx, input := ownedColorSetFixture(t)
+	config.template.Detail = append(config.template.Detail, agentconfig.ContentTask{ID: "structure", Purpose: "structure_functions"})
+	prepared, err := service.PrepareImageSet(ctx, input)
+	require.NoError(t, err)
+	require.Equal(t, 12, prepared.Images)
+	parent := prepared.Projection
+	slot := parent.Plan.Slots[len(parent.Plan.Slots)-1]
+	require.Equal(t, "White", slot.Recipe.Placement.Color)
+	require.Equal(t, 2, slot.Recipe.Placement.Order)
+	plan := parent.Plan
+	plan.Set = imageagent.CloneImageSetPlan(plan.Set)
+	plan.Slots = []imageagent.Slot{slot}
+	plan.SourceAssetIDs = slot.SourceAssetIDs
+	digest := strings.Repeat("a", 64)
+	plan.Set.Regeneration = &imageagent.ImageSetRegeneration{RunID: parent.Run.ID, ClosedEffectsDigest: digest, ResultDigest: digest,
+		ColorRework: &imageagent.ColorImageReworkBinding{ParentRevision: 1, SlotID: slot.ID, Attempt: 1, CandidateID: "old-candidate",
+			ArtifactHash: digest, ReplacedAssetID: "old-selected", Count: 12,
+			Head: productasset.ImageInventoryHead{ActionID: "a5dfaa12-be4e-4781-a549-0cdfda388b27", PayloadHash: digest}}}
+	plan.Set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(plan)
+	require.NoError(t, err)
+	require.NoError(t, imageagent.ValidateImageSetPlan(plan))
+	quote := plan.Set.QuoteDigest
+	plan.Slots[0].Recipe = imageagent.CloneImageSlotRecipe(plan.Slots[0].Recipe)
+	plan.Slots[0].Recipe.Composition = "Show the white coat without a model."
+	plan.Set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(plan)
+	require.NoError(t, err)
+	require.NotEqual(t, quote, plan.Set.QuoteDigest)
+}
+
 func assertOwnedColorImageSet(t *testing.T, selected []string, count int) {
 	t.Helper()
 	service, workflows, config, ctx, input := ownedColorSetFixture(t)
@@ -795,6 +847,12 @@ func TestOwnedColorImageSetRejectsInvalidTemplateSelections(t *testing.T) {
 func ownedColorSetFixture(t *testing.T) (*imageagent.Service, *recordingWorkflowClient, *setConfigurationFixture, context.Context, imageagent.PrepareImageSetInput) {
 	t.Helper()
 	service, _, workflows, config, contexts, quotes, ctx, input := imageSetServiceFixture(t)
+	input = configureOwnedColorSet(t, config, contexts, quotes, input)
+	return service, workflows, config, ctx, input
+}
+
+func configureOwnedColorSet(t *testing.T, config *setConfigurationFixture, contexts *setContextFixture, quotes *setQuoteFixture, input imageagent.PrepareImageSetInput) imageagent.PrepareImageSetInput {
+	t.Helper()
 	input.ContextKind = imageagent.ImageSourceListing
 	input.Route = &imageagent.ImageRouteSelection{BindingID: strings.Repeat("b", 64), RevisionID: strings.Repeat("c", 64)}
 	input.Template = &agentconfig.TemplateRef{TemplateID: "c5fd7c43-138c-43dc-8dfb-6f9be74a5e9e", Revision: "1"}
@@ -829,5 +887,5 @@ func ownedColorSetFixture(t *testing.T) (*imageagent.Service, *recordingWorkflow
 		Protocol: aicapability.GRSaiProductImageProtocol, BillingMode: aicapability.ModelUsageOnly,
 		ConfigurationVersion: input.Route.RevisionID, RouteReference: input.Route.BindingID,
 		CredentialReference: "grsai-key", ConnectionID: "grsai-connection"}.ImageQuote()
-	return service, workflows, config, ctx, input
+	return input
 }

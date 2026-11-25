@@ -14,6 +14,7 @@ import (
 
 type modeBoundImageContexts struct {
 	imageagent.ImageSetContextReader
+	asset.ImageSetInventoryReader
 	source               imageagent.ImageSetSourceGuard
 	configuration        *configstore.Store
 	artworkConfiguration agentconfig.ArtworkConfigurationRepository

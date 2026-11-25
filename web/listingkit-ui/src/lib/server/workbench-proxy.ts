@@ -1364,6 +1364,9 @@ export async function buildWorkbenchBrowserResponse(
     }
     const standard=parseWorkbenchErrorEnvelopePayload(payload);const code=typeof payload.code==="string"?payload.code:standard.success?standard.data.code:"";
     if(imageSetErrorStatuses[code]!==upstream.status && acquisitionErrorStatuses[code]!==upstream.status)return invalid();
+    if(action==="confirm"&&code==="COLOR_IMAGE_REWORK_CONFIRMED"&&typeof payload.runId==="string"&&isAcquisitionUUID(payload.runId)){
+      return new NextResponse(JSON.stringify({code,runId:payload.runId}),{status:409,headers:safeJSONHeaders()});
+    }
     const response=protocolError(upstream.status,code,"Image request could not be completed",options.requestId??"");
     if(upstream.status===503&&code==="IMAGE_UNAVAILABLE"&&upstream.headers.get("Retry-After")==="1")response.headers.set("Retry-After","1");
     if(code==="ORGANIZATION_ACCESS_REVOKED"||code==="ORGANIZATION_ACCESS_DENIED")clearSelectionCookie(response);return response;

@@ -37,14 +37,15 @@ type ManualImageReader interface {
 }
 
 type ImageSetCommand struct {
-	PolicyAdoption  *ImageSetPolicyProvenance `json:"policy_adoption,omitempty"`
-	ApprovingResult ImageSetResultBinding     `json:"approving_result"`
-	ActionID        string                    `json:"action_id"`
-	Source          SourceSelectionRequest    `json:"source"`
-	Target          *ImageSetTarget           `json:"target,omitempty"`
-	ExpectedHead    ImageInventoryHead        `json:"expected_head"`
-	Choices         []ImageSetChoice          `json:"choices"`
-	SelectionDigest string                    `json:"selection_digest"`
+	PolicyAdoption       *ImageSetPolicyProvenance `json:"policy_adoption,omitempty"`
+	ApprovingResult      ImageSetResultBinding     `json:"approving_result"`
+	ActionID             string                    `json:"action_id"`
+	Source               SourceSelectionRequest    `json:"source"`
+	Target               *ImageSetTarget           `json:"target,omitempty"`
+	ExpectedHead         ImageInventoryHead        `json:"expected_head"`
+	Choices              []ImageSetChoice          `json:"choices"`
+	SelectionDigest      string                    `json:"selection_digest"`
+	ReplacedColorAssetID string                    `json:"replaced_color_asset_id,omitempty"`
 }
 
 type ImageSetCandidate struct {
@@ -212,6 +213,9 @@ func (s *ImageSetService) prepareNewSelection(ctx context.Context, source Source
 	if inventory.Head != input.ExpectedHead {
 		return ApprovalCommit{}, ErrApprovalConflict
 	}
+	if input.ReplacedColorAssetID != "" && !validColorReworkSelection(input, inventory) {
+		return ApprovalCommit{}, ErrApprovalConflict
+	}
 	commit := ApprovalCommit{TenantID: source.TenantID, ProductKey: source.ProductKey, TargetPlatform: source.TargetPlatform, ActionID: input.ActionID, SourceSnapshotVersion: source.EffectiveCatalogVersion, ImageSet: &ImageSetSelection{Schema: ImageSetSelectionSchema, Source: input.Source, ExpectedHead: input.ExpectedHead, RequestDigest: requestDigest}}
 	if input.PolicyAdoption != nil {
 		proof := *input.PolicyAdoption
@@ -284,6 +288,33 @@ func (s *ImageSetService) prepareNewSelection(ctx context.Context, source Source
 		return ApprovalCommit{}, err
 	}
 	return commit, nil
+}
+
+func validColorReworkSelection(input ImageSetCommand, inventory ImageSetInventory) bool {
+	if input.Source.TargetPlatform != "product" || input.Target != nil || input.PolicyAdoption != nil ||
+		inventory.ApprovalActionID == "" || inventory.ApprovalActionID != input.ExpectedHead.ActionID ||
+		len(input.Choices) != len(inventory.Assets) {
+		return false
+	}
+	replaced := false
+	for i, previous := range inventory.Assets {
+		choice := input.Choices[i]
+		if previous.Presentation == nil || choice.Presentation != *previous.Presentation ||
+			choice.Presentation.Color == "" || choice.GenericHead != nil || choice.OfficialPlacement != nil {
+			return false
+		}
+		if previous.ID == input.ReplacedColorAssetID {
+			if replaced || choice.Kind != "generated" || choice.RunID != input.ApprovingResult.RunID ||
+				choice.PlanRevision != input.ApprovingResult.PlanRevision || choice.ResultDigest != input.ApprovingResult.ResultDigest ||
+				choice.SlotID != previous.SlotID {
+				return false
+			}
+			replaced = true
+		} else if choice.Kind != "approved" || choice.ApprovalActionID != inventory.ApprovalActionID || choice.AssetID != previous.ID {
+			return false
+		}
+	}
+	return replaced
 }
 
 func (s *ImageSetService) resolveChoice(ctx context.Context, source SourceSelection, inventory ImageSetInventory, approving ImageSetResultBinding, choice ImageSetChoice) (ApprovedAsset, ImageSetResultBinding, error) {

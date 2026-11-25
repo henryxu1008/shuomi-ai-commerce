@@ -66,7 +66,9 @@ func (r *ImageSetContextReader) ResolveImageSet(ctx context.Context, identity im
 		if !source.OwnProduct || !input.ColorImages.Matches(source.ColorOptions) {
 			return imageagent.ImageSetPreparation{}, imageagent.ErrRevisionConflict
 		}
-		references = [][]string{input.ColorImages.SourceIDs()}
+		if input.ColorRework == nil {
+			references = [][]string{input.ColorImages.SourceIDs()}
+		}
 	}
 	for _, group := range references {
 		if len(group) > agentconfig.MaxSetSourceReferences {
@@ -163,6 +165,9 @@ func (r *ImageSetContextReader) RevalidateImageSet(ctx context.Context, identity
 	input.EffectiveCatalogVersion, input.ApplyReceiptID = projection.Plan.Set.Source.EffectiveVersion, projection.Plan.Set.Source.ApplyReceiptID
 	input.ContextKind = projection.Plan.Set.Source.ContextKind
 	input.ColorImages = projection.Plan.Set.ColorImages
+	if rework := projection.Plan.Set.ColorImageRework(); rework != nil {
+		input.ColorRework = &imageagent.ColorImageReworkRequest{SlotID: rework.SlotID, Head: rework.Head}
+	}
 	input.Target.RecordID = target.RecordID
 	// Reconstruct the two bounded reference groups from immutable slot recipes.
 	input.CarouselOriginalIDs = nil

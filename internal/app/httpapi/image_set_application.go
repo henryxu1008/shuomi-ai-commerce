@@ -321,8 +321,8 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		}
 		artworkConfiguration = artworkAdmissionConfiguration{ArtworkConfigurationRepository: configuration, authorize: live.AuthorizeExecution}
 	}
-	modeContexts := modeBoundImageContexts{ImageSetContextReader: contexts, source: contexts, configuration: configuration, artworkConfiguration: artworkConfiguration}
-	options := []imageagent.ServiceOption{imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(gate), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{ConfigurationCapacity: capacity, ConfirmedCopy: confirmedCopy, Configuration: configuration, Contexts: modeContexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 32, Points: 32 * current.ImageAgent.Generation.MaximumMicropoints, ElapsedSeconds: 3600}})}
+	modeContexts := modeBoundImageContexts{ImageSetContextReader: contexts, ImageSetInventoryReader: inventories, source: contexts, configuration: configuration, artworkConfiguration: artworkConfiguration}
+	options := []imageagent.ServiceOption{imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(gate), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{ConfigurationCapacity: capacity, ConfirmedCopy: confirmedCopy, Configuration: configuration, Contexts: modeContexts, Quotes: quotes, ColorReworkInventory: inventories, ColorReworkApprovals: approvals, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 32, Points: 32 * current.ImageAgent.Generation.MaximumMicropoints, ElapsedSeconds: 3600}})}
 	options = append(options, imageagent.WithImageMethodContext(methods))
 	if artworkConfiguration != nil {
 		options = append(options, imageagent.WithArtworkDependencies(imageagent.ArtworkDependencies{Configuration: artworkConfiguration, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: current.ImageAgent.Generation.MaximumMicropoints, ElapsedSeconds: 3600}}))

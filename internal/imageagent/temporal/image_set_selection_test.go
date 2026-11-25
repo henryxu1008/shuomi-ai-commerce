@@ -138,3 +138,61 @@ func TestImageSetSelectionCommandsDoNotModifyCallerOwnedChoices(t *testing.T) {
 	require.Equal(t, "store", copy.Target.StoreID)
 	require.Equal(t, 1, copy.Choices[0].OfficialPlacement.Type)
 }
+
+func TestColorImageReworkSaveReconcilesTheOriginalRejectedAction(t *testing.T) {
+	_, repo, slotInput := imageSetPersistenceFixture(t)
+	current, err := repo.GetProjection(context.Background(), imageagent.ScopeForRun(imageagent.Run{
+		TenantID: slotInput.Identity.TenantID, UserID: slotInput.Identity.UserID, ID: slotInput.RunID,
+	}))
+	require.NoError(t, err)
+	input := WorkflowInput{RunID: current.Run.ID, Identity: slotInput.Identity, Plan: current.Plan}
+	action := "1b912e40-d50a-48f5-a12b-62c73a42e4b8"
+	hash := strings.Repeat("a", 64)
+	head := productasset.ImageInventoryHead{ActionID: "e4f4d189-2f0c-48d1-980e-3c57375fc644", PayloadHash: hash}
+	slot := &input.Plan.Slots[0]
+	slot.Recipe.Placement.Color = "White"
+	input.Plan.Set.Regeneration = &imageagent.ImageSetRegeneration{ColorRework: &imageagent.ColorImageReworkBinding{
+		SlotID: slot.ID, Head: head, ReplacedAssetID: "old-white", Count: 2,
+	}}
+	source := current.Plan.Set.Source
+	command := ApproveResultsSignal{RunID: input.RunID, PlanRevision: 1, ResultDigest: hash, ActorID: input.Identity.UserID, ActionID: action}
+	command.Selection = &productasset.ImageSetCommand{ApprovingResult: productasset.ImageSetResultBinding{RunID: input.RunID, PlanRevision: 1, ResultDigest: hash},
+		ActionID: action, ExpectedHead: head, SelectionDigest: hash, ReplacedColorAssetID: "old-white",
+		Source: productasset.SourceSelectionRequest{ContextKind: string(source.ContextKind), ItemID: source.OperationID, OriginalPublicationID: source.OriginalPublicationID,
+			OriginalSnapshotVersion: source.OriginalVersion, EffectiveCatalogVersion: source.EffectiveVersion, TargetPlatform: "product"},
+		Choices: []productasset.ImageSetChoice{
+			{Kind: "approved", ApprovalActionID: head.ActionID, AssetID: "old-black", Presentation: productasset.ImagePresentation{Color: "Black", Order: 1, Group: "detail"}},
+			{Kind: "generated", RunID: input.RunID, PlanRevision: 1, SlotID: slot.ID, Attempt: 1, AssetID: "new-white", ResultDigest: hash,
+				Presentation: productasset.ImagePresentation{Color: "White", Order: 1, Group: "detail"}},
+		}}
+	env := newWorkflowEnv(t)
+	wf := func(ctx workflow.Context, data WorkflowInput, signal ApproveResultsSignal) (WorkflowResult, error) {
+		ctx = imageAgentActivityContext(ctx)
+		projection := WorkflowResult{Status: imageagent.RunStatusAwaitingFinalApproval, Plan: data.Plan, ResultDigest: signal.ResultDigest}
+		results := []SlotWorkflowResult{}
+		state := newWorkflowUpdateState(ctx, &data, &projection, &results, newWorkflowEffectOwner(ctx))
+		if _, err := state.handleApproveResults(ctx, signal); err == nil {
+			return projection, imageagent.ErrRevisionConflict
+		}
+		_, err := state.handleResume(ctx, ResumeCommandInput{RunID: data.RunID, ActorID: data.Identity.UserID, ActionID: signal.ActionID})
+		return projection, err
+	}
+	env.RegisterWorkflow(wf)
+	env.RegisterActivityWithOptions(func(context.Context, PublishImageSetActivityInput) error { return nil }, sdkactivity.RegisterOptions{Name: activityPublishApprovedImageSet})
+	env.OnActivity(activityPublishApprovedImageSet, mock.Anything, mock.Anything).
+		Return(sdktemporal.NewNonRetryableApplicationError("lost original result", "publication_ack_unknown", nil)).Once()
+	env.OnActivity(activityPublishApprovedImageSet, mock.Anything, mock.Anything).
+		Return(colorImageReworkNotSaved()).Once()
+	env.OnActivity(activityPersistPendingCommand, mock.Anything, mock.Anything).Return(nil)
+	env.ExecuteWorkflow(wf, input, command)
+	require.NoError(t, env.GetWorkflowError())
+	var result WorkflowResult
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, imageagent.RunStatusAwaitingFinalApproval, result.Status)
+	require.NotNil(t, result.PendingCommand)
+	require.Equal(t, action, result.PendingCommand.ActionID)
+	require.Equal(t, productasset.ImageSetRequestDigest(*command.Selection), result.PendingCommand.RequestDigest)
+	require.Equal(t, imageagent.ColorImageReworkApprovalNotSaved, result.PendingCommand.Phase)
+	require.Equal(t, "failed", result.PendingCommand.Status)
+	env.AssertExpectations(t)
+}

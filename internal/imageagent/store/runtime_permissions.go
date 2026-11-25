@@ -34,7 +34,7 @@ var organizationRuntimeTables = []struct{ name, privileges string }{
 }
 
 var organizationRuntimeColumnGrants = []struct{ name, columns string }{
-	{"image_agent_v2_runs", "admission_json,status,current_node,active_plan_revision,block_json,version,updated_at"},
+	{"image_agent_v2_runs", "admission_json,color_rework_key,status,current_node,active_plan_revision,block_json,version,updated_at"},
 	{"image_agent_v2_projection_snapshots", "version,snapshot_json,updated_at"},
 }
 
@@ -51,6 +51,7 @@ const organizationRuntimePermissionQuery = `WITH admitted(table_name,privilege) 
  ('product_approval_receipts','SELECT'),('product_approved_assets','SELECT')),
  admitted_columns(table_name,column_name) AS (VALUES
  ('image_agent_v2_runs','admission_json'),('image_agent_v2_runs','status'),
+ ('image_agent_v2_runs','color_rework_key'),
  ('image_agent_v2_runs','current_node'),('image_agent_v2_runs','active_plan_revision'),
  ('image_agent_v2_runs','block_json'),('image_agent_v2_runs','version'),('image_agent_v2_runs','updated_at'),
  ('image_agent_v2_projection_snapshots','version'),('image_agent_v2_projection_snapshots','snapshot_json'),

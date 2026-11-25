@@ -50,9 +50,10 @@ func (m fullImageModule) Register(reg *kernelmodule.Registry) error {
 }
 
 type fullImagePrepareBody struct {
-	ColorImages *imageagent.ColorImageSelection `json:"colorImages,omitempty"`
-	Route       *imageagent.ImageRouteSelection `json:"route,omitempty"`
-	Text        *imageagent.ImageTextSelection  `json:"text,omitempty"`
+	ColorImages *imageagent.ColorImageSelection     `json:"colorImages,omitempty"`
+	ColorRework *imageagent.ColorImageReworkRequest `json:"colorRework,omitempty"`
+	Route       *imageagent.ImageRouteSelection     `json:"route,omitempty"`
+	Text        *imageagent.ImageTextSelection      `json:"text,omitempty"`
 	Skill       *struct {
 		ID      string `json:"skillId"`
 		Version uint64 `json:"version"`
@@ -346,6 +347,10 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 			writeFullImageError(c, imageagent.ErrValidation, false)
 			return
 		}
+		if body.ColorRework != nil && (a.trial == nil || action != "regenerate") {
+			writeFullImageError(c, imageagent.ErrValidation, false)
+			return
+		}
 		keys := c.Request.Header.Values("Idempotency-Key")
 		if len(keys) != 1 || !acquisitionHTTPUUID(keys[0]) {
 			writeFullImageError(c, imageagent.ErrValidation, false)
@@ -370,6 +375,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 		}
 		input.ExpectedModeRevision = body.ExpectedModeRevision
 		input.ColorImages = body.ColorImages
+		input.ColorRework = body.ColorRework
 		prior, readErr := a.runs().GetPreparedImageSet(ctx, kind, contextID, keys[0])
 		releaseCapacity := func() {}
 		if errors.Is(readErr, imageagent.ErrRunNotFound) {
@@ -523,7 +529,16 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 			QuoteDigest  string `json:"quoteDigest"`
 		}
 		if err = readFullImageJSON(c.Request, &body); err == nil {
-			_, err = a.service.ConfirmImagePlan(ctx, imageagent.ConfirmImagePlanInput{RunID: runID, ActionID: body.ActionID, ExpectedRevision: body.PlanRevision, PlanDigest: body.PlanDigest, QuoteDigest: body.QuoteDigest})
+			var verified imageagent.RunProjection
+			verified, err = a.service.ConfirmImagePlan(ctx, imageagent.ConfirmImagePlanInput{RunID: runID, ActionID: body.ActionID, ExpectedRevision: body.PlanRevision, PlanDigest: body.PlanDigest, QuoteDigest: body.QuoteDigest})
+			if errors.Is(err, imageagent.ErrColorImageReworkConfirmed) {
+				result := gin.H{"code": "COLOR_IMAGE_REWORK_CONFIRMED"}
+				if verified.Run.ID != "" && verified.Run.ID != runID {
+					result["runId"] = verified.Run.ID
+				}
+				c.JSON(http.StatusConflict, result)
+				return
+			}
 		}
 	case "preview", "approve":
 		if groups := p.Plan.Set.ColorImages; groups != nil && !groups.Matches(liveSource.ColorOptions) {
@@ -686,6 +701,9 @@ func fullImageSelection(p imageagent.RunProjection, body fullImageSelectionBody)
 	}
 	source, target := p.Plan.Set.Source, p.Plan.Set.Target
 	command := asset.ImageSetCommand{ApprovingResult: asset.ImageSetResultBinding{RunID: p.Run.ID, PlanRevision: p.Plan.Revision, ResultDigest: p.ResultDigest}, ActionID: body.ActionID, Source: asset.SourceSelectionRequest{ContextKind: string(source.ContextKind), ItemID: source.OperationID, OriginalPublicationID: source.OriginalPublicationID, OriginalSnapshotVersion: source.OriginalVersion, EffectiveCatalogVersion: source.EffectiveVersion, ApplyReceiptID: source.ApplyReceiptID, TargetPlatform: target.Platform}, ExpectedHead: body.ExpectedHead, Choices: body.Choices, SelectionDigest: body.SelectionDigest}
+	if rework := p.Plan.Set.ColorImageRework(); rework != nil {
+		command.ReplacedColorAssetID = rework.ReplacedAssetID
+	}
 	if !imageagent.ValidColorImageChoices(p.Run.ID, p.Plan, command) {
 		return asset.ImageSetCommand{}, imageagent.ErrCommandBlocked
 	}
@@ -761,6 +779,7 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 		closed = e == nil
 	}
 	response := gin.H{"runId": p.Run.ID, "status": p.Run.Status, "planRevision": p.Plan.Revision, "planDigest": prepared.PlanDigest, "quoteDigest": prepared.QuoteDigest, "images": prepared.Images, "unitVersion": "ai-micropoint-v1", "points": strconv.FormatInt(prepared.Points, 10), "settledPoints": strconv.FormatInt(settled, 10), "plan": fullImagePlanResponse{ImageSetPlan: p.Plan.Set, Source: fullImageSource(p.Plan.Set.Source)}, "slots": slots, "resultDigest": p.ResultDigest, "originals": p.AssetCatalog.Assets, "recoverableEffects": p.RecoverableEffects, "pendingCommand": p.PendingCommand, "approvalAvailable": p.Run.Status == imageagent.RunStatusAwaitingFinalApproval && p.ResultDigest != "" && closed, "regenerationAvailable": closed && p.Plan.Set.ColorImages == nil, "block": p.Run.Block}
+	response["colorReworkAvailable"] = a.trial != nil && closed && imageagent.ColorImageReworkParent(p)
 	if p.Plan.Set.Source.OwnProduct {
 		response["unitVersion"] = agentconfig.ProviderImageUsageUnit
 		if providerImageCount > 0 {
@@ -803,6 +822,7 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 	}
 	if response["generationAllowed"] != true {
 		response["approvalAvailable"], response["regenerationAvailable"], response["candidateSelectionAvailable"] = false, false, false
+		response["colorReworkAvailable"] = false
 	}
 	if p.Run.ImageAdmission != nil {
 		response["confirmationActionId"] = p.Run.ImageAdmission.Command.ConfirmActionID
