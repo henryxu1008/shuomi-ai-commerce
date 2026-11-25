@@ -8,6 +8,7 @@ import (
 	"time"
 
 	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	wire "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/shopify"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
@@ -41,12 +42,13 @@ type ShopifyMediaPreview struct {
 }
 
 type ShopifyMediaPreviewImage struct {
-	ID      string               `json:"id"`
-	URL     string               `json:"url"`
-	Color   string               `json:"color,omitempty"`
-	Role    asset.Role           `json:"role"`
-	State   wire.DraftMediaState `json:"state"`
-	mediaID string
+	ID       string               `json:"id"`
+	URL      string               `json:"url"`
+	Color    string               `json:"color,omitempty"`
+	Role     asset.Role           `json:"role"`
+	State    wire.DraftMediaState `json:"state"`
+	mediaID  string
+	sourceID string
 }
 
 type ShopifyMediaPreviewVariant struct {
@@ -113,7 +115,7 @@ func (a *Application) PreviewShopifyMedia(ctx context.Context, input ShopifyMedi
 		images[position].State = match.State
 		images[position].mediaID = match.MediaID
 	}
-	variants, matches := previewShopifyVariants(original.Snapshot.Variants, remote.Variants, images)
+	variants, matches := previewShopifyVariants(original.Snapshot.Variants, remote.Variants, images, source.Images)
 	if !matches {
 		return ShopifyMediaPreview{}, preparation.ErrConflict
 	}
@@ -142,9 +144,12 @@ func (s *ShopifyMediaPreviewService) previewImages(ctx context.Context, source a
 		if len(images) == maxShopifyPreviewImages {
 			return nil, nil, nil, preparation.ErrConflict
 		}
-		view := ShopifyMediaPreviewImage{ID: approved.ID, URL: approved.URL, Role: approved.Role, State: wire.DraftMediaUnverified}
+		view := ShopifyMediaPreviewImage{ID: approved.ID, URL: approved.URL, Role: approved.Role, State: wire.DraftMediaUnverified, sourceID: approved.SourceAssetID}
 		if approved.Presentation != nil {
 			view.Color = approved.Presentation.Color
+			if view.Color != "" && approved.Presentation.Group == "carousel" && approved.Presentation.Order == 1 {
+				view.Role = asset.RoleMain
+			}
 		}
 		if approved.GenerationEvidence != nil {
 			content, err := s.ReadImage(ctx, source, approved, wire.MaxStagedDraftImageBytes)
@@ -158,7 +163,7 @@ func (s *ShopifyMediaPreviewService) previewImages(ctx context.Context, source a
 	return images, proofs, positions, nil
 }
 
-func previewShopifyVariants(local []catalog.Variant, remote []wire.DraftMediaVariant, images []ShopifyMediaPreviewImage) ([]ShopifyMediaPreviewVariant, bool) {
+func previewShopifyVariants(local []catalog.Variant, remote []wire.DraftMediaVariant, images []ShopifyMediaPreviewImage, sources []asset.SourceImage) ([]ShopifyMediaPreviewVariant, bool) {
 	if len(local) == 0 || len(local) != len(remote) {
 		return nil, false
 	}
@@ -170,7 +175,7 @@ func previewShopifyVariants(local []catalog.Variant, remote []wire.DraftMediaVar
 		bySKU[variant.SKU] = variant
 	}
 	result := make([]ShopifyMediaPreviewVariant, 0, len(local))
-	colorOption := previewColorOption(local, images)
+	colorOption := previewColorOption(local, images, sources)
 	for _, variant := range local {
 		other, found := bySKU[variant.SKU]
 		if !found || !equalShopifyOptions(variant.Attributes, other.Options) {
@@ -202,41 +207,46 @@ func equalShopifyOptions(attributes []catalog.Attribute, options []wire.DraftMed
 	return true
 }
 
-func previewColorOption(variants []catalog.Variant, images []ShopifyMediaPreviewImage) string {
-	colors := make(map[string]bool)
-	for _, image := range images {
-		if image.Role == asset.RoleMain && image.Color != "" {
-			colors[image.Color] = true
-		}
+func previewColorOption(variants []catalog.Variant, images []ShopifyMediaPreviewImage, sources []asset.SourceImage) imageagent.ImageColorOption {
+	byURL := make(map[string]string, len(sources))
+	for _, source := range sources {
+		byURL[source.URL] = source.ID
 	}
-	var optionName string
+	var result imageagent.ImageColorOption
 	for _, option := range variants[0].Attributes {
-		values := make(map[string]bool)
-		for _, variant := range variants {
-			for _, attribute := range variant.Attributes {
-				if attribute.Name == option.Name && colors[attribute.Value] {
-					values[attribute.Value] = true
-				}
-			}
-		}
-		if !colors[option.Value] || len(values) != len(colors) {
+		candidate, ok := listingColorOption(option.Name, variants, byURL)
+		if !ok {
 			continue
 		}
-		if optionName != "" {
-			return ""
+		if slices.ContainsFunc(candidate.Groups, func(group imageagent.ImageColorGroup) bool {
+			return !slices.ContainsFunc(images, func(image ShopifyMediaPreviewImage) bool {
+				return isShopifyGroupMain(image, group)
+			})
+		}) {
+			continue
 		}
-		optionName = option.Name
+		if result.Name != "" {
+			return imageagent.ImageColorOption{}
+		}
+		result = candidate
 	}
-	return optionName
+	return result
 }
 
-func shopifyVariantImagePreview(variant catalog.Variant, remote wire.DraftMediaVariant, images []ShopifyMediaPreviewImage, colorOption string) ShopifyMediaPreviewVariant {
+func isShopifyGroupMain(image ShopifyMediaPreviewImage, group imageagent.ImageColorGroup) bool {
+	return group.Value != "" && image.Role == asset.RoleMain && image.Color == group.Value &&
+		slices.Contains(group.OriginalIDs, image.sourceID)
+}
+
+func shopifyVariantImagePreview(variant catalog.Variant, remote wire.DraftMediaVariant, images []ShopifyMediaPreviewImage, colorOption imageagent.ImageColorOption) ShopifyMediaPreviewVariant {
 	result := ShopifyMediaPreviewVariant{SKU: variant.SKU, State: "unverified"}
-	var color string
+	var group imageagent.ImageColorGroup
 	for _, value := range variant.Attributes {
-		if value.Name == colorOption {
-			color = value.Value
-			break
+		if value.Name == colorOption.Name {
+			index := slices.IndexFunc(colorOption.Groups, func(candidate imageagent.ImageColorGroup) bool { return candidate.Value == value.Value })
+			if index >= 0 {
+				group = colorOption.Groups[index]
+			}
 		}
 	}
 	var main *ShopifyMediaPreviewImage
@@ -245,7 +255,7 @@ func shopifyVariantImagePreview(variant catalog.Variant, remote wire.DraftMediaV
 		if image.mediaID != "" && len(remote.MediaIDs) == 1 && remote.MediaIDs[0] == image.mediaID {
 			result.CurrentAssetID = image.ID
 		}
-		if color == "" || image.Role != asset.RoleMain || image.Color != color {
+		if !isShopifyGroupMain(image, group) {
 			continue
 		}
 		ambiguous = main != nil
@@ -255,10 +265,13 @@ func shopifyVariantImagePreview(variant catalog.Variant, remote wire.DraftMediaV
 		return result
 	}
 	result.AssetID = main.ID
+	if len(remote.MediaIDs) > 1 {
+		return result
+	}
 	switch main.State {
 	case wire.DraftMediaPresent:
 		result.State = "different"
-		if slices.Contains(remote.MediaIDs, main.mediaID) {
+		if len(remote.MediaIDs) == 1 && remote.MediaIDs[0] == main.mediaID {
 			result.State = "same"
 		}
 	case wire.DraftMediaMissing:

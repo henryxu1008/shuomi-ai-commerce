@@ -26,6 +26,7 @@ const ACQUISITION_TIMEOUT_MS = 22_000;
 const IMAGE_SET_TIMEOUT_MS = 32_000;
 const SHEIN_PUBLICATION_TIMEOUT_MS = 32_000;
 const GOOGLE_LISTING_TIMEOUT_MS = 62_000;
+const SHOPIFY_MEDIA_PREVIEW_TIMEOUT_MS = 69_000;
 
 type AuthenticatedWorkbenchRequest = NextRequest & { auth?: unknown };
 type WorkbenchDispatchState = {
@@ -147,11 +148,13 @@ async function handleWorkbenchRequest(
   const ownAgentRunRequest = path[4] === "runs" && ownAgentPath(path) !== null &&
     (request.method === "GET" && path.length === 6 || request.method === "POST" && (path.length === 5 || path.length === 7));
   const agentRequest=analysisRoutes.some(a=>analysisMethods[a]===request.method&&analysisPath(path,a)!==null)||agentPath(path)!==null || ownAgentRunRequest || ["materials-start","materials-resume","materials-adopt"].includes(materialsPath(request.method,path)??"") || ["chat-turn-submit", "chat-turn-recover", "message", "store-route", "confirm", "task-start", "task-resume", "task-review"].includes(aiWorkbenchPath(request.method, path) ?? "");
-  const sheinPublicationRequest=["shein-status","shein-shelf-prepare","shein-shelf-confirm","shein-shelf-result"].includes(supplyPath(request.method,path)??"");
-  const amazonListingRequest=(supplyPath(request.method,path)??"").startsWith("amazon-");
+  const supplyAction=supplyPath(request.method,path)??"";
+  const sheinPublicationRequest=["shein-status","shein-shelf-prepare","shein-shelf-confirm","shein-shelf-result"].includes(supplyAction);
+  const amazonListingRequest=supplyAction.startsWith("amazon-");
+  const shopifyMediaPreviewRequest=supplyAction==="shopify-draft-media-preview";
   const skillGeneration = ["skill-authoring-generate", "skill-authoring-confirm", "skill-authoring-recover-generation"].includes(aiWorkbenchPath(request.method, path) ?? "");
   const googleListing = path[0] === "supply-preparations" && path[1] === "google";
-  const timeout = setTimeout(abort, googleListing ? GOOGLE_LISTING_TIMEOUT_MS : amazonListingRequest?105000:sheinPublicationRequest?SHEIN_PUBLICATION_TIMEOUT_MS:planPath(request.method,path)?52000:imageSetRequest ? IMAGE_SET_TIMEOUT_MS : agentRequest || skillGeneration ?125000:dispatchState.acquisitionRequest ? ACQUISITION_TIMEOUT_MS : UPSTREAM_TIMEOUT_MS);
+  const timeout = setTimeout(abort, googleListing ? GOOGLE_LISTING_TIMEOUT_MS : shopifyMediaPreviewRequest?SHOPIFY_MEDIA_PREVIEW_TIMEOUT_MS:amazonListingRequest?105000:sheinPublicationRequest?SHEIN_PUBLICATION_TIMEOUT_MS:planPath(request.method,path)?52000:imageSetRequest ? IMAGE_SET_TIMEOUT_MS : agentRequest || skillGeneration ?125000:dispatchState.acquisitionRequest ? ACQUISITION_TIMEOUT_MS : UPSTREAM_TIMEOUT_MS);
   try {
     const scopedRequest = new NextRequest(request, { signal: controller.signal });
     const result = await Promise.race([

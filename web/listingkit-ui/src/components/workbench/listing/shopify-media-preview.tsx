@@ -12,14 +12,15 @@ const galleryStates = {present:"已在图库",missing:"图库中缺少",unverifi
 const variantStates = {same:"配图一致",different:"配图有变化",unverified:"需要核实"};
 const imageRoles = {main:"主图",white_background:"白底图",gallery:"图库图"};
 
-export function ShopifyMediaPreviewPanel({scope, sourceId, storeId, storeName, disabled}: {
+export function ShopifyMediaPreviewPanel({scope, sourceId, storeId, storeName, disabled, initialProduct = ""}: {
  scope: SupplyScope;
  sourceId: string;
  storeId: string;
  storeName: string;
  disabled: boolean;
+ initialProduct?: string;
 }) {
- const [product, setProduct] = useState("");
+ const [product, setProduct] = useState(initialProduct);
  const [preview, setPreview] = useState<ShopifyMediaPreview>();
  const [error, setError] = useState("");
  const [loading, setLoading] = useState(false);
@@ -60,8 +61,7 @@ export function ShopifyMediaPreviewPanel({scope, sourceId, storeId, storeName, d
  const same = !!preview?.images.length && preview.images.every(image => image.state === "present") &&
   preview.variants.every(variant => variant.state === "same");
  const images = new Map(preview?.images.map(image => [image.id,image]));
- return <details className="rounded-md border p-3">
-  <summary className="cursor-pointer font-medium">核对已有 Shopify 草稿的图片</summary>
+ return <div>
   <form className="my-3 flex flex-wrap items-end gap-2" onSubmit={event => {event.preventDefault(); void load();}}>
    <label className="min-w-52 flex-1 space-y-1 text-sm">
     <span>{storeName}的商品编号或 Shopify 后台链接</span>
@@ -103,5 +103,5 @@ export function ShopifyMediaPreviewPanel({scope, sourceId, storeId, storeName, d
    </div>
    <Button asChild variant="link" className="px-0"><a href={preview.adminUrl} target="_blank" rel="noopener noreferrer">在 Shopify 后台打开原草稿</a></Button>
   </div> : null}
- </details>;
+ </div>;
 }
