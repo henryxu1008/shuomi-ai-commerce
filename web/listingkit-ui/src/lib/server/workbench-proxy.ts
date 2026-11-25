@@ -1111,6 +1111,7 @@ export async function buildWorkbenchUpstreamRequest(
     responseContract: route.responseContract,
     expectedStoreId:analysisContract?JSON.stringify(analysisBinding(path,headers.get("Idempotency-Key")??undefined)):route.requestContract==="ai-subject-read"?`${path[2]}:${path[3]}`: imageSetContract ? JSON.stringify(imageSetResponseBinding(path,route.requestContract.slice(10) as ImageSetRoute)) : expectedCollectionMedia ?? (
       route.requestContract.startsWith("supply-amazon-")&&typeof body==="string"?body:
+      route.requestContract==="supply-shopify-draft-media-confirm"?headers.get("Idempotency-Key")??undefined:
       route.requestContract.startsWith("supply-shein-")&&route.requestContract!=="supply-shein-completion-preview"&&route.requestContract!=="supply-shein-sales-mapping-preview"&&typeof body==="string"?JSON.stringify({...JSON.parse(body),key:headers.get("Idempotency-Key")??JSON.parse(body).key}):
       route.requestContract==="supply-local-context"?`${new URL(request.url).searchParams.get("sourceId")}:${new URL(request.url).searchParams.get("completionRecordId")}:${new URL(request.url).searchParams.get("revision")}`:
       route.requestContract==="supply-color-split-list"?`${path[2]}:${path[4]}`:

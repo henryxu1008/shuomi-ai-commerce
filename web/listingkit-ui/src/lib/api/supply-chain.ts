@@ -1,4 +1,7 @@
-import {shopifyMediaPreviewInput,shopifyMediaPreviewSchema,matchesShopifyMediaPreview,type ShopifyMediaPreviewInput} from "../contracts/shopify-media-preview";
+import {
+ matchesShopifyMediaPreview, shopifyMediaConfirmInput, shopifyMediaConfirmSchema,
+ shopifyMediaPreviewInput, shopifyMediaPreviewSchema, type ShopifyMediaConfirmInput, type ShopifyMediaPreviewInput,
+} from "../contracts/shopify-media-preview";
 import {sheinSalesRequestSchema,type SheinSalesRequest} from "../contracts/shein-sales-mapping";
 import * as plans from "@/lib/contracts/upload-plan";
 import {sourceProductInputsSchema} from "@/lib/contracts/source-materials";
@@ -17,6 +20,14 @@ export async function previewShopifyDraftMedia(scope: SupplyScope, input: Shopif
  const command = shopifyMediaPreviewInput.parse(input);
  const result = await send(base+"/shopify-draft-media-preview",scope,shopifyMediaPreviewSchema,signal,{method:"POST",command});
  if (!matchesShopifyMediaPreview(result, command)) throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);
+ return result;
+}
+
+export async function confirmShopifyDraftMedia(scope:SupplyScope,input:ShopifyMediaConfirmInput,key:string,signal?:AbortSignal) {
+ const result = await send(base+"/shopify-draft-media-confirm",scope,shopifyMediaConfirmSchema,signal,{
+  method:"POST",command:shopifyMediaConfirmInput.parse(input),key:collectionID.parse(key),mutates:true,
+ });
+ if(result.operationId!==key)throw new SupplyAPIError("OUTCOME_UNKNOWN",503);
  return result;
 }
 

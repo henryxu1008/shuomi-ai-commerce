@@ -1,6 +1,6 @@
 import {cleanup, fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {afterEach, expect, it, vi} from "vitest";
-import {previewShopifyDraftMedia, readSupplyPublicationStatus, shopifySupplyRules, supplyInventory} from "@/lib/api/supply-chain";
+import {confirmShopifyDraftMedia, previewShopifyDraftMedia, readSupplyPublicationStatus, shopifySupplyRules, supplyInventory} from "@/lib/api/supply-chain";
 import {SupplyAPIError} from "@/lib/api/supply-error";
 import {publicationSchema, type SupplySourceDetail} from "@/lib/contracts/supply-chain";
 import {ShopifyDraftEditor, ShopifyDraftResult} from "./shopify-draft";
@@ -9,12 +9,13 @@ import {shopifyMediaPreviewSchema} from "@/lib/contracts/shopify-media-preview";
 import type {ListingCommandState} from "./use-listing-command";
 
 vi.mock("@/lib/api/supply-chain", () => ({
+ confirmShopifyDraftMedia: vi.fn(),
  previewShopifyDraftMedia: vi.fn(),
  readSupplyPublicationStatus: vi.fn(),
  shopifySupplyRules: vi.fn(),
  supplyInventory: vi.fn(),
 }));
-afterEach(() => {cleanup(); vi.resetAllMocks()});
+afterEach(() => {cleanup(); sessionStorage.clear(); vi.restoreAllMocks(); vi.resetAllMocks()});
 
 const sourceId = "11111111-1111-4111-8111-111111111111";
 const storeId = "22222222-2222-4222-8222-222222222222";
@@ -41,12 +42,88 @@ it("previews the original draft and six variants with shared color covers", asyn
  const scope = {organizationId:"org",userId:"user"};
  vi.mocked(previewShopifyDraftMedia).mockResolvedValue(preview);
  render(<ShopifyMediaPreviewPanel scope={scope} sourceId={sourceId} storeId={storeId}
-  storeName="开发店" disabled={false} initialProduct="12345"/>);
+  storeName="开发店" disabled={false} canConfirm initialProduct="12345"/>);
  fireEvent.click(screen.getByRole("button",{name:"预览图片"}));
  expect(await screen.findByText(/已采用图片与 Shopify 图库、变体配图一致/)).toHaveTextContent("图库现有 27 项，工作台已采用 12 张");
  expect(screen.getAllByText("配图一致")).toHaveLength(6);
+ expect(screen.queryByRole("button",{name:"确认同步到 Shopify"})).toBeNull();
  expect(screen.getByRole("link",{name:"在 Shopify 后台打开原草稿"})).toHaveAttribute("href",adminUrl);
  expect(previewShopifyDraftMedia).toHaveBeenCalledExactlyOnceWith(scope,{sourceId,storeId,product:"12345"},expect.any(AbortSignal));
+});
+
+const mediaScope = {organizationId:"org",userId:"user"};
+const trialPreview = shopifyMediaPreviewSchema.parse({
+ sourceId,storeId,title:"同步测试草稿",adminUrl,galleryCount:4,confirmationHash:"a".repeat(64),
+ images:[{id:"fixture",url:"https://fixture-images.test/cover.png",role:"main",state:"missing"}],
+ variants:[{sku:"FIXTURE-S",assetId:"fixture",state:"different"}],
+});
+const mediaPanel = (product = "12345") => <ShopifyMediaPreviewPanel scope={mediaScope}
+ sourceId={sourceId} storeId={storeId} storeName="开发店" disabled={false} canConfirm initialProduct={product}/>;
+
+it("continues the original Shopify operation after a lost response and panel reopen", async () => {
+ const submit = vi.mocked(confirmShopifyDraftMedia);
+ submit.mockRejectedValueOnce(new SupplyAPIError("OUTCOME_UNKNOWN",503))
+  .mockImplementation(async (_scope,_input,key) => ({operationId:key,status:"complete"}));
+ vi.mocked(previewShopifyDraftMedia).mockResolvedValueOnce(trialPreview)
+  .mockResolvedValue({...trialPreview,confirmationHash:undefined});
+ const pane = render(mediaPanel());
+ fireEvent.click(screen.getByRole("button",{name:"预览图片"}));
+ fireEvent.click(await screen.findByRole("button",{name:"确认同步到 Shopify"}));
+ await screen.findByText(/上次同步结果待核实/);
+ expect(submit).toHaveBeenCalledOnce();
+ pane.unmount();
+
+ render(mediaPanel(adminUrl));
+ fireEvent.click(screen.getByRole("button",{name:"预览图片"}));
+ const resume = await screen.findByRole("button",{name:"继续原同步"});
+ expect(submit).toHaveBeenCalledOnce();
+ fireEvent.click(resume);
+ await screen.findByText("Shopify 草稿的图片已同步。");
+ expect(submit.mock.calls[1]?.slice(0,3)).toEqual(submit.mock.calls[0]?.slice(0,3));
+ expect(submit.mock.calls[1]?.[1]).toEqual({sourceId,storeId,product:"12345",confirmationHash:"a".repeat(64)});
+ fireEvent.click(screen.getByRole("button",{name:"再次核对原同步"}));
+ await screen.findByText("Shopify 草稿的图片已同步。");
+ expect(submit.mock.calls[2]?.slice(0,3)).toEqual(submit.mock.calls[0]?.slice(0,3));
+});
+
+it("does not send when it cannot save the original Shopify operation", async () => {
+ vi.mocked(previewShopifyDraftMedia).mockResolvedValue(trialPreview);
+ vi.spyOn(Storage.prototype,"setItem").mockImplementation(() => {throw new Error("storage full")});
+ render(mediaPanel());
+ fireEvent.click(screen.getByRole("button",{name:"预览图片"}));
+ fireEvent.click(await screen.findByRole("button",{name:"确认同步到 Shopify"}));
+ expect(await screen.findByRole("alert")).toHaveTextContent(/无法保存同步记录/);
+ expect(confirmShopifyDraftMedia).not.toHaveBeenCalled();
+});
+
+it("preserves an expired operation after reopening without offering a new send", async () => {
+ const submit = vi.mocked(confirmShopifyDraftMedia);
+ submit.mockImplementation(async (_scope,_input,key) => ({operationId:key,status:"expired"}));
+ vi.mocked(previewShopifyDraftMedia).mockResolvedValue(trialPreview);
+ const pane = render(mediaPanel());
+ fireEvent.click(screen.getByRole("button",{name:"预览图片"}));
+ fireEvent.click(await screen.findByRole("button",{name:"确认同步到 Shopify"}));
+ await screen.findByText(/原确认已过期/);
+ pane.unmount();
+ render(mediaPanel());
+ fireEvent.click(screen.getByRole("button",{name:"预览图片"}));
+ await screen.findByText(/原确认已过期/);
+ expect(screen.queryByRole("button",{name:/同步/})).toBeNull();
+ expect(submit).toHaveBeenCalledOnce();
+});
+
+it("shows the current permission error and keeps the original request available", async () => {
+ const submit = vi.mocked(confirmShopifyDraftMedia);
+ submit.mockRejectedValueOnce(new SupplyAPIError("PERMISSION_DENIED",403))
+  .mockImplementation(async (_scope,_input,key) => ({operationId:key,status:"pending"}));
+ vi.mocked(previewShopifyDraftMedia).mockResolvedValue(trialPreview);
+ render(mediaPanel());
+ fireEvent.click(screen.getByRole("button",{name:"预览图片"}));
+ fireEvent.click(await screen.findByRole("button",{name:"确认同步到 Shopify"}));
+ expect(await screen.findByRole("alert")).toHaveTextContent(/当前没有同步图片的权限/);
+ fireEvent.click(screen.getByRole("button",{name:"继续原同步"}));
+ await screen.findByText(/Shopify 还在处理图片/);
+ expect(submit.mock.calls[1]?.slice(0,3)).toEqual(submit.mock.calls[0]?.slice(0,3));
 });
 
 it.each([undefined, 4])("submits confirmed Shopify prices with the visible target revision %s", async priorRevision => {

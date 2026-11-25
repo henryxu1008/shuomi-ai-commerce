@@ -5,7 +5,7 @@ const shopifyProductPath = /^\/admin\/products\/([1-9][0-9]{0,19})$/;
 const shopifyStorePath = /^\/store\/[a-z0-9-]+\/products\/([1-9][0-9]{0,19})$/;
 const shopifyHost = /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/;
 
-function productNumber(value: string): string | undefined {
+export function shopifyMediaProductNumber(value: string): string | undefined {
  const text = value.trim();
  if (/^[1-9][0-9]{0,19}$/.test(text)) return text;
  try {
@@ -21,8 +21,17 @@ function productNumber(value: string): string | undefined {
 export const shopifyMediaPreviewInput = z.strictObject({
  sourceId:collectionID,
  storeId:collectionID,
- product:z.string().trim().max(512).refine(value => !!productNumber(value)),
+ product:z.string().trim().max(512).refine(value => !!shopifyMediaProductNumber(value)),
 });
+
+const confirmationHash = z.string().regex(/^[0-9a-f]{64}$/);
+export const shopifyMediaConfirmInput = shopifyMediaPreviewInput.extend({confirmationHash});
+export const shopifyMediaConfirmSchema = z.strictObject({
+ operationId:collectionID,
+ status:z.enum(["pending","complete","uncertain","expired"]),
+});
+export type ShopifyMediaConfirmInput = z.infer<typeof shopifyMediaConfirmInput>;
+export type ShopifyMediaConfirmStatus = z.infer<typeof shopifyMediaConfirmSchema>["status"];
 
 const assetId = z.string().min(1).max(128);
 export const shopifyMediaPreviewSchema = z.strictObject({
@@ -35,7 +44,7 @@ export const shopifyMediaPreviewSchema = z.strictObject({
    shopifyHost.test(url.host) && shopifyProductPath.test(url.pathname);
  }),
  galleryCount:z.number().int().min(0).max(60),
- confirmationHash:z.string().regex(/^[0-9a-f]{64}$/).optional(),
+ confirmationHash:confirmationHash.optional(),
  images:z.array(z.strictObject({
   id:assetId,
   url:z.string().url().max(2048).refine(value => value.startsWith("https://")),
@@ -62,5 +71,5 @@ export type ShopifyMediaPreviewInput = z.infer<typeof shopifyMediaPreviewInput>;
 
 export function matchesShopifyMediaPreview(result: ShopifyMediaPreview, request: ShopifyMediaPreviewInput): boolean {
  return result.sourceId === request.sourceId && result.storeId === request.storeId &&
-  productNumber(result.adminUrl) === productNumber(request.product);
+  shopifyMediaProductNumber(result.adminUrl) === shopifyMediaProductNumber(request.product);
 }
