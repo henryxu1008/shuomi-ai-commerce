@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -45,6 +46,72 @@ func TestInspectDraftMediaReadsExactProductAndOriginal(t *testing.T) {
 		!slices.Equal(got.Variants[0].MediaIDs, []string{"gid://shopify/MediaImage/9"}) ||
 		len(got.Images) != 1 || got.Images[0].MediaID != "gid://shopify/MediaImage/9" || got.Images[0].State != DraftMediaPresent {
 		t.Fatalf("incorrect evidence (queries=%d reads=%d): %+v, %v", calls, reads, got, err)
+	}
+}
+
+func TestReadDraftMediaEvidenceRequiresOriginalsForEachGalleryImage(t *testing.T) {
+	const first = "https://shopify-shop-assets.storage.googleapis.com/shop/first?signature=fixture"
+	const second = "https://shopify-shop-assets.storage.googleapis.com/shop/second?signature=fixture"
+	original := existingDraftMediaFixture(first)
+	video := `{"id":"gid://shopify/Video/11","status":"READY","mediaContentType":"VIDEO"}`
+	image := `{"id":"gid://shopify/MediaImage/11","status":"READY","mediaContentType":"IMAGE","originalSource":{"url":"` + second + `","fileSize":"11"}}`
+	for _, test := range []struct {
+		name, body string
+		reads      int32
+		secondType string
+		complete   bool
+		err        error
+	}{
+		{name: "complete originals", body: strings.Replace(original, video, image, 1), reads: 2, complete: true},
+		{name: "processing is still incomplete", body: strings.Replace(original, video, strings.Replace(image, "READY", "PROCESSING", 1), 1), reads: 1},
+		{name: "unsafe second original is not downloaded", body: strings.Replace(original, video, strings.Replace(image, second, "https://elsewhere.example/second", 1), 1), reads: 1},
+		{name: "non-image is visible and has no original hash", body: original, reads: 1, secondType: "VIDEO"},
+		{name: "incomplete gallery page fails before any download", body: strings.Replace(original, "false", "true", 1), err: ErrDraftUnverified},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			calls := 0
+			admin := NewDevelopmentAdminClient(&http.Client{Transport: transportFunc(func(req *http.Request) (*http.Response, error) {
+				calls++
+				if calls == 1 {
+					return fixtureResponse(200, strings.Replace(installationFixture, `"currencyCode":"USD"`, `"currencyCode":"USD","plan":{"partnerDevelopment":true}`, 1)), nil
+				}
+				return fixtureResponse(200, test.body), nil
+			})})
+			var requests atomic.Int32
+			images := &http.Client{Transport: transportFunc(func(req *http.Request) (*http.Response, error) {
+				requests.Add(1)
+				if req.Method != http.MethodGet || req.URL.Host != draftOriginalHost || req.Header.Get("X-Shopify-Access-Token") != "" {
+					t.Error("unexpected request for Shopify originals")
+				}
+				body := "image bytes"
+				if req.URL.String() == second {
+					body = "other bytes"
+				}
+				return fixtureResponse(200, body), nil
+			})}
+			got, err := admin.readDraftMediaEvidence(context.Background(), productInstallation(), "fixture-token", "gid://shopify/Product/55", images)
+			if err != test.err || requests.Load() != test.reads || calls != 2 {
+				t.Fatalf("unexpected draft evidence: reads %d, Admin queries %d, error %v", requests.Load(), calls, err)
+			}
+			if err != nil {
+				return
+			}
+			secondType, secondID := test.secondType, "gid://shopify/MediaImage/11"
+			if secondType == "" {
+				secondType = "IMAGE"
+			} else {
+				secondID = "gid://shopify/Video/11"
+			}
+			if len(got.Gallery) != 2 || len(got.Variants) != 1 || got.Variants[0].SKU != "BLACK-S" ||
+				got.Gallery[0].ID != "gid://shopify/MediaImage/9" || got.Gallery[0].Hash != sha256.Sum256([]byte("image bytes")) ||
+				got.Gallery[1].ID != secondID || got.Gallery[1].Type != secondType {
+				t.Fatalf("incorrect gallery or variant evidence: %+v", got)
+			}
+			if test.complete && got.Gallery[1].Hash != sha256.Sum256([]byte("other bytes")) ||
+				!test.complete && got.Gallery[1].Hash != ([32]byte{}) {
+				t.Fatalf("incorrect evidence for second image: %+v", got.Gallery[1])
+			}
+		})
 	}
 }
 

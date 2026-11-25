@@ -67,6 +67,17 @@ type DraftMediaVariant struct {
 	MediaIDs []string
 }
 
+type DraftGalleryEvidence struct {
+	ID, Type, Status string
+	DraftMediaFingerprint
+}
+
+type DraftMediaEvidence struct {
+	ID, Title string
+	Gallery   []DraftGalleryEvidence
+	Variants  []DraftMediaVariant
+}
+
 type DraftMediaObservation struct {
 	ID           string
 	Title        string
@@ -153,10 +164,43 @@ func (c *AdminClient) InspectDraftMedia(ctx context.Context, expected Installati
 	if c == nil || !c.developmentStoresOnly {
 		return DraftMediaObservation{}, ErrInvalidRequest
 	}
+	images := newDraftOriginalClient()
+	defer images.CloseIdleConnections()
+	return c.inspectDraftMedia(ctx, expected, token, productID, proofs, images)
+}
+
+func newDraftOriginalClient() *http.Client {
 	images := httpimage.NewPublicImageHTTPClient()
 	images.Timeout = 11 * time.Second
 	images.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	return c.inspectDraftMedia(ctx, expected, token, productID, proofs, images)
+	return images
+}
+
+// ReadDraftMediaEvidence returns bounded facts for the exact development draft.
+// A zero digest leaves that gallery item unverified. Temporary original URLs
+// and access tokens never leave this transport.
+func (c *AdminClient) ReadDraftMediaEvidence(ctx context.Context, expected Installation, token, productID string) (DraftMediaEvidence, error) {
+	if c == nil || !c.developmentStoresOnly {
+		return DraftMediaEvidence{}, ErrInvalidRequest
+	}
+	images := newDraftOriginalClient()
+	defer images.CloseIdleConnections()
+	return c.readDraftMediaEvidence(ctx, expected, token, productID, images)
+}
+
+func (c *AdminClient) readDraftMediaEvidence(ctx context.Context, expected Installation, token, productID string, images *http.Client) (DraftMediaEvidence, error) {
+	view, gallery, err := c.readDraftMedia(ctx, expected, token, productID)
+	if err != nil {
+		return DraftMediaEvidence{}, err
+	}
+	originals := downloadDraftOriginals(ctx, images, gallery)
+	evidence := DraftMediaEvidence{ID: view.ID, Title: view.Title, Variants: view.Variants,
+		Gallery: make([]DraftGalleryEvidence, len(gallery))}
+	for i, media := range gallery {
+		evidence.Gallery[i] = DraftGalleryEvidence{ID: media.ID, Type: media.MediaContentType, Status: media.Status,
+			DraftMediaFingerprint: DraftMediaFingerprint{Size: originals[i].size, Hash: originals[i].hash}}
+	}
+	return evidence, nil
 }
 
 func (c *AdminClient) inspectDraftMedia(ctx context.Context, expected Installation, token, productID string, proofs []DraftMediaFingerprint, images *http.Client) (DraftMediaObservation, error) {
@@ -168,27 +212,38 @@ func (c *AdminClient) inspectDraftMedia(ctx context.Context, expected Installati
 			return DraftMediaObservation{}, ErrInvalidRequest
 		}
 	}
-	if _, err := c.matchInstallation(ctx, expected, token); err != nil {
+	observation, gallery, err := c.readDraftMedia(ctx, expected, token, productID)
+	if err != nil {
 		return DraftMediaObservation{}, err
+	}
+	observation.Images = matchDraftOriginals(ctx, images, gallery, proofs)
+	return observation, nil
+}
+
+func (c *AdminClient) readDraftMedia(ctx context.Context, expected Installation, token, productID string) (DraftMediaObservation, []draftGalleryMedia, error) {
+	if ctx == nil || !validGID(productID, "Product") {
+		return DraftMediaObservation{}, nil, ErrInvalidRequest
+	}
+	if _, err := c.matchInstallation(ctx, expected, token); err != nil {
+		return DraftMediaObservation{}, nil, err
 	}
 	var data struct {
 		Product *remoteDraftMedia `json:"product"`
 	}
 	variables := map[string]any{"id": productID, "mediaLimit": draftMediaLimit, "variantLimit": draftMediaVariantLimit}
 	if c.query(ctx, expected.Domain, token, inspectDraftMediaQuery, variables, &data) != nil {
-		return DraftMediaObservation{}, ErrDraftUnverified
+		return DraftMediaObservation{}, nil, ErrDraftUnverified
 	}
 	product := data.Product
 	if product == nil || product.ID != productID || product.Status != "DRAFT" || product.Title == "" ||
 		!product.Media.complete(draftMediaLimit) || !product.Variants.complete(draftMediaVariantLimit) || len(product.Variants.Nodes) == 0 {
-		return DraftMediaObservation{}, ErrDraftUnverified
+		return DraftMediaObservation{}, nil, ErrDraftUnverified
 	}
 	observation, ok := product.observation()
 	if !ok {
-		return DraftMediaObservation{}, ErrDraftUnverified
+		return DraftMediaObservation{}, nil, ErrDraftUnverified
 	}
-	observation.Images = matchDraftOriginals(ctx, images, product.Media.Nodes, proofs)
-	return observation, nil
+	return observation, product.Media.Nodes, nil
 }
 
 func (p *remoteDraftMedia) observation() (DraftMediaObservation, bool) {
@@ -251,18 +306,30 @@ func matchDraftOriginals(ctx context.Context, client *http.Client, gallery []dra
 			candidates = append(candidates, media)
 		}
 	}
+	if len(candidates) > draftMediaProofLimit {
+		client = nil
+	}
+	originals := downloadDraftOriginals(ctx, client, candidates)
+	for i, proof := range requested {
+		matches[i] = matchDraftOriginal(proof, originals)
+	}
+	return matches
+}
+
+func downloadDraftOriginals(ctx context.Context, client *http.Client, candidates []draftGalleryMedia) []draftOriginal {
 	originals := make([]draftOriginal, len(candidates))
 	for i, candidate := range candidates {
 		size, _ := candidate.OriginalSource.FileSize.Int64()
 		originals[i] = draftOriginal{mediaID: candidate.ID, size: size}
 	}
-	if client != nil && len(candidates) <= draftMediaProofLimit {
+	if client != nil {
 		ctx, cancel := context.WithTimeout(ctx, 40*time.Second)
 		defer cancel()
 		var downloads sync.WaitGroup
 		slots := make(chan struct{}, 4)
 		for i, media := range candidates {
-			if media.Status != "READY" || !validDraftOriginalURL(media.OriginalSource.URL) {
+			if media.MediaContentType != "IMAGE" || media.Status != "READY" || originals[i].size > MaxStagedDraftImageBytes ||
+				!validDraftOriginalURL(media.OriginalSource.URL) {
 				continue
 			}
 			downloads.Add(1)
@@ -283,10 +350,7 @@ func matchDraftOriginals(ctx context.Context, client *http.Client, gallery []dra
 		}
 		downloads.Wait()
 	}
-	for i, proof := range requested {
-		matches[i] = matchDraftOriginal(proof, originals)
-	}
-	return matches
+	return originals
 }
 
 func matchDraftOriginal(proof DraftMediaFingerprint, originals []draftOriginal) DraftMediaMatch {
