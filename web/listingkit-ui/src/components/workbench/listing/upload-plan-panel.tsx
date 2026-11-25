@@ -77,6 +77,7 @@ function ShopifyDraftDetails({draft}:{draft:ShopifyDraftConfirmation}){
     {draft.variants.map((variant,index)=><li key={index} className="break-words">
      {variant.values?.map((value,option)=>`${draft.options?.[option]?.name}：${value}`).join(" · ")||"默认规格"}
      {variant.sku?` · SKU ${variant.sku}`:""} · {variant.price}
+     {variant.imageIndex?` · 图库第 ${variant.imageIndex} 张`:""}
     </li>)}
    </ul>
   </div>

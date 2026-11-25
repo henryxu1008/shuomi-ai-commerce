@@ -46,12 +46,16 @@ func NewDevelopmentAdminClient(transport *http.Client) *AdminClient {
 }
 
 func boundedClient(transport *http.Client) *http.Client {
-	client := http.Client{Timeout: adminTimeout}
+	return boundedClientFor(transport, adminTimeout)
+}
+
+func boundedClientFor(transport *http.Client, timeout time.Duration) *http.Client {
+	client := http.Client{Timeout: timeout}
 	if transport != nil {
 		client = *transport
 	}
-	if client.Timeout <= 0 || client.Timeout > adminTimeout {
-		client.Timeout = adminTimeout
+	if client.Timeout <= 0 || client.Timeout > timeout {
+		client.Timeout = timeout
 	}
 	client.Jar = nil
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }

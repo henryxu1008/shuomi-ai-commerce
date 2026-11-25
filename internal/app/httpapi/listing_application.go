@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	imageapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/imageagent"
 	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
 	listinghttp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing/httpapi"
 	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
@@ -34,11 +35,12 @@ import (
 
 type ListingDependencies struct {
 	// Injected before any execution/rules consumer captures Store access.
-	localDraftPolicy *record.LocalTrialPolicy
-	AssetDB          *gorm.DB
-	Starter          listingapp.OperationStarter
-	NewWorker        listingapp.OperationWorkerFactory
-	Worker           *listingapp.OperationWorker
+	localDraftPolicy       *record.LocalTrialPolicy
+	AssetDB                *gorm.DB
+	Starter                listingapp.OperationStarter
+	NewWorker              listingapp.OperationWorkerFactory
+	Worker                 *listingapp.OperationWorker
+	shopifyGeneratedImages imageapp.GeneratedMaterialByteReader
 }
 
 func WithListing(d ListingDependencies) CurrentApplicationOption {
@@ -158,7 +160,7 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 		return empty, err
 	}
 	stageProjection := core.app.StageProjection
-	uploader, err := listingapp.NewUploadService(listingapp.UploadDependencies{Sources: sources, Products: effective, Assets: assets, Rules: rules, TemuRules: temuRules, TemuImages: imageProbe, TikTokRules: tiktokRules, TikTokImages: imageProbe, WalmartRules: walmartRules, WalmartImages: imageProbe, ShopifyStores: listingapp.OfficialShopifyExecutionStore{Access: access}, TikTokStores: listingapp.OfficialTikTokExecutionStore{Access: access}, WalmartStores: listingapp.OfficialWalmartExecutionStore{Access: access}, WalmartReadStores: walmartStores, Records: records, Authorization: executionAuth, Stores: listingapp.OfficialExecutionStore{Access: access}, TemuStores: listingapp.OfficialTemuExecutionStore{Access: access}, Images: imageProbe, Kernel: kernel, Intents: official, Receipts: official, ReviewGate: stageProjection.RequireUploadReady})
+	uploader, err := listingapp.NewUploadService(listingapp.UploadDependencies{ShopifyGeneratedImages: d.shopifyGeneratedImages, Sources: sources, Products: effective, Assets: assets, Rules: rules, TemuRules: temuRules, TemuImages: imageProbe, TikTokRules: tiktokRules, TikTokImages: imageProbe, WalmartRules: walmartRules, WalmartImages: imageProbe, ShopifyStores: listingapp.OfficialShopifyExecutionStore{Access: access}, TikTokStores: listingapp.OfficialTikTokExecutionStore{Access: access}, WalmartStores: listingapp.OfficialWalmartExecutionStore{Access: access}, WalmartReadStores: walmartStores, Records: records, Authorization: executionAuth, Stores: listingapp.OfficialExecutionStore{Access: access}, TemuStores: listingapp.OfficialTemuExecutionStore{Access: access}, Images: imageProbe, Kernel: kernel, Intents: official, Receipts: official, ReviewGate: stageProjection.RequireUploadReady})
 	if err != nil {
 		return empty, err
 	}

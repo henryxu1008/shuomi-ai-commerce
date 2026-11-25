@@ -47,29 +47,30 @@ type UploadKernel interface {
 	Expire(context.Context, submission.ExecutionScope, string) (submission.ExecutionAttempt, error)
 }
 type UploadDependencies struct {
-	Sources           record.TargetExecutionSourceSelector
-	Products          record.EffectiveTargetProductReader
-	Assets            record.ApprovedAssetReader
-	Rules             record.TargetRuleReader
-	TemuRules         record.TargetTemuRuleReader
-	TemuImages        record.TargetTemuImageReader
-	Records           record.TargetRepository
-	Authorization     collection.ExecutionAuthorizer
-	Stores            ExecutionStore
-	ShopifyStores     ShopifyExecutionStore
-	TemuStores        TemuExecutionStore
-	TikTokStores      TikTokExecutionStore
-	TikTokRules       record.TargetTikTokRuleReader
-	TikTokImages      TikTokImageContentReader
-	WalmartStores     WalmartExecutionStore
-	WalmartReadStores WalmartRuleStore
-	WalmartRules      record.TargetWalmartRuleReader
-	WalmartImages     record.TargetWalmartImageReader
-	Images            ImageProbe
-	Kernel            UploadKernel
-	Intents           submission.OfficialIntentRepository
-	Receipts          submission.OfficialReceiptRepository
-	ReviewGate        func(context.Context, collection.Scope, record.TargetRecord) error
+	Sources                record.TargetExecutionSourceSelector
+	Products               record.EffectiveTargetProductReader
+	Assets                 record.ApprovedAssetReader
+	Rules                  record.TargetRuleReader
+	TemuRules              record.TargetTemuRuleReader
+	TemuImages             record.TargetTemuImageReader
+	Records                record.TargetRepository
+	Authorization          collection.ExecutionAuthorizer
+	Stores                 ExecutionStore
+	ShopifyStores          ShopifyExecutionStore
+	ShopifyGeneratedImages func(context.Context, asset.SourceSelection, asset.ApprovedAsset, int64) ([]byte, error)
+	TemuStores             TemuExecutionStore
+	TikTokStores           TikTokExecutionStore
+	TikTokRules            record.TargetTikTokRuleReader
+	TikTokImages           TikTokImageContentReader
+	WalmartStores          WalmartExecutionStore
+	WalmartReadStores      WalmartRuleStore
+	WalmartRules           record.TargetWalmartRuleReader
+	WalmartImages          record.TargetWalmartImageReader
+	Images                 ImageProbe
+	Kernel                 UploadKernel
+	Intents                submission.OfficialIntentRepository
+	Receipts               submission.OfficialReceiptRepository
+	ReviewGate             func(context.Context, collection.Scope, record.TargetRecord) error
 }
 type UploadService struct{ dependencies UploadDependencies }
 type UploadResult struct {

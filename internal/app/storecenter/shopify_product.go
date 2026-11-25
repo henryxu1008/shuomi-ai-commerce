@@ -58,13 +58,17 @@ func (w *ShopifyDraftWrite) Create(ctx context.Context, draft shopify.Draft) (sh
 		input.Options = append(input.Options, wire.DraftOption{Name: option.Name, Values: option.Values})
 	}
 	for _, variant := range draft.Variants {
-		input.Variants = append(input.Variants, wire.DraftVariant{SKU: variant.SKU, Price: variant.Price, Values: variant.Values})
+		input.Variants = append(input.Variants, wire.DraftVariant{SKU: variant.SKU, Price: variant.Price, Values: variant.Values, ImageIndex: variant.ImageIndex})
 	}
 	for _, image := range draft.Images {
 		input.Images = append(input.Images, wire.DraftImage{URL: image.URL, Alt: image.Alt})
 	}
 	observation, err := w.transport.Create(ctx, input)
 	return shopifyObservation(observation), err
+}
+
+func (w *ShopifyDraftWrite) StageImages(ctx context.Context, contents [][]byte) ([]string, error) {
+	return w.transport.StageImages(ctx, contents)
 }
 
 func shopifyObservation(value wire.ProductObservation) shopify.ProductObservation {

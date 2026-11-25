@@ -165,3 +165,128 @@ func TestShopifyUploadRetainsDraftAndDoesNotResendUnknown(t *testing.T) {
 		})
 	}
 }
+
+type stagingDraftFixture struct {
+	shopifyDraftFixture
+	stageError    error
+	accessRevoked bool
+	calls         []string
+	sent          shopify.Draft
+}
+
+func (f *stagingDraftFixture) VerifyDraftWrite(ctx context.Context, scope collection.Scope, expected storecenter.ProductMerchantBinding) (ShopifyDraftWriter, error) {
+	f.calls = append(f.calls, "verify")
+	_, err := f.shopifyDraftFixture.VerifyDraftWrite(ctx, scope, expected)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+func (f *stagingDraftFixture) StageImages(_ context.Context, images [][]byte) ([]string, error) {
+	f.calls = append(f.calls, "stage")
+	if len(images) != 1 || string(images[0]) != "approved bytes" {
+		return nil, errors.New("wrong staged content")
+	}
+	if f.accessRevoked {
+		f.preflight = errors.New("store authorization changed while staging")
+	}
+	return []string{"https://shopify-staged-uploads.storage.googleapis.com/tmp/123/products/abc/image.png"}, f.stageError
+}
+
+func (f *stagingDraftFixture) Create(ctx context.Context, draft shopify.Draft) (shopify.ProductObservation, error) {
+	f.calls = append(f.calls, "create")
+	f.sent = draft
+	return f.shopifyDraftFixture.Create(ctx, draft)
+}
+
+func TestShopifyUploadRechecksAccessAndPreservesFrozenGalleryAfterStaging(t *testing.T) {
+	ctx := context.Background()
+	uploader, scope, records, _, ledger, receipts, _ := uploadFixture(t)
+	kernel, err := submission.NewExecutionKernel(&shopifyUploadFixtureRepository{tiktokUploadKernelRepository: tiktokUploadKernelRepository{kernel: ledger}})
+	require.NoError(t, err)
+	uploader.dependencies.Kernel = shopifyFixtureKernel{ledger, kernel}
+	saved := &records.saved
+	saved.Merchant.Platform, saved.Merchant.Site, saved.Merchant.ApplicationType = storecenter.PlatformShopify, "shopify", ""
+	saved.Merchant.ApplicationID, saved.Merchant.ApplicationRevision = "gid://shopify/App/32", "shopify-admin-2026-10"
+	saved.Merchant.Shopify = storecenter.ShopifyMerchantBinding{ShopKey: uuid.NewString(), Currency: "USD"}
+	saved.Input.Draft, saved.Result, saved.ImageObservations = goods.OfficialDraftInput{}, goods.OfficialDraft{}, nil
+	const generated = "https://localhost:36522/approved.png"
+	const public = "https://example.com/gallery.jpg"
+	saved.Input.Shopify = &shopify.Input{Currency: "USD", Prices: []string{"12.50"}, ImageIDs: []string{"public", "generated"}, VariantImageIDs: []string{"generated"}}
+	inventory := uploader.dependencies.Assets.(uploadAssets).inventory
+	inventory.Scope.TargetPlatform = "product"
+	inventory.Assets = []asset.ApprovedAsset{
+		{ID: "generated", URL: generated, Role: asset.RoleMain, GenerationEvidence: &asset.GenerationEvidence{}},
+		{ID: "public", URL: public, Role: asset.RoleGallery},
+	}
+	uploader.dependencies.Assets = uploadAssets{inventory}
+	store := &stagingDraftFixture{shopifyDraftFixture: shopifyDraftFixture{binding: saved.Merchant}, stageError: errors.New("temporary stage failed")}
+	var revokeWhileReading, replaceWhileReading bool
+	uploader.dependencies.ShopifyGeneratedImages = func(_ context.Context, selection asset.SourceSelection, selected asset.ApprovedAsset, limit int64) ([]byte, error) {
+		store.calls = append(store.calls, "read")
+		require.Equal(t, scope.OrganizationID, selection.TenantID)
+		require.Equal(t, inventory.Scope.ProductKey, selection.ProductKey)
+		require.Equal(t, inventory.Scope.SourceSnapshotVersion, selection.EffectiveCatalogVersion)
+		require.Equal(t, inventory.Assets[0], selected)
+		require.Positive(t, limit)
+		if revokeWhileReading {
+			store.preflight = errors.New("store authorization changed while reading approved images")
+		}
+		if replaceWhileReading {
+			replacement := inventory
+			replacement.Assets = append([]asset.ApprovedAsset(nil), inventory.Assets...)
+			replacement.Assets[0].Width = 1024
+			uploader.dependencies.Assets = uploadAssets{replacement}
+		}
+		return []byte("approved bytes"), nil
+	}
+	draft, err := shopify.BuildDraft(*saved.Input.Shopify, catalog.ProductSnapshot{Title: "Original"}, inventory, "USD")
+	require.NoError(t, err)
+	saved.Shopify, saved.InventoryHash, saved.RulesHash = &draft, collection.Digest(inventory), collection.Digest(saved.Merchant.Shopify)
+	uploader.dependencies.ShopifyStores = store
+
+	failed, err := uploader.Upload(ctx, scope, uuid.NewString(), saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionNotSent, failed.Status)
+	require.Equal(t, []string{"read", "verify", "stage"}, store.calls)
+	require.Zero(t, store.writes)
+
+	store.calls, store.stageError, store.accessRevoked = nil, nil, true
+	revoked, err := uploader.Upload(ctx, scope, uuid.NewString(), saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionNotSent, revoked.Status)
+	require.Equal(t, []string{"read", "verify", "stage", "verify"}, store.calls)
+	require.Zero(t, store.writes)
+
+	store.calls, store.preflight, store.accessRevoked, revokeWhileReading = nil, nil, false, true
+	revoked, err = uploader.Upload(ctx, scope, uuid.NewString(), saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionNotSent, revoked.Status)
+	require.Equal(t, []string{"read", "verify"}, store.calls)
+	require.Zero(t, store.writes)
+
+	store.calls, store.preflight, revokeWhileReading, replaceWhileReading = nil, nil, false, true
+	replaced, err := uploader.Upload(ctx, scope, uuid.NewString(), saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionNotSent, replaced.Status)
+	require.Equal(t, []string{"read"}, store.calls)
+	require.Zero(t, store.writes)
+
+	store.calls, replaceWhileReading = nil, false
+	uploader.dependencies.Assets = uploadAssets{inventory}
+	result, err := uploader.Upload(ctx, scope, uuid.NewString(), saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionSucceeded, result.Status)
+	require.Equal(t, []string{"read", "verify", "stage", "verify", "create"}, store.calls)
+	require.Len(t, receipts.receipts, 1)
+	require.Equal(t, public, store.sent.Images[0].URL)
+	require.Contains(t, store.sent.Images[1].URL, "shopify-staged-uploads.storage.googleapis.com")
+	require.Equal(t, 2, store.sent.Variants[0].ImageIndex)
+	require.Equal(t, generated, saved.Shopify.Images[1].URL)
+
+	replay, err := uploader.Upload(ctx, scope, uuid.NewString(), saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, result, replay)
+	require.Equal(t, 1, store.writes)
+}

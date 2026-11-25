@@ -76,6 +76,7 @@ export const shopifyTargetInputSchema = targetBase.extend({
   currency: shopifyCurrency,
   prices: z.array(shopifyPrice).min(1).max(30),
   imageIds: z.array(text(128).min(1)).max(10).optional(),
+  variantImageIds: z.array(text(128)).max(30).optional(),
  }),
 }).strict();
 export const shopifyRulesQuerySchema = targetBase.extend({
