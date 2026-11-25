@@ -3,13 +3,15 @@ package imageagentworker
 import (
 	"context"
 	"errors"
-	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
-	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	"net/http"
 	"reflect"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	imageagenttemporal "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/temporal"
@@ -171,7 +173,16 @@ func readGenerationSource(ctx context.Context, input imageagent.SlotExecutionInp
 		if asset.ID != input.Slot.SourceAssetIDs[0] || asset.Type != imageagent.AuthorizedAssetSource {
 			continue
 		}
-		data, err := httpimage.Download(ctx, httpimage.NewPublicImageHTTPClient(), asset.URL, productimage.MaxInlineArtifactBytes)
+		client := httpimage.NewPublicImageHTTPClient()
+		maxBytes := int64(productimage.MaxInlineArtifactBytes)
+		if input.Slot.Recipe != nil && input.Slot.Recipe.Quote.Provider == aicapability.ToAPIsProductImageProvider {
+			if _, err := imageagent.ToAPIsImageSetSource(catalog, asset.ID); err != nil {
+				return nil, err
+			}
+			client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+			maxBytes = aicapability.GRSaiProductImageMaxSourceBytes
+		}
+		data, err := httpimage.Download(ctx, client, asset.URL, maxBytes)
 		if err != nil {
 			return nil, errors.New("source image is unavailable")
 		}

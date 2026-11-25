@@ -25,6 +25,7 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/grsai"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
 	openai "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/toapis"
 	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 )
 
@@ -54,6 +55,16 @@ func (f generationProviderFactory) prepare(ctx context.Context, input imageagent
 	if metadata.BillingMode == aicapability.ModelUsageOnly {
 		if input.ImageSet == nil || input.Artwork != nil || !input.ImageSet.Source.OwnProduct || input.TargetPlatform != "product" {
 			return imageagent.PreparedGenerationProvider{}, imageagent.ErrImageRouteChanged
+		}
+		if metadata.Provider == aicapability.ToAPIsProductImageProvider {
+			if len(input.Slot.SourceAssetIDs) != 1 {
+				return imageagent.PreparedGenerationProvider{}, imageagent.ErrValidation
+			}
+			source, err := imageagent.ToAPIsImageSetSource(input.AssetCatalog, input.Slot.SourceAssetIDs[0])
+			if err != nil {
+				return imageagent.PreparedGenerationProvider{}, err
+			}
+			return imageagent.PreparedGenerationProvider{Metadata: metadata, ProviderUsage: toapisProductImageTasks{toapis.NewClient(cfg.APIKey, f.providerHTTPClient), source}}, nil
 		}
 		return imageagent.PreparedGenerationProvider{Metadata: metadata, ProviderUsage: ownedProductImageTasks{f.grsaiClient(cfg, true)}}, nil
 	}

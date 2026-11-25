@@ -54,6 +54,7 @@ type modelRoutePricingModule struct {
 	authorizer           *authz.ListingKitAuthorizer
 	organizationResolver organizationIdentityResolver
 	ownedImageTenants    []string
+	ownedToAPIsTenants   []string
 }
 
 func (modelRoutePricingModule) Name() string                { return "model-route-pricing" }

@@ -31,8 +31,8 @@ func (i GenerationIntent) UsesProviderUsage() bool {
 }
 
 func (i GenerationIntent) validProviderUsage() bool {
-	return i.Provider == "grsai" && i.Model == aicapability.GRSaiProductImageModel &&
-		i.Protocol == aicapability.GRSaiProductImageProtocol && i.Quality == "auto" &&
+	quality := aicapability.OwnedProductImageQuality(i.Provider, i.Model, i.Protocol)
+	return quality != "" && i.Quality == quality &&
 		i.InputProtocol == ImageSetSchema && i.PromptVersion == ImageSetSchema &&
 		generationDigest(i.InputDigest) && canonicalImageValue(i.ConnectionID) &&
 		i.Billing == (ImageBilling{}) && i.PriceVersion == "" && i.Points == 0 &&
@@ -43,7 +43,7 @@ func (f GenerationFact) RecordProviderTask(id string, acceptedAt time.Time) (Gen
 	if err := f.Validate(); err != nil {
 		return f, err
 	}
-	if !f.Intent.UsesProviderUsage() || !aicapability.ValidGRSaiProductImageTaskID(id) || acceptedAt.IsZero() {
+	if !f.Intent.UsesProviderUsage() || !aicapability.ValidProductImageTaskID(id) || acceptedAt.IsZero() {
 		return f, ErrValidation
 	}
 	if f.ProviderTask.ID != "" {
@@ -111,7 +111,7 @@ func (f GenerationFact) validateProviderUsage() error {
 	}
 	task := f.ProviderTask
 	if task != (GenerationProviderTask{}) &&
-		(!aicapability.ValidGRSaiProductImageTaskID(task.ID) || task.AcceptedAt.IsZero() || task.AcceptedAt.Location() != time.UTC) {
+		(!aicapability.ValidProductImageTaskID(task.ID) || task.AcceptedAt.IsZero() || task.AcceptedAt.Location() != time.UTC) {
 		return ErrValidation
 	}
 	if f.State != GenerationSupplierFailed && (task.FailureStatus != "" || task.FailureDigest != "") {

@@ -19,6 +19,8 @@ const (
 	CompatibleOpenAIChannel = "openai-compatible"
 	GRSaiImageTemplate      = "grsai-product-image-v1"
 	GRSaiImageChannel       = "grsai-product-image"
+	ToAPIsImageTemplate     = "toapis-product-image-v1"
+	ToAPIsImageChannel      = "toapis-product-image"
 )
 
 // PlatformOwner is reserved for platform-owned channels, never an IdP organization.
@@ -120,6 +122,11 @@ func NewRegistrationCommand(org, actor, key string, input RegistrationInput) (Re
 			return RegistrationCommand{}, ErrInvalid
 		}
 		base, channel, provider = aicapability.GRSaiProductImageBaseURL, GRSaiImageChannel, "grsai"
+	case ToAPIsImageTemplate:
+		if input.BaseURL != "" || org == PlatformOwner {
+			return RegistrationCommand{}, ErrInvalid
+		}
+		base, channel, provider = aicapability.ToAPIsProductImageBaseURL, ToAPIsImageChannel, aicapability.ToAPIsProductImageProvider
 	default:
 		return RegistrationCommand{}, ErrInvalid
 	}

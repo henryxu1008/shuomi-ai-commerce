@@ -7,7 +7,7 @@ const (
 	GRSaiProductImageMaxSourceBytes = 3 << 20
 )
 
-func ValidGRSaiProductImageTaskID(id string) bool {
+func ValidProductImageTaskID(id string) bool {
 	if len(id) == 0 || len(id) > 128 {
 		return false
 	}

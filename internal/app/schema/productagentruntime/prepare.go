@@ -38,11 +38,19 @@ func PrepareManagedModelChannels(ctx context.Context, db *gorm.DB) (Result, erro
 }
 
 func PrepareOwnedGRSaiProductImage(ctx context.Context, db *gorm.DB) (Result, error) {
-	return prepare(ctx, db, "owned-grsai-product-image", "product_agent_owner", func(tx *gorm.DB, result *Result) error {
+	return prepareOwnedProductImage(ctx, db, "owned-grsai-product-image", channelstore.EnableGRSaiImageRegistration)
+}
+
+func PrepareOwnedToAPIsProductImage(ctx context.Context, db *gorm.DB) (Result, error) {
+	return prepareOwnedProductImage(ctx, db, "owned-toapis-product-image", channelstore.EnableToAPIsImageRegistration)
+}
+
+func prepareOwnedProductImage(ctx context.Context, db *gorm.DB, target string, enable func(context.Context, *gorm.DB) (bool, error)) (Result, error) {
+	return prepare(ctx, db, target, "product_agent_owner", func(tx *gorm.DB, result *Result) error {
 		if !routestore.ManagedChannelSchemaInstalled(ctx, tx) {
 			return errors.New("managed channels schema is unavailable")
 		}
-		updated, err := channelstore.EnableGRSaiImageRegistration(ctx, tx)
+		updated, err := enable(ctx, tx)
 		if err != nil {
 			return err
 		}
