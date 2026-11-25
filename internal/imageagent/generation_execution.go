@@ -70,7 +70,7 @@ func (e *GenerationExecution) QuoteSlot(ctx context.Context, input SlotExecution
 	if methodErr != nil {
 		return SlotUsageQuote{}, methodErr
 	}
-	defer release()
+	release()
 	input = preparedInput
 	provider, err := e.dependencies.PrepareProvider(ctx, input, func(context.Context, GenerationSuccess) error { return ErrProviderContractViolation })
 	if err != nil {

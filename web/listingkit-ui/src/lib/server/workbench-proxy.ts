@@ -1365,6 +1365,7 @@ export async function buildWorkbenchBrowserResponse(
     const standard=parseWorkbenchErrorEnvelopePayload(payload);const code=typeof payload.code==="string"?payload.code:standard.success?standard.data.code:"";
     if(imageSetErrorStatuses[code]!==upstream.status && acquisitionErrorStatuses[code]!==upstream.status)return invalid();
     const response=protocolError(upstream.status,code,"Image request could not be completed",options.requestId??"");
+    if(upstream.status===503&&code==="IMAGE_UNAVAILABLE"&&upstream.headers.get("Retry-After")==="1")response.headers.set("Retry-After","1");
     if(code==="ORGANIZATION_ACCESS_REVOKED"||code==="ORGANIZATION_ACCESS_DENIED")clearSelectionCookie(response);return response;
   }
   if (imageContract) {

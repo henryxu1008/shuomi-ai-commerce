@@ -31,6 +31,15 @@ type ImageMethodContext interface {
 	AcquireImageMethod(context.Context, ExecutionIdentity, agent.SkillVersionRef, string) (string, func(), error)
 }
 
+type ImageMethodUse struct {
+	Identity ExecutionIdentity
+	Binding  ImageMethodBinding
+}
+
+type ImageMethodSelectionContext interface {
+	AcquireImageMethods(context.Context, []ImageMethodUse) (func(), error)
+}
+
 func WithImageMethodContext(methods ImageMethodContext) ServiceOption {
 	return func(s *Service) error {
 		if methods == nil {

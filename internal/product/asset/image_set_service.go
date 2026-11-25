@@ -78,6 +78,7 @@ type ImageSetPreview struct {
 
 type ImageSetService struct {
 	executionPolicy ImageSetMutationAdmission
+	previewCapacity func(context.Context) (func(), error)
 	manual          ManualImageReader
 	sources         SourceSelectionReader
 	repository      Repository
@@ -97,6 +98,12 @@ func NewImageSetService(sources SourceSelectionReader, repository Repository, in
 func (s *ImageSetService) WithManualImages(reader ManualImageReader) *ImageSetService {
 	s.manual = reader
 	return s
+}
+
+// WithPreviewCapacity admits a new preview after the existing receipt lookup.
+// A caller that already reserved capacity should not install a second gate.
+func (s *ImageSetService) WithPreviewCapacity(acquire func(context.Context) (func(), error)) {
+	s.previewCapacity = acquire
 }
 
 func (s *ImageSetService) Preview(ctx context.Context, input ImageSetCommand) (ImageSetPreview, error) {
@@ -165,11 +172,21 @@ func (s *ImageSetService) prepare(ctx context.Context, input ImageSetCommand, mu
 	if !input.PolicyAdoption.Valid() {
 		return ApprovalCommit{}, ErrInvalidApproval
 	}
+	if !mutate && s.previewCapacity != nil {
+		release, err := s.previewCapacity(ctx)
+		if err != nil {
+			return ApprovalCommit{}, err
+		}
+		defer release()
+	}
 	if mutate && s.executionPolicy != nil {
 		if err := s.executionPolicy(ctx, source, input); err != nil {
 			return ApprovalCommit{}, err
 		}
 	}
+	commit, prepareErr := s.prepareNewSelection(ctx, source, input, requestDigest)
+	// Keep the use gate authoritative for new actions even when the pure
+	// preparation detects stale inventory or invalid candidate data.
 	if guard, ok := s.candidates.(ImageSelectionUseGuard); ok {
 		release, err := guard.AcquireImageSetSelection(fenceContext, source, input)
 		if err != nil {
@@ -178,12 +195,16 @@ func (s *ImageSetService) prepare(ctx context.Context, input ImageSetCommand, mu
 		if release == nil {
 			return ApprovalCommit{}, ErrRepositoryUnavailable
 		}
-		if keepFence == nil {
-			defer release()
+		if keepFence == nil || prepareErr != nil {
+			release()
 		} else {
 			keepFence(release)
 		}
 	}
+	return commit, prepareErr
+}
+
+func (s *ImageSetService) prepareNewSelection(ctx context.Context, source SourceSelection, input ImageSetCommand, requestDigest string) (ApprovalCommit, error) {
 	inventory, err := s.inventories.ReadImageSetInventory(ctx, InventoryScope{TenantID: source.TenantID, ProductKey: source.ProductKey, TargetPlatform: source.TargetPlatform, SourceSnapshotVersion: source.EffectiveCatalogVersion})
 	if err != nil {
 		return ApprovalCommit{}, err

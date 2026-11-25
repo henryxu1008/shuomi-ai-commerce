@@ -26,7 +26,10 @@ var schemaSQL string
 //go:embed execution_modes.sql
 var executionModesSQL string
 
-type Store struct{ db *gorm.DB }
+type Store struct {
+	db              *gorm.DB
+	checkImageSkill func(context.Context, *gorm.DB, agentconfig.ImageStartCommand) error
+}
 
 func New(db *gorm.DB) (*Store, error) {
 	if db == nil || db.Dialector.Name() != "postgres" {

@@ -256,7 +256,9 @@ function ScopedImageSetPanel({scope,colorGroupsAvailable,target,effectiveVersion
    }
   }catch(e){if(!controller.signal.aborted){
    fail(e);
-   if(e instanceof ImageSetError&&e.status===409&&(command.action==="prepare"||command.action==="regenerate"?e.code==="IMAGE_TEXT_REVIEW_CHANGED"||e.code==="IMAGE_ROUTE_CHANGED":command.action==="confirm"&&e.code==="IMAGE_ROUTE_CHANGED")){
+   if(e instanceof ImageSetError&&e.capacityRetry){
+    setError("当前图片任务较多，请稍后继续原操作。");
+   }else if(e instanceof ImageSetError&&e.status===409&&(command.action==="prepare"||command.action==="regenerate"?e.code==="IMAGE_TEXT_REVIEW_CHANGED"||e.code==="IMAGE_ROUTE_CHANGED":command.action==="confirm"&&e.code==="IMAGE_ROUTE_CHANGED")){
     try{if(e.code==="IMAGE_ROUTE_CHANGED"){setRouteDraft(command.action==="confirm"?undefined:(command.body as ImageSetPrepare).route??null);retainOriginalRequest(command,"IMAGE_ROUTE_CHANGED");setRouteReady(false);setRouteNonce(v=>v+1)}else retainOriginalRequest(command)}catch(retentionError){fail(retentionError)}
    }else if(!replay&&e instanceof ImageSetError&&e.code!=="OUTCOME_UNKNOWN"){
     clearIntent();if((command.action==="prepare"||command.action==="regenerate")&&e.code==="IMAGE_CONFIGURATION_CHANGED")setModeNonce(v=>v+1);

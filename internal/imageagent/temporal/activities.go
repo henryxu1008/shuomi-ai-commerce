@@ -16,6 +16,7 @@ var errPublicationOwnerRequiresActivity = errors.New("publication owner requires
 type RecoveryWorkflowStarter func(context.Context, EffectRecoveryWorkflowInput) error
 
 type ActivityDependencies struct {
+	ConfigurationCapacity    imageagent.ImageConfigurationCapacity
 	ArtworkPublisher         imageagent.ArtworkPublisher
 	ImageSetPolicyAdopter    imageagent.ImageSetPolicyAdopter
 	ImageSetApprovals        productasset.ApprovalCommitReader
@@ -34,6 +35,7 @@ type ActivityDependencies struct {
 }
 
 type Activities struct {
+	configurationCapacity    imageagent.ImageConfigurationCapacity
 	artworkPublisher         imageagent.ArtworkPublisher
 	imageSetPolicyAdopter    imageagent.ImageSetPolicyAdopter
 	imageSetApprovals        productasset.ApprovalCommitReader
@@ -88,6 +90,7 @@ func NewActivities(dependencies ActivityDependencies) (*Activities, error) {
 		dependencies.PublicationLeaseDuration = 2 * time.Minute
 	}
 	return &Activities{
+		configurationCapacity:    dependencies.ConfigurationCapacity,
 		artworkPublisher:         dependencies.ArtworkPublisher,
 		imageSetApprovals:        dependencies.ImageSetApprovals,
 		generationRecovery:       dependencies.GenerationRecovery,
