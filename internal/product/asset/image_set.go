@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"strings"
+	"unicode"
 )
 
 const ImageSetSelectionSchema = "product-image-selection-v1"
@@ -22,6 +24,7 @@ type ImageSetInventoryReader interface {
 }
 
 type ImagePresentation struct {
+	Color     string `json:"color,omitempty"`
 	Group     string `json:"group"`
 	Order     int    `json:"order"`
 	VariantID string `json:"variant_id,omitempty"`
@@ -137,7 +140,11 @@ func ValidateImageSetCommit(commit ApprovalCommit) error {
 		if p == nil || (p.Group != "carousel" && p.Group != "detail") || p.Order < 1 || p.Order > 40 || p.VariantID != "" && !validIdentityPart(p.VariantID) {
 			return ErrInvalidApproval
 		}
-		group := p.Group + "/" + p.VariantID
+		if p.Color != "" && (commit.TargetPlatform != "product" || p.VariantID != "" || len(p.Color) > 192 ||
+			strings.TrimSpace(p.Color) != p.Color || strings.IndexFunc(p.Color, unicode.IsControl) >= 0) {
+			return ErrInvalidApproval
+		}
+		group := p.Group + "\x00" + p.VariantID + "\x00" + p.Color
 		position := fmt.Sprintf("%s/%d", group, p.Order)
 		if positions[position] || origins[a.ApprovalIdentity()] {
 			return ErrInvalidApproval

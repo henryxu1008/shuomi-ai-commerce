@@ -72,7 +72,7 @@ export function ShopifyDraftEditor({scope, source, storeId, storeName, existing,
  });
  const canSave = !!source.product.title?.trim() && input.success && !disabled && (images !== undefined || imageError && selectedImages.length === 0);
  return <div className="space-y-5">
- {imagesAvailable ? <ProductImageSetPanel kind="supply" contextId={sourceId}
+ {imagesAvailable ? <ProductImageSetPanel colorGroupsAvailable kind="supply" contextId={sourceId}
   translationItemId={source.source.source.kind === "own" ? source.source.collectionItemId : undefined}
   onSaved={() => setImageRefresh(value => value + 1)} /> : null}
  <form className="space-y-4" onSubmit={event => {

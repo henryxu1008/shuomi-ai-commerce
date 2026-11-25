@@ -204,6 +204,11 @@ func (s *ImageSetService) prepare(ctx context.Context, input ImageSetCommand, mu
 		}
 		asset.ID = "selected-" + approvalDigest([]any{source.TenantID, input.ActionID, index, choice})
 		position := choice.Presentation
+		if position.Color != "" || asset.Presentation != nil && asset.Presentation.Color != "" {
+			if asset.Presentation == nil || *asset.Presentation != position {
+				return ApprovalCommit{}, ErrInvalidApproval
+			}
+		}
 		asset.Presentation = &position
 		asset.OfficialPlacement = nil
 		if choice.OfficialPlacement != nil {

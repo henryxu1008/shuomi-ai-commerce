@@ -172,6 +172,59 @@ it("archives a definite image-review rejection and unlocks correction without ge
  expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
 });
 
+it("quotes the selected template images for every color and shows each frozen original",async()=>{
+ const listingSource={...source,ContextKind:"supply"};
+ const route={BindingID:sha,RevisionID:digest};
+ const carousel=[...template.image.carousel,{id:"scene",purpose:"usage_scene"},{id:"structure",purpose:"structure"}];
+ const detail=[...template.image.detail,{id:"overview",purpose:"product_overview"},{id:"benefits",purpose:"key_benefits"}];
+ const exactTemplate={...template,image:{...template.image,carousel,detail}};
+ const groups=["黑色","灰色","白色"].map((color,index)=>({color,originalId:`original-${index}`}));
+ const originals=groups.map(({originalId:id})=>({id,displayUrl:`https://images.test/${id}.png`,width:1024,height:1024}));
+ const base=projection();
+ const pending={...base,unitVersion:providerImageUsageUnit,points:"0",settledPoints:"0",images:12,
+  plan:{...base.plan,Route:route,Source:listingSource,ColorImages:{option:"颜色",groups}},
+  originals:originals.map(o=>({ID:o.id,DisplayURL:o.displayUrl,Width:o.width,Height:o.height})),
+  slots:groups.flatMap(({color,originalId})=>[...carousel,...detail.slice(0,1)].map((task,index)=>({
+   ...base.slots[0],slotId:`${originalId}-${task.id}`,
+   recipe:{...base.slots[0].recipe,Purpose:task.purpose,Placement:{Color:color,Group:index===3?"detail":"carousel",Order:index===3?1:index+1},References:[{AssetID:originalId}],
+    Quote:{Points:"0",BillingMode:"usage_only",Model:"gpt-image-2.6"}},
+  }))),
+ };
+ const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((input,init)=>{
+  const url=new URL(String(input),"https://app.test"),path=url.pathname;
+  if(path.endsWith("/model-options"))return Promise.resolve(Response.json({contextKind:"supply",contextId:operation,
+   options:[{unitVersion:providerImageUsageUnit,model:"gpt-image-2.6",quality:"auto",resolution:"1024x1024",points:"0",route,channelName:"企业 GRSai"}]}));
+  if(path.includes("/revisions/")&&path.includes("/templates/"))return Promise.resolve(Response.json(exactTemplate));
+  if(path.endsWith("/templates"))return Promise.resolve(Response.json({items:[exactTemplate],nextCursor:""}));
+  if(path.endsWith("/images/sources"))return Promise.resolve(Response.json({contextKind:"supply",contextId:operation,source:listingSource,
+   manualReplacementAvailable:false,originals,evidence:{},colorOptions:[{name:"颜色",groups:groups.map(({color,originalId})=>({value:color,originalIds:[originalId]}))}]}));
+  if(path.endsWith("/prepare"))return Promise.resolve(Response.json(pending,{status:201}));
+  if(path.endsWith(`/runs/${runId}`))return Promise.resolve(Response.json(pending));
+  return real(input,init);
+ });
+ render(<ProductImageSetPanel kind="supply" contextId={operation} colorGroupsAvailable/>);
+ fireEvent.change(await screen.findByRole("combobox",{name:"企业图片模型"}),{target:{value:`${route.BindingID}/${route.RevisionID}`}});
+ fireEvent.click(await screen.findByRole("checkbox",{name:"按颜色生成图组"}));
+ fireEvent.change(screen.getByRole("combobox",{name:"颜色规格"}),{target:{value:"颜色"}});
+ fireEvent.click(await screen.findByRole("checkbox",{name:"商品全貌"}));
+ fireEvent.click(screen.getByRole("checkbox",{name:"核心卖点"}));
+ const prepareButton=screen.getByRole("button",{name:"准备分色图组（12 张）"});
+ expect(prepareButton).toBeDisabled();
+ for(const {color} of groups)fireEvent.click(screen.getByRole("radio",{name:`${color}原图 1`}));
+ expect(prepareButton).toBeEnabled();
+ fireEvent.click(prepareButton);
+ const confirmation=await screen.findByRole("region",{name:"核对本次分色图组"});
+ for(const {color,originalId} of groups)expect(within(confirmation).getByRole("img",{name:`${color}原图`})).toHaveAttribute("src",`https://images.test/${originalId}.png`);
+ expect(within(confirmation).getAllByText("4 张")).toHaveLength(3);
+ expect(await screen.findByText(/最多向 GRSai 提交 12 次/)).toHaveTextContent("费用由企业向 GRSai 支付");
+ const request=fetch.mock.calls.find(([url])=>String(url).endsWith("/prepare"))!;
+ const body=JSON.parse(String(request[1]?.body));
+ expect(body).toMatchObject({route,selectedTaskIds:["main","scene","structure","detail"],colorImages:{option:"颜色",groups}});
+ expect(body.sharedOriginalIds).toBeUndefined();
+ expect(fetch.mock.calls.some(([url])=>String(url).endsWith("/confirm"))).toBe(false);
+});
+
 it.each(["prepare","regenerate"])("preserves restored %s bytes when the original replay gets a definite review rejection",async action=>{
  const key=`product-image-set:actor:org:acquisition:${operation}:intent`;
  const raw=JSON.stringify({action,...action==="regenerate"?{runId}:{},requestKey:templateId,body:{expectedModeRevision:"0",target:{Platform:"product"},skill:{skillId:operation,version:2,digest:sha},text:{mode:"none"}}},null,2);

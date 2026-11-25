@@ -155,6 +155,9 @@ func (r *ImageSetCandidateReader) ReadImageSetCandidate(ctx context.Context, sou
 			return bad()
 		}
 		asset := productasset.ApprovedAsset{ID: candidate.AssetID, RunID: choice.RunID, PlanRevision: choice.PlanRevision, SlotID: choice.SlotID, Attempt: choice.Attempt, Role: role, URL: url, SourceAssetID: candidate.SourceAssetID, Width: candidate.Width, Height: candidate.Height, Operations: append([]string(nil), candidate.Operations...), GenerationEvidence: &productasset.GenerationEvidence{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, SettlementProofDigest: proof.SettlementProofDigest, ProviderUsageProofDigest: proof.ProviderUsageProofDigest, ArtifactHash: candidate.DurableAsset.SHA256}}
+		if position := execution.Slot.Recipe.Placement; position.Color != "" {
+			asset.Presentation = &productasset.ImagePresentation{Group: position.Group, Order: position.Order, Color: position.Color}
+		}
 		return productasset.ImageSetCandidate{Asset: asset, Result: productasset.ImageSetResultBinding{RunID: choice.RunID, PlanRevision: choice.PlanRevision, ResultDigest: digest}}, nil
 	}
 	return bad()
