@@ -146,15 +146,20 @@ func (s *UploadService) uploadShopify(ctx context.Context, scope collection.Scop
 	if err != nil {
 		return stop(submission.NoSendFactsChanged)
 	}
+	// Reading local approved artifacts can outlast a Shopify writer's short
+	// verification window. Obtain it immediately before the first remote write.
+	images, err := s.readShopifyDraftImages(ctx, scope, saved, inventory, draft)
+	if err != nil {
+		return stop(submission.NoSendImageContentChanged)
+	}
 	writer, err := stores.VerifyDraftWrite(ctx, scope, binding)
 	if err != nil || writer == nil {
 		return stop(submission.NoSendAccessRecheckFailed)
 	}
-	staged, err := s.stageShopifyDraftImages(ctx, scope, saved, inventory, writer, &draft)
-	if err != nil {
-		return stop(submission.NoSendImageContentChanged)
-	}
-	if staged {
+	if len(images.contents) > 0 {
+		if err := images.stage(ctx, writer, &draft); err != nil {
+			return stop(submission.NoSendImageContentChanged)
+		}
 		if _, _, err := s.shopifyDraftFacts(ctx, scope, saved); err != nil {
 			return stop(submission.NoSendFactsChanged)
 		}

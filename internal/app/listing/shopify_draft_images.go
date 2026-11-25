@@ -15,44 +15,52 @@ type shopifyDraftImageStager interface {
 	StageImages(context.Context, [][]byte) ([]string, error)
 }
 
-func (s *UploadService) stageShopifyDraftImages(ctx context.Context, scope collection.Scope, saved record.TargetRecord,
-	inventory asset.ApprovedAssetInventory, writer ShopifyDraftWriter, draft *shopify.Draft,
-) (bool, error) {
-	var contents [][]byte
-	var positions []int
+type shopifyDraftImages struct {
+	contents  [][]byte
+	positions []int
+}
+
+func (s *UploadService) readShopifyDraftImages(ctx context.Context, scope collection.Scope, saved record.TargetRecord,
+	inventory asset.ApprovedAssetInventory, draft shopify.Draft,
+) (shopifyDraftImages, error) {
+	var prepared shopifyDraftImages
 	read := s.dependencies.ShopifyGeneratedImages
-	stager, canStage := writer.(shopifyDraftImageStager)
+	source := asset.SourceSelection{TenantID: scope.OrganizationID, ProductKey: inventory.Scope.ProductKey,
+		EffectiveCatalogVersion: inventory.Scope.SourceSnapshotVersion, TargetPlatform: inventory.Scope.TargetPlatform}
 	for i, image := range draft.Images {
 		if wire.ValidPublicDraftImageURL(image.URL) {
 			continue
 		}
-		if read == nil || !canStage {
-			return false, record.ErrNotReady
+		if read == nil {
+			return shopifyDraftImages{}, record.ErrNotReady
 		}
 		id := saved.Input.Shopify.ImageIDs[i]
 		index := slices.IndexFunc(inventory.Assets, func(item asset.ApprovedAsset) bool { return item.ID == id })
 		if index < 0 || inventory.Assets[index].URL != image.URL || inventory.Assets[index].GenerationEvidence == nil {
-			return false, record.ErrNotReady
+			return shopifyDraftImages{}, record.ErrNotReady
 		}
-		source := asset.SourceSelection{TenantID: scope.OrganizationID, ProductKey: inventory.Scope.ProductKey,
-			EffectiveCatalogVersion: inventory.Scope.SourceSnapshotVersion, TargetPlatform: inventory.Scope.TargetPlatform}
 		content, err := read(ctx, source, inventory.Assets[index], wire.MaxStagedDraftImageBytes)
 		if err != nil {
-			return false, err
+			return shopifyDraftImages{}, err
 		}
-		contents = append(contents, content)
-		positions = append(positions, i)
+		prepared.contents = append(prepared.contents, content)
+		prepared.positions = append(prepared.positions, i)
 	}
-	if len(positions) == 0 {
-		return false, nil
+	return prepared, nil
+}
+
+func (images shopifyDraftImages) stage(ctx context.Context, writer ShopifyDraftWriter, draft *shopify.Draft) error {
+	stager, ok := writer.(shopifyDraftImageStager)
+	if !ok {
+		return record.ErrNotReady
 	}
-	resources, err := stager.StageImages(ctx, contents)
-	if err != nil || len(resources) != len(positions) {
-		return false, record.ErrNotReady
+	resources, err := stager.StageImages(ctx, images.contents)
+	if err != nil || len(resources) != len(images.positions) {
+		return record.ErrNotReady
 	}
 	draft.Images = slices.Clone(draft.Images)
-	for i, position := range positions {
+	for i, position := range images.positions {
 		draft.Images[position].URL = resources[i]
 	}
-	return true, nil
+	return nil
 }
