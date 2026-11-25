@@ -306,33 +306,47 @@ Design Basis: Reuse Existing Architecture / Ready。完整 GRSAI 模式只消费
 
 ### 9.2 事务生命周期和原派发许可
 
+**当前停用合同。** [已批准的 #795 图片方法设计 §5 步骤 7–8](https://github.com/henryxu1008/shuomi-ai-commerce/blob/70c0622059966cb1cadc9613dce065f24323fbe4/docs/architecture/official-skills-and-image-method-v1.md#5-合同--实现--注入--消费者)要求新效果在预留和派发前持 Skill 读锁，直到原供应商调用返回（含 UNKNOWN）。新整套确认持锁到配置准入写入和 ImageDB CAS 返回。新采用持锁到原 Asset 提交返回。原准确回执与原效果核实仍可以沿各自权限恢复。[#301 退休后基线](https://github.com/henryxu1008/shuomi-ai-commerce/blob/a4b3dfc9dc78b70bc5a8bee98e79424faa469cdd/docs/architecture/official-skills-and-image-method-v1.md#5-合同--实现--注入--消费者)仍含上述步骤，[文档归并](https://github.com/henryxu1008/shuomi-ai-commerce/commit/0dca66876ac2243b92a95c82663dd75025530cae)保留行为门禁，[#774 关闭核对](https://github.com/henryxu1008/shuomi-ai-commerce/issues/774#issuecomment-6552651245)确认原撤销栅栏保留。本轮未找到更改这两处顺序的后续产品决定。
+
+现代码的新确认 `defer release()` 还覆盖 ImageDB CAS 之后的 `StartManual`，长于步骤 8 写明的范围。异步供应商路径在现 `GenerateQuotedSlot` 内持锁跨提交、轮询及原结果处理；步骤 7 成文时按当时的供应商调用界定。兼容候选保留当前生成路径的释放点。缩减异步持锁范围随下面的权限变更方案决策。 [新确认](../../../../internal/imageagent/image_set_service.go) · [生成](../../../../internal/imageagent/generation_execution.go)
+
 事实归属沿原 owner。Skill 保存准确不可变版本、归属、摘要、可用状态和使用锁。AgentConfiguration 保存精确快照和一次性整套确认回执。ImageAgent Store 持有原 run/revision/slot/attempt 效果 CAS、供应商任务 ID 和 proof。商用 Resource 保存点数、月限与结算。企业自有渠道沿原用量合同，供应商侧费用继续由原供应商计量。Asset 保有采用事务及原动作回执。应用组装依赖与运行上限。无跨库写入合并、第二许可表或新恢复 owner。
 
-| 阶段 | 取得和释放事务的时点 |
+#### 保留当前停用保证的候选
+
+该路径可独立评审，纯报价/准备缩锁和容量限制无需改变停用排序。仍须完成架构准入和对应小池验证。
+
+| 阶段 | 事务范围 |
 | --- | --- |
-| 报价、准备 | 先复核当前主体和权限，再以可信 principal 在短 Skill 事务内核对归属和精确已启用材料。取得不可变的 ref/policy/包摘要和有界材料后释放，随后解析来源、构造/核对报价。材料只在内存中服务本次计算。配置快照写入使用原配置事务，在该事务内按同池 Skill 合同再核精确 ref 与状态。来源或报价变化走原验证/重新准备。报价和快照不授予发送。 |
-| 整套确认 | 查询原精确回执优先。新确认的报价、当前身份/来源/模式等预检查在借 Skill 连接以前完成。由配置 owner 在原 `AdmitImageRun` 事务中复核 activation/epoch、模式、冻结输入和准确 Skill，提交原回执后释放，再提交 ImageDB 投影与安排 Temporal。通过应用装配注入同事务检查，以原 mode-subject → Agent 顺序进入配置事务，再取得 Skill 锁，复用标题已有的同事务检查模式。禁止持有外部 Skill 事务时再次从配置池开启事务，包括回执核实。 |
-| 图位预检与准备 | 先读取原效果。准确 Skill 只用于重建冻结材料和报价，短读后释放，再进行来源字节读取、预算及存储预留。保留最后的组织/actor/member、Image 写权限、原来源和计划/模式校验、路由/报价/凭据重验。涉及网络或另借配置池的步骤均在派发事务之前完成。 |
-| 领取原发送许可 | 重取准确 Skill 可用性共享锁，保持到**另一个现有池**的 `BeginGenerationDispatch` 原 CAS 明确提交，随后在**原 Skill 事务、原连接**确认会话仍可用、原锁未释放，再释放。只有当前调用栈同时获得 CAS 唯一胜者的明确 ACK 和这个检查的明确结果才可进入原提交函数。CAS 等待使用同一短时间窗，持锁期间禁止另借配置池连接、调用远程服务或进入恢复。原锁持有的正向证明不能用新事务重查替代。 |
-| 原副作用和核实 | 释放后立即走同一调用栈原单次提交，受原 run 绝对 deadline、provider 限时、取消和短本地交接窗约束。同步等待、异步轮询、下载、计量、结算和物化均在 Skill 事务外。原 task ID 先按现合同保存。查原 task ID、使用已持久化 proof、读回原回执保持原权限和 owner；不能为恢复申请发送许可或重新验证 Skill 来覆盖已有证明。当前成员、来源或凭据不再满足某个恢复入口时，保留该事实及待核实状态，由原 owner 按现合同继续核实，不猜测未执行或退款。 |
-| 新采用与回执读回 | 原采用回执优先校验和读回。对新预览或采用，在借连接前解析候选 lineage、原效果/物化证明及来源/成员/模式。任一失败停止。真实采用前使用同一个配置事务批量核对去重的准确 ref，按 Agent → Skill UUID → version 顺序取锁，覆盖现 Asset UoW 至其提交/回滚。预览仅短读，真实采用重新验证。采用持锁期间只走有界 Asset 提交，避免每个 ref 各借一个连接或持锁重入配置池。ACK 未明时只核实原 Asset 回执。 |
+| 纯报价、准备 | 先复核当前主体和权限，再以可信 principal 在短 Skill 事务内核对归属和精确已启用材料。取得不可变 ref/policy/包摘要和有界材料后释放，再解析来源、构造/核对报价。材料只驻留本次内存。配置快照在原配置事务内再核精确 Skill 和状态，通过应用装配注入同事务检查。先取原 mode-subject、Agent，再取 Skill。来源或报价变化走原验证。 |
+| 新整套确认 | 先读原回执、当前身份/来源、报价和模式等可前置的检查。新确认仍持一个 Skill 事务，原 `AdmitImageRun` 在同一池的另一连接内复核 activation/epoch、模式、冻结输入并提交原回执，原 ImageDB CAS 返回后释放，再安排 `StartManual`。持锁时只保留必要的同池准入写事务与准确回执核实。入口提前为这一路径计入两条容量，等待受限。原回执重放按原权限核对同 action/plan/quote/input，使用原 deadline 和 workflow ID。 |
+| 新效果与原结果 | 先查原效果。保留原当前组织/actor/member、Image 写权限和来源授权、冻结 ref、原模式及路由/报价/凭据重验，也保留原预留、CAS 和供应商调用外层的 Skill 读锁，直到原执行返回（含 UNKNOWN）。仅可前置纯准备读。保留派发前 live recheck 的时点。对于仍需配置池的读，在其 owner 明确支持等价事务内读取后可复用持锁事务，否则先按最多两条配置连接预算，禁止无限期等待。 |
+| 新采用与原回执 | 原采用回执优先校验。借连接前解析候选 lineage、原效果/物化证明及来源/成员/模式。真实采用前在一个配置事务中批量核对去重的准确 ref，按 Agent → Skill UUID → version 取锁，保持到原 Asset UoW 提交/回滚。预览仅短读，真实采用重新验证。ACK 未明时按原 owner 核实原回执。 |
 
-派发顺序的关键窗口在配置库和 ImageDB 之间。仅在准备阶段读一次后释放，停用可以先于 CAS 提交，导致未获许可的操作发送。仅把 release 移到 CAS 后也不充分：配置会话可能先断开并释放行锁，停用随后提交，另一个库的 CAS 仍可能成功。原事务在明确 CAS ACK 后成功执行同会话检查，可以证明 CAS 在持锁时期完成。检查失败、CAS ACK 丢失、CAS 输或进程崩溃时，本次调用不再发送。确定未到 CAS 的走现有 no-generation proof 并按原事实关闭预留；已领取或无法证明未领取时保留原 claimed/UNKNOWN，由现 recovery 读原 attempt，绝不由反查结果重新发许可。此协议依赖真实锁和绝对期限，独立评审须核对两库故障顺序。 [原 CAS](../../../../internal/imageagent/store/generation_fact.go) · [异步原任务核实](../../../../internal/imageagent/generation_provider_usage_execution.go)
+配置快照可在原提交事务内复用 Skill 检查。新确认的配置回执必须先于 ImageDB CAS 持久化。在承载行锁的同一事务中写配置回执并提交会释放锁，反过来等到 ImageDB CAS 后再提交又会颠倒原回执依赖。兼容路径因此保留外层锁和独立配置写事务。现 `AdmitImageRun` 的 mode-subject → Agent `FOR SHARE` 与外层 Agent → Skill `FOR SHARE` 在具备第二条连接时可共存，现 PostgreSQL 测试覆盖等待停用写者时仍能完成配置准备和确认。实施时保留该断言，并核对无持 ImageDB/Asset 锁回取配置池的反序路径。采用核验移到锁取得前的内容依赖不可变的 lineage 和 proof，写入仍核原 expected head、动作及来源。两库任一 ACK 未明仍按原回执核实，保留现有跨库故障语义。 [配置事务](../../../../internal/integration/persistence/agentconfig/image_configuration.go) · [锁序测试](../../../../internal/integration/persistence/agentconfig/image_skill_lock_postgres_test.go)
 
-Skill 版本停用与同一行锁排序。停用先提交则新确认、派发许可和采用拒绝。许可先提交且锁连续性已确认时，这一次原效果已经越过许可边界，停用后只能由原胜者在剩余期限立即提交一次，不能给重入、重试或新 run 使用。不能保证停用提交时供应商已收到请求，也不能把已经在途或结果未知的原效果撤回。IAM 和外部凭据保持现有的 live check 顺序及失败方式，独立于这项数据库行锁。已获准并已产生的 proof、费用、已提交 Asset 回执保留，结果展示和新采用仍按当前主体及业务权限。现采用的健康事务锁保持到 Asset 提交，物理断连时仍沿当前跨库 ACK 核实协议，并不承诺跨库原子停用。
+#### 提前释放持锁事务的备选，须用户批准
 
-**复核前须确认两点。** 第一，已批准的 Skill 合同 §8 写明标题同步调用持锁到返回，图片配置合同 §7.2 已使用原 CAS 作为逐图不可重复派发边界。需确认图片 Skill 停用的强制排序点为明确取得原 CAS 许可。若要求停用成功之前网络必须实际越过供应商接收点，反例是 CAS 和锁检查完成后、HTTP 客户端尚未发送时进程被调度挂起，随后停用提交。此时释放方案不能满足该要求，保留 NOT_READY 并交用户决定；不得沿用标题段落自行扩大或放松图片合同。第二，§7.2 允许已准入 run 在企业关闭图片 Agent 后完成，现 `checkUseForTarget` 对带方法的图位/采用还要求 Agent 当前 ENABLED，未选方法时则不命中该门。反例为已确认带 Skill 的 run 在下一图位前只关闭企业 Agent、Skill 仍启用。实现前由协调方核实当前产品决定如何适用于该情形；候选不得趁缩事务放宽现门禁或把它改成全部 run 的统一限制。 [Skill 合同 §8](skill-capability.md#8-冻结报价认领及撤销竞态)
+**派发排序变更。** 备选把停用的排序点从原调用返回改为原发送许可。短读准确材料后先完成来源、准备及预留，保留原最后一次权限、来源、模式和凭据复核。只在 `BeginGenerationDispatch` 附近重取准确 Skill 锁。另一个现有池的原 CAS 明确提交后，在原 Skill 事务、原连接成功检查会话仍在且锁未释放，然后释放。仅当前调用栈同时持有 CAS 唯一胜者的 ACK 和原会话检查的明确结果时，才可在原绝对 deadline 和短本地交接窗内进入原提交函数。同步等待、异步轮询、下载和结果处理在锁外。反例是 CAS 与同会话检查成功后进程被调度挂起，管理员完成停用，原进程恢复才把第一个 POST 送出。该行为超出当前已批准合同，即使线上总发送仍为一。
+
+仅移动 release 到 CAS 后仍有竞态。若配置会话在 CAS 前断开，停用可先提交，另一个库的 CAS 随后仍可能成功。因此备选需要原事务上的 CAS ACK 后检查，不能重新开户读状态代替。CAS 未取得或 ACK 丢失、同会话检查失败和进程退出均无新发送。具有原无派发证明才沿原 no-effect 关闭预留。许可已消费或无法证实未消费时保留 claimed/UNKNOWN，当前调用和恢复都无重发权限。 [原 CAS](../../../../internal/imageagent/store/generation_fact.go)
+
+**确认排序变更。** 若希望以一条配置连接完成新确认，可在原 `AdmitImageRun` 事务内短暂锁准确 Skill，配置回执提交即释放，再做 ImageDB CAS。反例是配置回执提交后、首次请求尚未执行 ImageDB CAS 时，管理员可完成停用，原新确认才落入 ImageDB。当前合同允许准确原回执失败后恢复同一 CAS，首次确认的持锁范围仍延伸至 ImageDB CAS 返回。把首次请求提前改走等同回执恢复的语义也需用户明确批准，不能当作普通事务合并。
+
+两项提前释放均保留现有正向 proof、原供应商 task ID、用量及结算、已提交 Asset 回执和原身份读取权限。原 task ID 的查询和已持久化 proof 继续由原 owner 处理。成员、来源或凭据当前失效而阻断某个恢复入口时，保留原因与待核实状态，沿原恢复合同处理。现有行为继续生效，短锁备选处于 NOT_READY，用户须分别决定是否改变新派发与首次确认的停用保证。 [异步原任务核实](../../../../internal/imageagent/generation_provider_usage_execution.go)
+
+**另有企业 Agent 停用分支差异。** §7.2 允许已准入 run 在企业关闭图片 Agent 后完成，现 `checkUseForTarget` 对带方法的图位和采用还要求 Agent 当前 ENABLED，无方法分支不命中该门。反例为已确认带 Skill 的 run 在下一图位前只关闭企业 Agent、Skill 仍启用。两条候选均保留当前行为，单独记录给协调方核定产品口径。本轮不因缩事务统一两条分支。 [Skill 合同 §8](skill-capability.md#8-冻结报价认领及撤销竞态)
 
 ### 9.3 活动并发、等待预算和恢复
 
 完整图片 worker 内嵌在每个启用生图的 `current-application` 进程，每个进程创建一个 org worker。当前 `sdkworker.Options{}` 未显式限制该池容量；单 run 默认 4 图位。历史隔离的 pool8 API 启停日志各见一个 organization worker。2026-11-25 18:53（SGT）在同一试用 Temporal `default/image-agent-organization-v1` 的只读 activity queue 查询见 1 个近期 poller。历史所有进程是否一度重叠、其他环境的副本数与物理连接预算均未证实。每进程上限覆盖该进程内多个 run。多进程须把实例数及滚动更新重叠计入，且分别核对每个池和后端物理数据库可用连接，不能用 task queue 每秒速率代替并发。 [运行入口](../../../operations/product-image-agent.md) · [Worker 装配](../../../../internal/imageagent/temporal/worker.go) · [Temporal WorkerOptions v1.43.0](https://pkg.go.dev/go.temporal.io/sdk@v1.43.0/worker)
 
-候选首试按实际受影响池上限 `P` 计算。数据库事务修正后，每个活动在任一池同时至多持 1 条本项连接，HTTP 图片准备/确认/采用的持锁段在借连接前以进程内 1 个名额限流。Temporal 现有 `MaxConcurrentActivityExecutionSize` 起点 2，包含该 worker 的图片活动，不随单 run 增长。对同时供两者使用的配置池，要求 `W + H + R ≤ P`，其中 `W` 为 worker 上限，`H` 为 HTTP 图片持锁上限，`R` 至少 2 条供普通查询和复核/收尾使用。例：5 连接时 `2+1+2`，8 连接初始仍取 `2+1`。此式只限制本项贡献，共池标题、其他 Skill 与普通请求的实测重叠也要计入余量。在其他受影响池核对相同原则。池太小则按实际预算降低上限，连一个活动与所需查询余量都无法容纳时明确拒绝该范围的执行。配置值和两个并行 run 的任一吞吐均需实测后使用。只开一个全局 worker 是可核对的首试部署范围；横向副本另核定每实例上限与总和，包括轮换时的重叠，当前无需额外调度。
+首试按实际池上限 `P` 计算。用现有 Temporal `MaxConcurrentActivityExecutionSize` 限制 worker 活动总数 `W`，在 HTTP 新操作借连接前限制并发数 `H`。`每活动最大配置占用 × W + 每 HTTP 操作最大配置占用 × H + R ≤ P`。`R` 先预留 2 条给直接读取和原核实/收尾，并计入标题、其他 Skill 及其它实际共池重叠。兼容路径在未证实消除同池嵌套前，按 worker 和新确认各占 2 条预算。5 连接下最多一个双连接图生成活动与一个单连接 HTTP 操作并行，同时到达的双连接新确认在借连接前收到可恢复繁忙反馈。8 连接的隔离候选为 2 个活动、1 个新确认、2 条查询余量，上限组合为 `2×2+2+2=8`。若证明 worker 重验同一时刻最多占一条，5 连接下可同时承载 1 个活动和 1 个新确认并保留余量。只有经批准且验证了短锁备选，才能把新确认也按一条计算。各其他池和共池流量仍须按实测复核；池上限变化本身不修正根因。
 
-以 1 秒池/行锁等待、3 秒派发短事务全程、2 秒原胜者本地交接窗为隔离候选值，最终取相应阶段上限和原绝对 deadline 的较小值。HTTP 满额在短窗口返回现有可恢复的繁忙反馈。Temporal 用现队列等待，给新图位活动设置覆盖队列等待与已有有限收尾的 `ScheduleToCloseTimeout`，执行前和原 CAS 前检查不可续期的业务 deadline。沿原 heartbeat/cancel 机制处理工作流取消，并保留原尝试和历史重放兼容检查。容量不足以前置未发送结束或留下可恢复等待，已进入原效果的超时不能被普通超时映射为未发送。网络限时、原异步任务查证窗口和原结算期限保持各自约束。 [Temporal Activity 超时](https://docs.temporal.io/encyclopedia/detecting-activity-failures) · [原槽位 Activity](../../../../internal/imageagent/temporal/slot_workflow.go)
+并发名额在借第一条连接前有界取得，覆盖从同一池借出的所有本项连接。5 连接下用进程内容量检查限制合计，未取得足够容量的确认先反馈繁忙，避免占着一条等第二条。参考 1 秒池/行锁进入等待；3 秒派发短事务与 2 秒交接窗仅用于需批准的短锁备选。兼容路径维持原 provider deadline 和生成释放点。Temporal 用现队列等待，给新图位活动设置覆盖队列等待与已有有限收尾的 `ScheduleToCloseTimeout`，执行前和原 CAS 前检查不可续期的业务 deadline。沿原 heartbeat/cancel 机制和重放验证处理。容量超时只有具备未派发证明才归为未发送，已有原效果保留待核实。网络限时、原异步任务查证窗口和原结算各有独立期限。首试限定经过核对的单 worker 进程，多个副本或滚动重叠时另核每个池和物理数据库的连接预算总和。 [Temporal Activity 超时](https://docs.temporal.io/encyclopedia/detecting-activity-failures) · [原槽位 Activity](../../../../internal/imageagent/temporal/slot_workflow.go)
 
 ### 9.4 实施验证与准入
 
-- 保留已通过的 Skill 目标/归属、PostgreSQL 配置读写与并发回执、冻结输入和结算、候选 lineage 测试。补一个小池用例贯穿两个不同 run 与整套报价/确认、读配置和新采用，验证连接实际回到池、普通查询的时限与满额反馈、不同 Skill ref 的采用最多借一条配置连接。供应商同步等待或已拿 task ID 轮询时均应观测到零 Skill 持锁。
-- 在 CAS 前、CAS ACK 后及 release 后提交停用，分别核对拒绝新许可、原胜者一次及后续新请求拒绝。加配置连接丢失、ImageDB COMMIT ACK 丢失、取消、跨 scope、冻结 ref 漂移与原确认/采用 ACK 回查。锁丢失路径模拟 CAS 已写而 Skill 检查失败，验证 0 POST、原事实保留且可核实。重放或恢复组验证原 task lookup 与已有结算、耗尽/超时无第二 POST。
+- 保留已通过的 Skill 目标/归属、PostgreSQL 配置读写与并发回执、冻结输入和结算、候选 lineage 测试。补一个小池用例贯穿两个不同 run 与整套报价/确认、配置读取及新采用，验证普通查询的时限、满额反馈、连接归还和多 ref 采用最多一条配置连接。兼容路径分别卡住发送返回和 ImageDB CAS，验证停用等待、原确认和原效果按时收尾、停用后拒绝新动作。
+- 提前释放方案如获批准，再加 CAS 前、CAS ACK 后及 release 后的停用与原胜者一次，以及原供应商等待/轮询期间 Skill 持锁数为零。覆盖配置连接丢失、ImageDB COMMIT ACK 丢失、取消、跨 scope、冻结 ref 漂移与原确认/采用 ACK 回查。模拟 CAS 已写而原 Skill 会话检查失败，验证 0 POST、原事实保留且可核实。两条路径都验证原 task 查询、已有结算和同一 attempt 重入无第二 POST。
 - 复用 Temporal workflow 与合成 provider fixtures，在相同池上限比较 RED/GREEN。核对跨 run 活动并发、等待出队过期、断连后收尾、实际 poller 数和进程配置。真实环境试用与用户验收待独立授权和执行。达到 `IMPLEMENTATION_READY` 由协调方在独立复核后记录。
