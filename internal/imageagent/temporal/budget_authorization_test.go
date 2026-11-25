@@ -226,9 +226,11 @@ func TestImageSlotWorkflowV3ReservesFinalizationGraceAfterBudgetDeadline(t *test
 	env.RegisterWorkflow(ImageSlotWorkflowV3)
 	var observedStartToCloseTimeout time.Duration
 	var observedHeartbeatTimeout time.Duration
+	var observedScheduleToCloseTimeout time.Duration
 	env.SetOnActivityStartedListener(func(info *sdkactivity.Info, _ context.Context, _ sdkconverter.EncodedValues) {
 		observedStartToCloseTimeout = info.StartToCloseTimeout
 		observedHeartbeatTimeout = info.HeartbeatTimeout
+		observedScheduleToCloseTimeout = info.ScheduleToCloseTimeout
 	})
 	env.RegisterActivityWithOptions(func(context.Context, ExecuteSlotV3ActivityInput) (imageagent.SlotEffectV3PublishedResult, error) {
 		return imageagent.SlotEffectV3PublishedResult{}, nil
@@ -238,11 +240,12 @@ func TestImageSlotWorkflowV3ReservesFinalizationGraceAfterBudgetDeadline(t *test
 		RunID: "run-finalization-grace", Identity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-finalization-grace", MemberID: "member-" + "user-a", BusinessTaskID: "task-" + "run-finalization-grace", TenantID: "tenant-a", UserID: "user-a"},
 		PlanRevision: 1, Slot: imageagent.Slot{ID: "slot-1", Role: imageagent.SlotRoleScene}, Attempt: 1,
 		ExecuteActivityName: activityExecuteSlotV3, BudgetAuthorization: true,
-		DeadlineAt: env.Now().Add(2 * time.Minute), ExternalEffectFinalization: true,
+		DeadlineAt: env.Now().Add(2 * time.Minute), ExternalEffectFinalization: true, ImageSet: &imageagent.ImageSetPlan{},
 	})
 
 	require.NoError(t, env.GetWorkflowError())
 	require.Equal(t, 3*time.Minute, observedStartToCloseTimeout)
+	require.Equal(t, 3*time.Minute, observedScheduleToCloseTimeout)
 	require.Equal(t, externalEffectHeartbeatTimeout, observedHeartbeatTimeout)
 }
 

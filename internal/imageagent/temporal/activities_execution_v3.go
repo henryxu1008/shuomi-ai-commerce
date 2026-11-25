@@ -127,8 +127,28 @@ func (a *Activities) ExecuteSlotV3(ctx context.Context, input ExecuteSlotV3Activ
 	if input.BudgetAuthorization && providerDispatchPossible && !input.DeadlineAt.IsZero() && !time.Now().UTC().Before(input.DeadlineAt) {
 		return v3Result, sdktemporal.NewNonRetryableApplicationError("image agent budget deadline elapsed", imageagent.BudgetElapsedCode, imageagent.ErrBudgetExceeded)
 	}
-	if input.BudgetAuthorization && providerDispatchPossible && !input.DeadlineAt.IsZero() {
-		providerCtx, cancelProvider = context.WithDeadline(ctx, input.DeadlineAt)
+	// A concurrent invocation can close a claimed effect as not sent before
+	// ReserveSlotProviderV3 rechecks it. Reserve capacity for that path too.
+	if providerDispatchPossible || hasPersistedEffect && persisted.Phase == imageagent.SlotEffectV3ProviderClaimed {
+		connections := int64(1)
+		if input.ImageSet != nil && input.ImageSet.Method != nil {
+			connections = 2
+		}
+		releaseCapacity, err := a.configurationCapacity.Acquire(ctx, connections)
+		if err != nil {
+			return v3Result, err
+		}
+		defer releaseCapacity()
+	}
+	var deadline time.Time
+	if input.ImageSet != nil {
+		deadline = input.LifecycleDeadlineAt
+	}
+	if input.BudgetAuthorization && !input.DeadlineAt.IsZero() && (deadline.IsZero() || input.DeadlineAt.Before(deadline)) {
+		deadline = input.DeadlineAt
+	}
+	if providerDispatchPossible && !deadline.IsZero() {
+		providerCtx, cancelProvider = context.WithDeadline(ctx, deadline)
 		defer cancelProvider()
 	}
 	if input.BudgetAuthorization && !hasPersistedEffect {

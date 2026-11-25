@@ -1037,6 +1037,20 @@ it("runs both groups from shared originals and saves only a previewed explicit c
  const selected=JSON.parse(String(approval[1]!.body));expect(selected.selectionDigest).toBe(digest);expect(selected.choices.map((v:{presentation:unknown})=>v.presentation)).toEqual([{group:"carousel",order:1},{group:"detail",order:1}]);
  expect(selected.choices.every((v:Record<string,unknown>)=>!("url" in v))).toBe(true);
 });
+it("continues the same confirmation after a definite capacity rejection",async()=>{
+ const real=fetch.getMockImplementation()!;let rejected=false;
+ fetch.mockImplementation((url,init)=>{
+  if(String(url).endsWith("/confirm")&&!rejected){rejected=true;return Promise.resolve(Response.json({code:"IMAGE_UNAVAILABLE"},{status:503,headers:{"Retry-After":"1"}}));}
+  return real(url,init);
+ });
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ await prepare();fireEvent.click(await screen.findByRole("button",{name:"确认点数并生成"}));
+ expect(await screen.findByText("当前图片任务较多，请稍后继续原操作。")).toBeVisible();
+ fireEvent.click(screen.getByRole("button",{name:"继续原确认"}));
+ await waitFor(()=>expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("/confirm"))).toHaveLength(2));
+ const sent=fetch.mock.calls.filter(([url])=>String(url).endsWith("/confirm")).map(([,init])=>init?.body);
+ expect(sent[0]).toEqual(sent[1]);
+});
 it("retains an uncertain preparation across reload and verifies its original key with GET only",async()=>{
  const real=fetch.getMockImplementation()!;fetch.mockImplementation(async(url,init)=>{if(String(url).endsWith("/prepare"))throw new Error("lost acknowledgement");return real(url,init)});
  const view=render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);await prepare();await screen.findByRole("button",{name:"核实原请求"});

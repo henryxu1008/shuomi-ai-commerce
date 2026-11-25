@@ -143,6 +143,14 @@ func (a *Activities) lookupOriginalProviderUsage(ctx context.Context, input imag
 	if !ok {
 		return imageagent.ErrCommandBlocked
 	}
+	if !fact.Intent.UsesProviderUsage() || fact.ProviderTask.ID == "" || fact.TerminalProofDigest() != "" {
+		return nil
+	}
+	releaseCapacity, err := a.configurationCapacity.Acquire(ctx, 1)
+	if err != nil {
+		return err
+	}
+	defer releaseCapacity()
 	_, err = executor.RecoverProviderUsage(ctx, input, fact)
 	return err
 }

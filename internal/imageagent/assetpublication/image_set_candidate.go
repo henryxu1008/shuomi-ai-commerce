@@ -2,12 +2,10 @@ package assetpublication
 
 import (
 	"context"
-	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"reflect"
-	"sync"
 )
 
 type ImageGenerationFactReader interface {
@@ -18,7 +16,7 @@ type ImageMaterializationReader interface {
 }
 
 type ImageSetCandidateReader struct {
-	methods          imageagent.ImageMethodContext
+	methods          imageagent.ImageMethodSelectionContext
 	projections      ProjectionSource
 	generations      ImageGenerationFactReader
 	materializations ImageMaterializationReader
@@ -26,45 +24,35 @@ type ImageSetCandidateReader struct {
 	trialURLs        *imageagent.IsolatedTrialGeneratedURLPolicy
 }
 
-func (r *ImageSetCandidateReader) WithImageMethods(methods imageagent.ImageMethodContext) *ImageSetCandidateReader {
+func (r *ImageSetCandidateReader) WithImageMethods(methods imageagent.ImageMethodSelectionContext) *ImageSetCandidateReader {
 	r.methods = methods
 	return r
 }
 
 func (r *ImageSetCandidateReader) AcquireImageSetSelection(ctx context.Context, source productasset.SourceSelection, input productasset.ImageSetCommand) (func(), error) {
-	var releases []func()
-	var once sync.Once
-	release := func() {
-		once.Do(func() {
-			for i := len(releases) - 1; i >= 0; i-- {
-				releases[i]()
-			}
-		})
-	}
-	seen := map[agent.SkillVersionRef]bool{}
+	var uses []imageagent.ImageMethodUse
 	for _, choice := range input.Choices {
 		if choice.Kind != "generated" {
 			continue
 		}
 		p, err := r.readApprovingLineage(ctx, source, input.ApprovingResult, choice)
 		if err != nil {
-			release()
 			return nil, err
 		}
 		method := p.Plan.Set.Method
-		if method == nil || seen[method.Skill] {
+		if method == nil {
 			continue
 		}
 		identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: p.Run.ID, TenantID: source.TenantID, UserID: source.ActorID, MemberID: source.MemberID, BusinessTaskID: source.ItemID}
-		_, held, err := imageagent.AcquireImageMethod(ctx, r.methods, identity, method)
-		if err != nil {
-			release()
-			return nil, err
-		}
-		seen[method.Skill] = true
-		releases = append(releases, held)
+		uses = append(uses, imageagent.ImageMethodUse{Identity: identity, Binding: *method})
 	}
-	return release, nil
+	if len(uses) == 0 {
+		return func() {}, nil
+	}
+	if r.methods == nil {
+		return nil, imageagent.ErrCommandBlocked
+	}
+	return r.methods.AcquireImageMethods(ctx, uses)
 }
 
 func NewImageSetCandidateReader(projections ProjectionSource, generations ImageGenerationFactReader, materializations ImageMaterializationReader, publicURLs imageagent.DurableAssetPublicURLResolver, trial ...*imageagent.IsolatedTrialGeneratedURLPolicy) (*ImageSetCandidateReader, error) {

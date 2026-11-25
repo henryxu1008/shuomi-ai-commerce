@@ -40,6 +40,8 @@ type FullImageSetDependencies struct {
 }
 
 type ImageAgentTemporalDependencies struct {
+	ConfigurationCapacity    imageagent.ImageConfigurationCapacity
+	MaxConcurrentActivities  int
 	ArtworkPublisher         imageagent.ArtworkPublisher
 	ImageSetPolicyAdopter    imageagent.ImageSetPolicyAdopter
 	ImageSetApprovals        productasset.ApprovalCommitReader
@@ -76,6 +78,7 @@ func NewOrganizationImageSetWorker(client sdkclient.Client, d ImageAgentTemporal
 		return nil, imageagent.ErrCommandBlocked
 	}
 	activities, err := imageagenttemporal.NewActivities(imageagenttemporal.ActivityDependencies{
+		ConfigurationCapacity: d.ConfigurationCapacity,
 		ArtworkPublisher:      d.ArtworkPublisher,
 		ImageSetApprovals:     d.ImageSetApprovals,
 		ImageSetPolicyAdopter: d.ImageSetPolicyAdopter,
@@ -85,7 +88,7 @@ func NewOrganizationImageSetWorker(client sdkclient.Client, d ImageAgentTemporal
 	if err != nil {
 		return nil, err
 	}
-	return imageagenttemporal.NewWorker(imageagenttemporal.WorkerConfig{Client: client, Activities: activities, WireMode: imageagenttemporal.WorkerWireModeOrganization, TaskQueue: imageagenttemporal.OrganizationTaskQueue})
+	return imageagenttemporal.NewWorker(imageagenttemporal.WorkerConfig{Client: client, Activities: activities, WireMode: imageagenttemporal.WorkerWireModeOrganization, TaskQueue: imageagenttemporal.OrganizationTaskQueue, MaxConcurrentActivities: d.MaxConcurrentActivities})
 }
 
 type imageAgentTemporalRuntimeDependencies struct {

@@ -107,6 +107,12 @@ func (s *Store) PrepareImageConfiguration(ctx context.Context, c agentconfig.Ima
 	value, err := s.prepareVisualConfiguration(ctx, c, productImageProfile)
 	return value.ImageConfigurationSnapshot, err
 }
+
+func (s *Store) WithImageSkillCheck(check func(context.Context, *gorm.DB, agentconfig.ImageStartCommand) error) *Store {
+	copy := *s
+	copy.checkImageSkill = check
+	return &copy
+}
 func (s *Store) prepareVisualConfiguration(ctx context.Context, c agentconfig.ImageStartCommand, profile visualConfigurationProfile) (visualConfigurationSnapshot, error) {
 	modeRevision, modeErr := agentconfig.ParseModeRevision(c.ExpectedModeRevision)
 	if modeErr != nil {
@@ -125,6 +131,17 @@ func (s *Store) prepareVisualConfiguration(ctx context.Context, c agentconfig.Im
 	var result visualConfigurationSnapshot
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		a, agentErr := lockVisualConfigurationAgent(tx, c.Scope.OrganizationID, profile)
+		if c.ImageSkillRef != nil {
+			if profile.artwork || s.checkImageSkill == nil {
+				return agentconfig.ErrUnavailable
+			}
+			if agentErr != nil {
+				return agentErr
+			}
+			if err := s.checkImageSkill(ctx, tx, c); err != nil {
+				return err
+			}
+		}
 		var old snapshotRow
 		err := tx.Where("organization_id=? AND actor_id=? AND context_kind=? AND context_id=? AND request_key=?", c.Scope.OrganizationID, c.Scope.ActorID, profile.context, c.ContextID, c.RequestKey).Take(&old).Error
 		if err == nil {

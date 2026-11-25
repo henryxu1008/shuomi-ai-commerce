@@ -21,12 +21,13 @@ import (
 )
 
 type setConfigurationFixture struct {
-	template   agentconfig.SetTemplate
-	snapshot   agentconfig.ImageConfigurationSnapshot
-	receipt    *agentconfig.ImageRunAdmissionReceipt
-	enabled    bool
-	admitACK   error
-	admissions int
+	template       agentconfig.SetTemplate
+	snapshot       agentconfig.ImageConfigurationSnapshot
+	receipt        *agentconfig.ImageRunAdmissionReceipt
+	enabled        bool
+	admitACK       error
+	admissions     int
+	admissionReads int
 }
 
 func (c *setConfigurationFixture) PrepareImageConfiguration(_ context.Context, input agentconfig.ImageStartCommand) (agentconfig.ImageConfigurationSnapshot, error) {
@@ -42,6 +43,7 @@ func (c *setConfigurationFixture) LoadImageConfiguration(context.Context, agent.
 	return c.snapshot, nil
 }
 func (c *setConfigurationFixture) ReadImageRunAdmission(context.Context, agent.Scope, agent.ConfigurationSnapshotRef) (agentconfig.ImageRunAdmissionReceipt, error) {
+	c.admissionReads++
 	if c.receipt == nil {
 		return agentconfig.ImageRunAdmissionReceipt{}, agentconfig.ErrNotFound
 	}

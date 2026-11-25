@@ -126,6 +126,7 @@ func TestSetGenerationExecutionUsesFrozenInputAndOriginalEconomicOwner(t *testin
 					if useMethod {
 						provider.method = method
 					}
+					quoting := false
 					executor, err := imageagent.NewGenerationExecution(imageagent.GenerationExecutionDependencies{Methods: method, Facts: owner, Resources: resources, Authorizer: &generationExecutionAuth{}, MaxSourceBytes: 1024, ReadMemberLimit: func(context.Context, string, string) (imageagent.GenerationMemberLimit, error) {
 						return imageagent.GenerationMemberLimit{Version: 1, MonthStart: identity.MonthStart}, nil
 					}, ReadSourceBytes: func(context.Context, imageagent.SlotExecutionInput) ([]byte, error) {
@@ -134,6 +135,9 @@ func TestSetGenerationExecutionUsesFrozenInputAndOriginalEconomicOwner(t *testin
 						}
 						return data, nil
 					}, PrepareProvider: func(_ context.Context, _ imageagent.SlotExecutionInput, observe func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
+						if useMethod {
+							require.Equal(t, !quoting, method.held, "provider preparation only holds the Skill fence during new generation")
+						}
 						provider.observer = observe
 						return imageagent.PreparedGenerationProvider{Executor: provider, Metadata: imageagent.GenerationProviderMetadata{Billing: syntheticImageBilling("gpt-image-2.5", "price-1", 12), Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PromptVersion: "old-white-prompt", PriceVersion: "price-1", Points: 12}}, nil
 					}, RevalidateProvider: func(context.Context, imageagent.SlotExecutionInput, imageagent.GenerationProviderMetadata) error {
@@ -155,7 +159,9 @@ func TestSetGenerationExecutionUsesFrozenInputAndOriginalEconomicOwner(t *testin
 						require.Zero(t, method.calls)
 						input.ImageSet.Method.PolicyVersion = imageagent.ImageMethodPolicyVersion
 					}
+					quoting = true
 					quote, err := executor.QuoteSlot(ctx, input, imageagent.BudgetPolicy{})
+					quoting = false
 					require.NoError(t, err)
 					_, err = executor.GenerateQuotedSlot(ctx, input, quote)
 					require.Error(t, err)

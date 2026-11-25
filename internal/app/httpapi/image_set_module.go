@@ -370,11 +370,23 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 		}
 		input.ExpectedModeRevision = body.ExpectedModeRevision
 		input.ColorImages = body.ColorImages
+		prior, readErr := a.runs().GetPreparedImageSet(ctx, kind, contextID, keys[0])
+		releaseCapacity := func() {}
+		if errors.Is(readErr, imageagent.ErrRunNotFound) {
+			releaseCapacity, err = a.capacity.Acquire(ctx, 1)
+			if err != nil {
+				writeFullImageError(c, err, false)
+				return
+			}
+		} else if readErr != nil {
+			writeFullImageError(c, readErr, false)
+			return
+		}
+		defer releaseCapacity()
 		if body.Skill != nil {
 			// A frozen preparation is a readback, not a new Skill selection.
 			// Its stored publisher/policy determines the original input hash;
 			// PrepareImageSet still checks every submitted input and live source.
-			prior, readErr := a.runs().GetPreparedImageSet(ctx, kind, contextID, keys[0])
 			if readErr == nil {
 				if prior.Plan.Set == nil || prior.Plan.Set.Method == nil {
 					writeFullImageError(c, imageagent.ErrRevisionConflict, false)
@@ -404,6 +416,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 			}
 		}
 		prepared, e := a.service.PrepareImageSet(ctx, input)
+		releaseCapacity()
 		if e != nil {
 			writeFullImageError(c, e, true)
 			return
@@ -870,6 +883,9 @@ func readFullImageJSON(request *http.Request, target any) error {
 
 func writeFullImageError(c *gin.Context, err error, mutation bool) {
 	switch {
+	case errors.Is(err, imageagent.ErrImageConfigurationBusy):
+		c.Header("Retry-After", "1")
+		c.JSON(http.StatusServiceUnavailable, gin.H{"code": "IMAGE_UNAVAILABLE"})
 	case errors.Is(err, skillcap.ErrForbidden):
 		c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN"})
 	case errors.Is(err, skillcap.ErrInvalid), errors.Is(err, skillcap.ErrUnsupported):

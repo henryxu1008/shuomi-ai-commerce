@@ -2,7 +2,9 @@ package skillpersistence
 
 import (
 	"context"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
@@ -10,6 +12,7 @@ import (
 	configstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agentconfig"
 	d "github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestImageMethodsRequireTheirOwnActivationTargetAndSharedOwner(t *testing.T) {
@@ -84,4 +87,77 @@ func TestImageMethodsRequireTheirOwnActivationTargetAndSharedOwner(t *testing.T)
 	}
 	_, err = s.CandidatesForTarget(ctx, p, "arbitrary-target")
 	require.ErrorIs(t, err, d.ErrInvalid)
+}
+
+func TestImageMethodBatchUsesOneConnectionAndReturnsItOnCancel(t *testing.T) {
+	db, s := fixture(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	require.NoError(t, s.PrepareOfficial(ctx))
+	p := d.Principal{UserID: "alice", OrganizationID: "org-a", MemberID: "member-a", UseOrganization: true}
+	cfg, err := configstore.New(db)
+	require.NoError(t, err)
+	_, err = cfg.Execute(ctx, agentconfig.Command{
+		Scope: agent.Scope{OrganizationID: p.OrganizationID, ActorID: p.UserID}, Key: uuid.NewString(),
+		AgentID: agentconfig.ImageAgentID, Operation: "enable", Absent: true,
+	})
+	require.NoError(t, err)
+	methods, err := s.CandidatesForTarget(ctx, p, d.ImageTarget)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(methods), 2)
+	pool, err := db.DB()
+	require.NoError(t, err)
+	pool.SetMaxOpenConns(1)
+	release, err := s.AcquireImageUses(ctx, p, []agent.SkillVersionRef{methods[1].Ref(), methods[0].Ref()})
+	require.NoError(t, err)
+	defer release()
+	require.Equal(t, 1, pool.Stats().InUse)
+	cancel()
+	require.Eventually(t, func() bool { return pool.Stats().InUse == 0 }, time.Second, 5*time.Millisecond)
+}
+
+func TestImageMethodSnapshotRechecksExactSkillWithOneConnection(t *testing.T) {
+	db, skills := fixture(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	require.NoError(t, skills.PrepareOfficial(ctx))
+	principal := d.Principal{UserID: "alice", OrganizationID: "org-a", MemberID: "member-a", UseOrganization: true}
+	scope := agent.Scope{OrganizationID: principal.OrganizationID, ActorID: principal.UserID}
+	cfg, err := configstore.New(db)
+	require.NoError(t, err)
+	_, err = cfg.Execute(ctx, agentconfig.Command{Scope: scope, Key: uuid.NewString(), AgentID: agentconfig.ImageAgentID, Operation: "enable", Absent: true})
+	require.NoError(t, err)
+	parameters := agentconfig.SetTemplate{Schema: agentconfig.ImageParameterSchema, Mode: "standard", ShareOriginals: true, Background: "white", Language: "en", Carousel: []agentconfig.ContentTask{{ID: "identity", Purpose: "product_identity"}}}
+	template, err := cfg.Execute(ctx, agentconfig.Command{
+		Scope: scope, Key: uuid.NewString(), AgentID: agentconfig.ImageAgentID, Operation: "create-template",
+		Input: agentconfig.TemplateInput{Name: "Test image template", TargetPlatform: "product", Image: &parameters},
+	})
+	require.NoError(t, err)
+	methods, err := skills.CandidatesForTarget(ctx, principal, d.ImageTarget)
+	require.NoError(t, err)
+	require.NotEmpty(t, methods)
+	ref := methods[0].Ref()
+	start := agentconfig.ImageStartCommand{
+		ExpectedModeRevision: "0", Scope: scope, MemberID: principal.MemberID,
+		RequestKey: uuid.NewString(), ContextID: "product", RunID: uuid.NewString(), TargetPlatform: "product",
+		SourceDigest: strings.Repeat("a", 64), InputDigest: strings.Repeat("b", 64),
+		Template:      &agentconfig.TemplateRef{TemplateID: template.TemplateID, Revision: "1"},
+		HardLimits:    agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: 10, ElapsedSeconds: 60},
+		ImageSkillRef: &ref,
+	}
+	pool, err := db.DB()
+	require.NoError(t, err)
+	pool.SetMaxOpenConns(1)
+	cfg = cfg.WithImageSkillCheck(func(ctx context.Context, tx *gorm.DB, command agentconfig.ImageStartCommand) error {
+		return skills.CheckImageUseInTransaction(ctx, tx, principal, *command.ImageSkillRef)
+	})
+	snapshot, err := cfg.PrepareImageConfiguration(ctx, start)
+	require.NoError(t, err)
+	replayed, err := cfg.PrepareImageConfiguration(ctx, start)
+	require.NoError(t, err)
+	require.Equal(t, snapshot, replayed)
+	ref.Digest = strings.Repeat("c", 64)
+	_, err = cfg.PrepareImageConfiguration(ctx, start)
+	require.ErrorIs(t, err, d.ErrConflict)
+	require.Zero(t, pool.Stats().InUse)
 }
