@@ -86,6 +86,7 @@ func buildOrganizationGenerationWithCurrent(cfg config.ImageAgentGenerationConfi
 	factory := generationProviderFactory{current: current, credentials: organizationCredentialAdmission{resolver: credentials}, price: cfg, profile: profile, logger: componentLogger, facts: facts, artifacts: artifacts}
 	executor, err := imageagent.NewGenerationExecution(imageagent.GenerationExecutionDependencies{Facts: facts, Resources: resources, Authorizer: executionAuthorizer, MaxSourceBytes: productimage.MaxInlineArtifactBytes,
 		PrepareProvider: factory.prepare, RevalidateProvider: factory.revalidate,
+		ReadProviderOutput: generationOutputRecovery(nil, logger),
 		ReadMemberLimit: func(ctx context.Context, org, member string) (imageagent.GenerationMemberLimit, error) {
 			read, err := limits.ReadMonthlyLimit(ctx, org, member)
 			return imageagent.GenerationMemberLimit{Version: read.Version, MonthStart: read.MonthStart}, err

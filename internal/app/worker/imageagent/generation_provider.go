@@ -23,6 +23,7 @@ import (
 	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/bailian"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/grsai"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
 	openai "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai"
 	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 )
@@ -49,6 +50,12 @@ func (f generationProviderFactory) prepare(ctx context.Context, input imageagent
 	cfg, metadata, err := f.resolveForSend(ctx, selectedImageRoute(input))
 	if err != nil {
 		return imageagent.PreparedGenerationProvider{}, err
+	}
+	if metadata.BillingMode == aicapability.ModelUsageOnly {
+		if input.ImageSet == nil || input.Artwork != nil || !input.ImageSet.Source.OwnProduct || input.TargetPlatform != "product" {
+			return imageagent.PreparedGenerationProvider{}, imageagent.ErrImageRouteChanged
+		}
+		return imageagent.PreparedGenerationProvider{Metadata: metadata, ProviderUsage: ownedProductImageTasks{f.grsaiClient(cfg, true)}}, nil
 	}
 	build := func(bound ai.RouteBoundImageEditor) (*openai.SourceImageAdapter, error) {
 		c := openai.SourceImageAdapterConfig{ImageClient: bound, Provider: metadata.Provider, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, PricingVersion: metadata.PriceVersion, GeneratedImageFetcher: f.generatedFetcher, DiagnoseOutputDimensions: imageDimensionsDiagnostic(f.logger, metadata.Provider, cfg.Model)}
@@ -89,7 +96,7 @@ func (f generationProviderFactory) prepare(ctx context.Context, input imageagent
 			return client.GenerateImageWithRoute(ctx, req, ai.ImageRouteSelection{CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion})
 		}
 	} else {
-		client := grsai.NewClient(grsai.Config{APIKey: cfg.APIKey, Model: cfg.Model, SubmitURL: cfg.BaseURL, Timeout: cfg.Timeout, HTTPClient: f.providerHTTPClient})
+		client := f.grsaiClient(cfg, false)
 		observer := func(ctx context.Context, observation grsai.GenerationObservation) error {
 			proof := imageagent.GenerationSuccess{ResponseID: observation.ResponseID, RequestID: observation.RequestID, ResultDigest: observation.ResultDigest, UsageKnown: observation.UsageKnown, InputTokens: int64(observation.Usage.PromptTokens), OutputTokens: int64(observation.Usage.CompletionTokens), TotalTokens: int64(observation.Usage.TotalTokens)}
 			return observe(ctx, proof.WithResultLocator(observation.ResultURL, observation.ResultUnavailable))
@@ -137,6 +144,14 @@ func (f generationProviderFactory) prepare(ctx context.Context, input imageagent
 	}}, nil
 }
 
+func (f generationProviderFactory) grsaiClient(cfg *openai.ClientConfig, publicOnly bool) *grsai.Client {
+	transport := f.providerHTTPClient
+	if transport == nil && publicOnly {
+		transport = httpimage.NewPublicImageHTTPClient()
+	}
+	return grsai.NewClient(grsai.Config{APIKey: cfg.APIKey, Model: cfg.Model, SubmitURL: cfg.BaseURL, Timeout: cfg.Timeout, HTTPClient: transport})
+}
+
 type synchronousImageProvider interface {
 	productimage.SourceWhiteBackground
 	productimage.UsageQuoter
@@ -176,7 +191,7 @@ func (f generationProviderFactory) resolveChannel(ctx context.Context, send bool
 		return invalid()
 	}
 	if len(choices) == 1 && choices[0] != nil {
-		return nil, imageagent.GenerationProviderMetadata{}, imageagent.ErrImageRouteChanged
+		return f.resolveOwnedProductImage(ctx, *choices[0], send)
 	}
 	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if !ok || identity.TenantID == "" || identity.EffectiveOrganizationID != identity.TenantID {

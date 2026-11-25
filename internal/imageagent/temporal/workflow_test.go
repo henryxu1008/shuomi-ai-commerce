@@ -2680,7 +2680,7 @@ func TestCancellationResultsRequireExplicitEffectTerminalizationProof(t *testing
 		EffectPhase: imageagent.SlotEffectV3ProviderClaimed,
 	}}
 
-	require.False(t, cancellationResultsTerminalized(results),
+	require.False(t, cancellationResultsTerminalized(results, false),
 		"a generic blocked child result is not proof that a claimed external effect reached a durable terminal phase")
 }
 

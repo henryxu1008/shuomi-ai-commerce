@@ -111,7 +111,7 @@ func (r *ImageSetCandidateReader) ReadImageSetCandidate(ctx context.Context, sou
 		return productasset.ImageSetCandidate{}, err
 	}
 	inputDigest, err := imageagent.ImageSlotGenerationInputDigest(execution)
-	if err != nil || fact.Validate() != nil || fact.State != imageagent.GenerationSucceeded || fact.Success.ResultUnavailable != "" || fact.Intent.Identity != identity || fact.Intent.MemberID != source.MemberID || fact.Intent.CatalogHash != bound.CatalogHash || fact.Intent.InputProtocol != imageagent.ImageSetSchema || fact.Intent.InputDigest != inputDigest || fact.Intent.SourceDigest != imageagent.ImageSourceBundleDigest(execution.Slot.Recipe.References) || fact.Intent.PromptVersion != execution.Slot.Recipe.PromptVersion || !execution.Slot.Recipe.Quote.MatchesGenerationIntent(fact.Intent) {
+	if err != nil || fact.Validate() != nil || fact.State != imageagent.GenerationSucceeded || fact.ProviderOutputInvalid || fact.Success.ResultUnavailable != "" || fact.Intent.Identity != identity || fact.Intent.MemberID != source.MemberID || fact.Intent.CatalogHash != bound.CatalogHash || fact.Intent.InputProtocol != imageagent.ImageSetSchema || fact.Intent.InputDigest != inputDigest || fact.Intent.SourceDigest != imageagent.ImageSourceBundleDigest(execution.Slot.Recipe.References) || fact.Intent.PromptVersion != execution.Slot.Recipe.PromptVersion || !execution.Slot.Recipe.Quote.MatchesGenerationIntent(fact.Intent) {
 		return bad()
 	}
 	closure, err := imageagent.ImageGenerationClosure(fact)
@@ -133,8 +133,8 @@ func (r *ImageSetCandidateReader) ReadImageSetCandidate(ctx context.Context, sou
 			return bad()
 		}
 		candidate := slot.Candidates[0]
-		proof := &imageagent.ImageGenerationProof{UnitVersion: fact.Settlement.UnitVersion, IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, SettlementProofDigest: fact.TerminalProofDigest(), Points: fact.Settlement.Points}
-		if candidate.AssetID != choice.AssetID || candidate.SourceAssetID != execution.Slot.SourceAssetIDs[0] || candidate.Width != 1024 || candidate.Height != 1024 || !reflect.DeepEqual(candidate.Operations, []string{"render_source_edit"}) || !reflect.DeepEqual(candidate.GenerationProof, proof) {
+		proof := closure.CandidateProof()
+		if proof == nil || candidate.AssetID != choice.AssetID || candidate.SourceAssetID != execution.Slot.SourceAssetIDs[0] || candidate.Width != 1024 || candidate.Height != 1024 || !reflect.DeepEqual(candidate.Operations, []string{"render_source_edit"}) || !reflect.DeepEqual(candidate.GenerationProof, proof) {
 			return bad()
 		}
 		published, err := imageagent.NewSlotEffectV3PublishedResult(imageagent.SlotExecutionResult{SlotID: choice.SlotID, Attempt: choice.Attempt, Candidates: []imageagent.AssetCandidate{candidate}})
@@ -154,7 +154,7 @@ func (r *ImageSetCandidateReader) ReadImageSetCandidate(ctx context.Context, sou
 		if err != nil {
 			return bad()
 		}
-		asset := productasset.ApprovedAsset{ID: candidate.AssetID, RunID: choice.RunID, PlanRevision: choice.PlanRevision, SlotID: choice.SlotID, Attempt: choice.Attempt, Role: role, URL: url, SourceAssetID: candidate.SourceAssetID, Width: candidate.Width, Height: candidate.Height, Operations: append([]string(nil), candidate.Operations...), GenerationEvidence: &productasset.GenerationEvidence{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, SettlementProofDigest: fact.TerminalProofDigest(), ArtifactHash: candidate.DurableAsset.SHA256}}
+		asset := productasset.ApprovedAsset{ID: candidate.AssetID, RunID: choice.RunID, PlanRevision: choice.PlanRevision, SlotID: choice.SlotID, Attempt: choice.Attempt, Role: role, URL: url, SourceAssetID: candidate.SourceAssetID, Width: candidate.Width, Height: candidate.Height, Operations: append([]string(nil), candidate.Operations...), GenerationEvidence: &productasset.GenerationEvidence{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, SettlementProofDigest: proof.SettlementProofDigest, ProviderUsageProofDigest: proof.ProviderUsageProofDigest, ArtifactHash: candidate.DurableAsset.SHA256}}
 		return productasset.ImageSetCandidate{Asset: asset, Result: productasset.ImageSetResultBinding{RunID: choice.RunID, PlanRevision: choice.PlanRevision, ResultDigest: digest}}, nil
 	}
 	return bad()

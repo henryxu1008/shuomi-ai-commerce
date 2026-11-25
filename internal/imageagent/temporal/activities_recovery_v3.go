@@ -70,6 +70,12 @@ func (a *Activities) RecoverEffectV3(ctx context.Context, input EffectRecoveryWo
 			return EffectRecoveryResult{}, persistedSlotEffectV3RepositoryError(err)
 		}
 	}
+	if strings.TrimSpace(input.ActionID) != "" && executionInput.Slot.Recipe != nil && executionInput.Slot.Recipe.Quote.UsesProviderUsage() &&
+		(effect.Phase == imageagent.SlotEffectV3ProviderUnknown || effect.Phase == imageagent.SlotEffectV3ProviderClaimed) {
+		if err := a.lookupOriginalProviderUsage(ctx, executionInput, reservation.Identity); err != nil {
+			return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomeProviderUnknown, imageagent.SlotEffectV3ProviderUnknown, slotProviderOutcomeUnknownCode), nil
+		}
+	}
 	effect, err = a.recoverSucceededGenerationOutput(ctx, executionInput, reservation, effect)
 	if err != nil {
 		return EffectRecoveryResult{}, err
@@ -117,6 +123,28 @@ func (a *Activities) RecoverEffectV3(ctx context.Context, input EffectRecoveryWo
 		return result, nil
 	}
 	return EffectRecoveryResult{}, err
+}
+
+func (a *Activities) lookupOriginalProviderUsage(ctx context.Context, input imageagent.SlotExecutionInput, id imageagent.SlotExternalEffectIdentity) error {
+	facts, ok := a.repository.(imageagent.GenerationFactRepository)
+	if !ok {
+		return imageagent.ErrCommandBlocked
+	}
+	fact, err := facts.ReadGenerationFact(ctx, id)
+	if errors.Is(err, imageagent.ErrRunNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	executor, ok := a.stagedSlotExecutor.(interface {
+		RecoverProviderUsage(context.Context, imageagent.SlotExecutionInput, imageagent.GenerationFact) (imageagent.GenerationFact, error)
+	})
+	if !ok {
+		return imageagent.ErrCommandBlocked
+	}
+	_, err = executor.RecoverProviderUsage(ctx, input, fact)
+	return err
 }
 
 func (a *Activities) PersistRecoveryBlockedEffectV3(ctx context.Context, input EffectRecoveryWorkflowInput) (EffectRecoveryResult, error) {
@@ -362,6 +390,10 @@ func (a *Activities) reconcileEffectRecoveryProjection(ctx context.Context, inpu
 		}
 		updated.Slots[slotIndex] = derived
 		result.Closure = derived.Closure
+		if status == imageagent.SlotStatusBlocked && derived.Closure == nil && current.Plan.Set != nil &&
+			current.Plan.Set.Source.OwnProduct && recoveredBlockedProjectionMatches(current, slotIndex, ownerIndex, result.BlockedCode) {
+			return nil
+		}
 		if len(derived.Candidates) == 1 {
 			result.GenerationProof = derived.Candidates[0].GenerationProof
 		}
@@ -374,6 +406,13 @@ func (a *Activities) reconcileEffectRecoveryProjection(ctx context.Context, inpu
 	commitID, err := effectRecoveryReconciliationCommitID(input, effect.Phase)
 	if err != nil {
 		return err
+	}
+	if closure := result.Closure; updated.Slots[slotIndex].Slot.Status == imageagent.SlotStatusBlocked && closure != nil && closure.ProviderUsageProofDigest != "" {
+		// Supplier terminal evidence can arrive without changing the effect phase.
+		commitID, err = updateFingerprint("effect_recovery_provider_usage_closed", []string{commitID, closure.ProviderUsageProofDigest})
+		if err != nil {
+			return err
+		}
 	}
 	candidateIDs := make([]string, 0, len(updated.Slots[slotIndex].Candidates))
 	for _, candidate := range updated.Slots[slotIndex].Candidates {

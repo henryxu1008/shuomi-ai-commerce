@@ -8,6 +8,8 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"reflect"
 	"time"
+
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 )
 
 // These ports belong only to the current single-source generation owner.
@@ -21,12 +23,15 @@ type GenerationProviderMetadata struct {
 	Billing                                                                                ImageBilling
 	Provider, Model, Protocol                                                              string
 	RouteReference, CredentialReference, ConfigurationVersion, PromptVersion, PriceVersion string
-	Points                                                                                 int64 "json:\",string\""
+	Points                                                                                 int64                         "json:\",string\""
+	BillingMode                                                                            aicapability.ModelBillingMode `json:",omitempty"`
+	ConnectionID                                                                           string                        `json:",omitempty"`
 }
 type PreparedGenerationProvider struct {
-	Metadata  GenerationProviderMetadata
-	Executor  BudgetedStagedSlotExecutor
-	Rejection func(error) (GenerationRejection, bool)
+	Metadata      GenerationProviderMetadata
+	Executor      BudgetedStagedSlotExecutor
+	Rejection     func(error) (GenerationRejection, bool)
+	ProviderUsage ProviderUsageImageTasks
 }
 type GenerationExecutionDependencies struct {
 	Methods            ImageMethodContext
@@ -40,6 +45,7 @@ type GenerationExecutionDependencies struct {
 	PrepareProvider    func(context.Context, SlotExecutionInput, func(context.Context, GenerationSuccess) error) (PreparedGenerationProvider, error)
 	RevalidateProvider func(context.Context, SlotExecutionInput, GenerationProviderMetadata) error
 	MaxSourceBytes     int
+	ReadProviderOutput GenerationOutputRecovery
 }
 type GenerationExecution struct {
 	dependencies GenerationExecutionDependencies
@@ -155,12 +161,22 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 		sum := sha256.Sum256(data)
 		sourceDigest = hex.EncodeToString(sum[:])
 	}
-	limit, err := e.dependencies.ReadMemberLimit(ctx, input.TenantID, input.OrganizationIdentity.MemberID)
-	if err != nil {
-		return reject(err)
-	}
 	m := provider.Metadata
+	var limit GenerationMemberLimit
+	if m.BillingMode != aicapability.ModelUsageOnly {
+		limit, err = e.dependencies.ReadMemberLimit(ctx, input.TenantID, input.OrganizationIdentity.MemberID)
+		if err != nil {
+			return reject(err)
+		}
+	}
 	intent = GenerationIntent{Billing: m.Billing, Identity: id, MemberID: input.OrganizationIdentity.MemberID, CatalogHash: input.AssetCatalog.Manifest.Hash, SourceDigest: sourceDigest, PromptVersion: m.PromptVersion, RouteReference: m.RouteReference, CredentialReference: m.CredentialReference, ConfigurationVersion: m.ConfigurationVersion, Provider: m.Provider, Model: m.Model, Protocol: m.Protocol, Resolution: "1024x1024", Quality: GenerationRouteQuality(m.Provider, m.Model, m.Protocol), PriceVersion: m.PriceVersion, Points: m.Points, LimitVersion: limit.Version, MonthStart: limit.MonthStart}
+	intent.BillingMode, intent.ConnectionID = m.BillingMode, m.ConnectionID
+	if intent.UsesProviderUsage() {
+		intent.Quality = "auto"
+		if _, ok := e.dependencies.Facts.(GenerationProviderTaskRepository); !ok || e.dependencies.ReadProviderOutput == nil {
+			return reject(ErrBudgetQuoteUnavailable)
+		}
+	}
 	if input.Artwork != nil {
 		intent.InputProtocol, intent.InputDigest, intent.PromptVersion = ArtworkSchema, sourceDigest, input.Artwork.PromptVersion
 	} else if input.ImageSet != nil {
@@ -201,12 +217,14 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 			return closeBeforeDispatch(err)
 		}
 	}
-	receipt, err := e.dependencies.Resources.ReserveImageGeneration(ctx, id)
-	if err != nil {
-		return closeBeforeDispatch(err)
-	}
-	if _, err = e.dependencies.Facts.BindGenerationReservation(ctx, intent, receipt); err != nil {
-		return closeBeforeDispatch(err)
+	if !intent.UsesProviderUsage() {
+		receipt, err := e.dependencies.Resources.ReserveImageGeneration(ctx, id)
+		if err != nil {
+			return closeBeforeDispatch(err)
+		}
+		if _, err = e.dependencies.Facts.BindGenerationReservation(ctx, intent, receipt); err != nil {
+			return closeBeforeDispatch(err)
+		}
 	}
 	if err = e.authorize(ctx, input); err != nil {
 		return closeBeforeDispatch(err)
@@ -235,6 +253,9 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 	input.SourceBytes = data
 	input.SourceDigest = intent.SourceDigest
 	input.SourceReferences = references
+	if intent.UsesProviderUsage() {
+		return e.generateProviderUsage(ctx, input, intent, provider)
+	}
 	output, dispatchErr := provider.Executor.GenerateQuotedSlot(ctx, input, base)
 	finalCtx, cancel := generationFinalizationContext(ctx)
 	defer cancel()
@@ -320,6 +341,9 @@ func (e *GenerationExecution) authorize(ctx context.Context, input SlotExecution
 }
 func quoteGenerationProvider(ctx context.Context, p PreparedGenerationProvider, input SlotExecutionInput, policy BudgetPolicy) (SlotUsageQuote, SlotUsageQuote, error) {
 	m := p.Metadata
+	if m.BillingMode == aicapability.ModelUsageOnly {
+		return quoteProviderUsageImage(p, input)
+	}
 	if p.Executor == nil || !validImageBilling(m.Billing, m.Model, m.PriceVersion, m.Points) || !validGenerationRoute(m.Provider, m.Model, m.Protocol) || m.Points <= 0 || m.PriceVersion == "" || m.RouteReference == "" || m.CredentialReference == "" || m.ConfigurationVersion == "" || m.PromptVersion == "" {
 		return SlotUsageQuote{}, SlotUsageQuote{}, ErrBudgetQuoteUnavailable
 	}
@@ -385,6 +409,13 @@ func (e *GenerationExecution) prepareImageMethod(ctx context.Context, input Slot
 	return input, release, nil
 }
 func (e *GenerationExecution) finalize(ctx context.Context, intent GenerationIntent) error {
+	if intent.UsesProviderUsage() {
+		fact, err := e.dependencies.Facts.ReadGenerationFact(ctx, intent.Identity)
+		if err != nil {
+			return err
+		}
+		return closeGenerationCapacity(ctx, e.dependencies.StorageCapacity, fact)
+	}
 	receipt, err := e.dependencies.Resources.FinalizeImageGeneration(ctx, intent.Identity)
 	if err != nil {
 		return err

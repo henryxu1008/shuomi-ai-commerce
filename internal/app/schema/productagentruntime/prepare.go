@@ -37,6 +37,24 @@ func PrepareManagedModelChannels(ctx context.Context, db *gorm.DB) (Result, erro
 	})
 }
 
+func PrepareOwnedGRSaiProductImage(ctx context.Context, db *gorm.DB) (Result, error) {
+	return prepare(ctx, db, "owned-grsai-product-image", "product_agent_owner", func(tx *gorm.DB, result *Result) error {
+		if !routestore.ManagedChannelSchemaInstalled(ctx, tx) {
+			return errors.New("managed channels schema is unavailable")
+		}
+		updated, err := channelstore.EnableGRSaiImageRegistration(ctx, tx)
+		if err != nil {
+			return err
+		}
+		result.Outcome = "VERIFIED"
+		if updated {
+			result.Outcome = "UPDATED"
+		}
+		result.Tables = []string{"ai_channel_registrations"}
+		return nil
+	})
+}
+
 func prepare(ctx context.Context, db *gorm.DB, target, owner string, run func(*gorm.DB, *Result) error) (Result, error) {
 	if ctx == nil || db == nil || db.Statement == nil || db.Dialector == nil || db.Dialector.Name() != "postgres" {
 		return Result{}, errors.New("preparation requires PostgreSQL and a context")

@@ -6,6 +6,8 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"time"
+
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 
 	"gorm.io/gorm"
@@ -82,6 +84,30 @@ func (r *gormRepository) RecordGenerationSuccess(ctx context.Context, intent ima
 	})
 }
 
+func (r *gormRepository) RecordGenerationProviderTask(ctx context.Context, intent imageagent.GenerationIntent, taskID string, acceptedAt time.Time) (imageagent.GenerationFact, error) {
+	return r.mutateGenerationFact(ctx, intent, true, func(existing *imageagent.GenerationFact) (imageagent.GenerationFact, error) {
+		return existing.RecordProviderTask(taskID, acceptedAt)
+	})
+}
+
+func (r *gormRepository) RecordGenerationProviderFailure(ctx context.Context, intent imageagent.GenerationIntent, taskID, status, digest string) (imageagent.GenerationFact, error) {
+	return r.mutateGenerationFact(ctx, intent, true, func(existing *imageagent.GenerationFact) (imageagent.GenerationFact, error) {
+		return existing.RecordProviderFailure(taskID, status, digest)
+	})
+}
+
+func (r *gormRepository) RecordInvalidGenerationProviderOutput(ctx context.Context, intent imageagent.GenerationIntent, proof string) (imageagent.GenerationFact, error) {
+	return r.mutateGenerationFactWithEffect(ctx, intent, true, func(fact *imageagent.GenerationFact, row slotExternalEffectV3Record) (imageagent.GenerationFact, error) {
+		if !intent.UsesProviderUsage() || fact.State != imageagent.GenerationSucceeded || fact.TerminalProofDigest() != proof ||
+			row.StagingManifestFingerprint != "" {
+			return *fact, imageagent.ErrRevisionConflict
+		}
+		next := *fact
+		next.ProviderOutputInvalid = true
+		return next, nil
+	}, false)
+}
+
 func (r *gormRepository) BindGenerationSettlement(ctx context.Context, intent imageagent.GenerationIntent, receipt imageagent.GenerationSettlementReceipt) (imageagent.GenerationFact, error) {
 	return r.mutateGenerationFact(ctx, intent, true, func(existing *imageagent.GenerationFact) (imageagent.GenerationFact, error) {
 		return existing.BindSettlement(receipt)
@@ -89,6 +115,12 @@ func (r *gormRepository) BindGenerationSettlement(ctx context.Context, intent im
 }
 
 func (r *gormRepository) mutateGenerationFact(ctx context.Context, intent imageagent.GenerationIntent, requireExisting bool, change func(*imageagent.GenerationFact) (imageagent.GenerationFact, error), checkDispatch ...bool) (imageagent.GenerationFact, error) {
+	return r.mutateGenerationFactWithEffect(ctx, intent, requireExisting, func(fact *imageagent.GenerationFact, _ slotExternalEffectV3Record) (imageagent.GenerationFact, error) {
+		return change(fact)
+	}, len(checkDispatch) == 1 && checkDispatch[0])
+}
+
+func (r *gormRepository) mutateGenerationFactWithEffect(ctx context.Context, intent imageagent.GenerationIntent, requireExisting bool, change func(*imageagent.GenerationFact, slotExternalEffectV3Record) (imageagent.GenerationFact, error), checkDispatch bool) (imageagent.GenerationFact, error) {
 	expected, err := imageagent.NewGenerationFact(intent)
 	if err != nil {
 		return expected, err
@@ -148,7 +180,7 @@ func (r *gormRepository) mutateGenerationFact(ctx context.Context, intent imagea
 				return imageagent.ErrRevisionConflict
 			}
 		}
-		if len(checkDispatch) == 1 && checkDispatch[0] && binding != "" && prior != nil && prior.State == imageagent.GenerationPrepared {
+		if checkDispatch && binding != "" && prior != nil && prior.State == imageagent.GenerationPrepared {
 			var rows []slotExternalEffectV3Record
 			if err := tx.Select("generation_fact_json").Where("tenant_id = ? AND length(generation_fact_json) > 0", intent.Identity.TenantID).Find(&rows).Error; err != nil {
 				return err
@@ -163,7 +195,7 @@ func (r *gormRepository) mutateGenerationFact(ctx context.Context, intent imagea
 				}
 			}
 		}
-		next, err := change(prior)
+		next, err := change(prior, row)
 		if err != nil {
 			return err
 		}

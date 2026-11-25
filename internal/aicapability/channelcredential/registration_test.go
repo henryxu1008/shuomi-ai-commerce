@@ -51,3 +51,18 @@ func TestRegistrationRejectsNonPublicOrNonCanonicalDestinations(t *testing.T) {
 		t.Fatal("an official registration must not accept a submitted address")
 	}
 }
+
+func TestGRSaiImageRegistrationOwnsFixedProviderEndpoint(t *testing.T) {
+	input := RegistrationInput{Template: GRSaiImageTemplate, Name: "商品图片", APIKey: "fixture"}
+	registered, err := NewRegistrationCommand("enterprise", "editor", "request", input)
+	if err != nil || registered.Validate() != nil || registered.Provider != "grsai" || registered.BaseURL != "https://grsaiapi.com" || registered.Channel != GRSaiImageChannel {
+		t.Fatal("GRSai image registration must use the fixed enterprise provider")
+	}
+	if _, err := NewRegistrationCommand(PlatformOwner, "editor", "request", input); err == nil {
+		t.Fatal("GRSai image registration must not admit a platform credential")
+	}
+	input.BaseURL = "https://grsaiapi.com"
+	if _, err := NewRegistrationCommand("enterprise", "editor", "request", input); err == nil {
+		t.Fatal("GRSai image registration must not take a caller-selected URL")
+	}
+}

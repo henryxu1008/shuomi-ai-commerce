@@ -300,6 +300,15 @@ func (r *gormRepository) PrepareSlotStagingV3(ctx context.Context, reservation i
 		if err != nil {
 			return err
 		}
+		if len(row.GenerationFactJSON) > 0 {
+			fact, err := decodeGenerationFact(row.GenerationFactJSON)
+			if err != nil {
+				return err
+			}
+			if fact.ProviderOutputInvalid {
+				return imageagent.ErrInvalidGeneratedOutput
+			}
+		}
 		current, err := decodeSlotEffectV3Record(row)
 		if err != nil {
 			return err

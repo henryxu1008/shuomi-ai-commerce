@@ -36,12 +36,16 @@ func NewManagedImageSetTemporalDependencies(cfg *config.Config, imageDB, resourc
 		return empty, err
 	}
 	slots := imageSetSlotExecutor{generation: executor, builder: imagetools.NewImageSetResultBuilder()}
-	return appruntime.ImageAgentTemporalDependencies{Repository: repository, ExecutionAuthorizer: authorizer, StagedSlotExecutor: slots, ArtifactStore: artifacts, ImageSetPublisher: publisher, ImageSetApprovals: approvals, GenerationRecovery: recovery, GenerationOutputRecovery: generationOutputRecovery(nil, logger), PublicationLeaseDuration: defaultImageAgentArtifactTiming.PublicationLeaseDuration}, nil
+	return appruntime.ImageAgentTemporalDependencies{Repository: repository, ExecutionAuthorizer: authorizer, StagedSlotExecutor: slots, ArtifactStore: artifacts, ImageSetPublisher: publisher, ImageSetApprovals: approvals, GenerationRecovery: recovery, GenerationOutputRecovery: executor.ReadGenerationOutput, PublicationLeaseDuration: defaultImageAgentArtifactTiming.PublicationLeaseDuration}, nil
 }
 
 type imageSetSlotExecutor struct {
 	generation *imageagent.GenerationExecution
 	builder    *imagetools.ImageResultBuilder
+}
+
+func (e imageSetSlotExecutor) RecoverProviderUsage(ctx context.Context, input imageagent.SlotExecutionInput, fact imageagent.GenerationFact) (imageagent.GenerationFact, error) {
+	return e.generation.RecoverProviderUsage(ctx, input, fact)
 }
 
 func (e imageSetSlotExecutor) GenerateSlot(context.Context, imageagent.SlotExecutionInput) (imageagent.SlotGeneratedOutput, error) {

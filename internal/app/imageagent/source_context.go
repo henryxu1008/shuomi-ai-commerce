@@ -181,6 +181,7 @@ func (r *ImageSetContextReader) RevalidateImageSet(ctx context.Context, identity
 	if err != nil {
 		return err
 	}
+	fresh.Source.OwnProduct = projection.Plan.Set.Source.OwnProduct && fresh.OwnProduct
 	if fresh.Source != projection.Plan.Set.Source || fresh.Target != target || fresh.Catalog.Manifest.Hash != projection.AssetCatalog.Manifest.Hash || len(fresh.Observations) != len(expected) {
 		return imageagent.ErrRevisionConflict
 	}
@@ -202,6 +203,7 @@ func (r *ImageSetContextReader) AuthorizeImageSetSource(ctx context.Context, ide
 		return err
 	}
 	current := fresh.Source
+	current.OwnProduct = bound.OwnProduct && fresh.OwnProduct
 	current.CatalogHash, bound.CatalogHash = "", ""
 	if current != bound || !reflect.DeepEqual(fresh.Catalog.ProductContext, projection.AssetCatalog.ProductContext) {
 		return imageagent.ErrRevisionConflict

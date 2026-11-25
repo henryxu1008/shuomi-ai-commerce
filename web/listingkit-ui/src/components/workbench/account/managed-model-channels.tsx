@@ -13,7 +13,7 @@ import {ChannelModelQuery} from "./channel-model-query";
 import styles from "./model-route-pricing.module.css";
 
 const definitiveFailures=new Set(["INVALID","FORBIDDEN","CONFLICT","NEEDS_CONFIGURATION","CHANNEL_LIMIT","NOT_FOUND","AUTHENTICATION_REQUIRED","PERMISSION_DENIED","ORGANIZATION_ACCESS_REVOKED","ORGANIZATION_ACCESS_DENIED","ORGANIZATION_SUSPENDED","ORGANIZATION_SELECTION_REQUIRED","ORGANIZATION_CONTEXT_CHANGED","IDENTITY_CONTEXT_CHANGED"]);
-const names={"openai-mini-v1":"OpenAI 官方","openai-compatible-mini-v1":"OpenAI-compatible"};
+const names={"openai-mini-v1":"OpenAI 官方","openai-compatible-mini-v1":"OpenAI-compatible","grsai-product-image-v1":"GRSai 商品图片"};
 type Props={
  scope:ModelRouteScope;
  memberId:string;
@@ -144,6 +144,9 @@ export function ManagedModelChannels({scope,memberId,testMemberId,focusModelId,b
       {onSelect&&(!query.data?.bindingReadiness||query.data.bindingReadiness.some(r=>r.bindingId===activeBinding.bindingId&&r.ready))&&<Button disabled={locked||!selectedChannel.enabled} onClick={()=>onSelect(selectedChannel,{id:activeBinding.bindingId,version:"v1"})}>去选用模型</Button>}
       {query.data?.canAttach&&<Button variant="outline" disabled={locked} onClick={()=>setConfirmDetach({connectionId:selectedChannel.connectionId,bindingId:activeBinding.bindingId,revision:selectedChannel.revision})}>取消关联</Button>}
      </div>
+    </div>:selectedChannel.registration?.template==="grsai-product-image-v1"?<div className={styles.history}>
+     <h3>商品主图</h3>
+     <p>在支持此渠道的商品图片流程中可选择 gpt-image-2.6。企业通过自己的 GRSai 账户付费。</p>
     </div>:<div className={styles.history}>
      <h3>尚未关联模型</h3>
      {query.data?.canAttach&&selectedChannel.enabled&&(query.data.bindingTemplates.includes(selectedChannel.registration!.template)?<>
@@ -151,7 +154,7 @@ export function ManagedModelChannels({scope,memberId,testMemberId,focusModelId,b
       <Button disabled={locked} onClick={()=>save("models",{action:"attach",expectedRevision:selectedChannel.revision},selectedChannel.connectionId)}>关联文本模型</Button>
      </>:<p>这个渠道暂时无法覆盖企业已开启的文本用途。你可以保留渠道与 Key。</p>)}
     </div>}
-    {selectedChannel.registration?.template==="openai-compatible-mini-v1"?<p>此渠道暂不支持资料查询。</p>:
+    {selectedChannel.registration?.template==="grsai-product-image-v1"?null:selectedChannel.registration?.template==="openai-compatible-mini-v1"?<p>此渠道暂不支持资料查询。</p>:
      queryTarget&&testMemberId?<ChannelModelQuery key={JSON.stringify([selectedChannel.connectionId,selectedChannel.revision,queryTarget.reference])}
       scope={scope} connectionId={selectedChannel.connectionId} disabled={locked||!selectedChannel.enabled}
       input={{expectedMemberId:testMemberId,expectedRevision:selectedChannel.revision,reference:queryTarget.reference}}/>:<p>尚未检查模型资料。</p>}
@@ -179,8 +182,8 @@ export function ManagedModelChannels({scope,memberId,testMemberId,focusModelId,b
     {dialog.action!=="name"&&<>
      {dialog.action==="replace"&&<p>这会新建渠道。保存后，关联模型并发布新选择即可切换地址。</p>}
      <label className={styles.field}>提供方<select value={template} onChange={e=>setTemplate(e.target.value as keyof typeof names)}>
-      {channelTemplate.options.map(value=><option key={value} value={value}>{names[value]}</option>)}</select></label>
-     {template==="openai-compatible-mini-v1"?<label className={styles.field}>服务基础地址<input name="baseUrl" type="url" required maxLength={2048} placeholder="https://models.example.com/v1"/></label>:<p>服务地址 https://api.openai.com/v1</p>}
+      {channelTemplate.options.filter(value=>(query.data?.grsaiImageRegistration||value!=="grsai-product-image-v1")&&(dialog.action!=="replace"||value==="openai-compatible-mini-v1")).map(value=><option key={value} value={value}>{names[value]}</option>)}</select></label>
+     {template==="openai-compatible-mini-v1"?<label className={styles.field}>服务基础地址<input name="baseUrl" type="url" required maxLength={2048} placeholder="https://models.example.com/v1"/></label>:<p>服务地址 {template==="grsai-product-image-v1"?"https://grsaiapi.com":"https://api.openai.com/v1"}</p>}
      <label className={styles.field}>账号备注（选填）<input name="account" maxLength={128}/></label>
      <label className={styles.field}>API Key<input ref={keyInput} type="password" autoComplete="new-password" spellCheck={false} required maxLength={4096}/></label>
      <p>使用此渠道时，Key 和请求内容会发送到上面的服务地址。保存时不会调用模型。</p>

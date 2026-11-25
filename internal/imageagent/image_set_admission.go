@@ -29,7 +29,7 @@ func ValidateImageSetAdmission(run Run, plan Plan) error {
 		return ErrRevisionConflict
 	}
 	set := plan.Set
-	if c.Scope != (agent.Scope{OrganizationID: run.TenantID, ActorID: run.UserID}) || c.MemberID != run.MemberID || c.RunID != run.ID || !agentconfig.UUID(c.ConfirmActionID) || c.Snapshot != set.Configuration || c.SourceDigest != ImageSetSourceDigest(set.Source, plan) || c.InputDigest != set.InputDigest || c.QuoteDigest != set.QuoteDigest || !c.Limits.Valid() || c.Limits.Images != len(plan.Slots) || c.Limits.Points != set.MaxPoints || run.Budget != ImageSetBudget(c.Limits) {
+	if c.Scope != (agent.Scope{OrganizationID: run.TenantID, ActorID: run.UserID}) || c.MemberID != run.MemberID || c.RunID != run.ID || !agentconfig.UUID(c.ConfirmActionID) || c.Snapshot != set.Configuration || c.SourceDigest != ImageSetSourceDigest(set.Source, plan) || c.InputDigest != set.InputDigest || c.QuoteDigest != set.QuoteDigest || !c.Limits.Valid() || c.Limits != imageSetLimits(plan, c.Limits.ElapsedSeconds) || run.Budget != ImageSetBudget(c.Limits) {
 		return ErrRevisionConflict
 	}
 	// Slot status is execution state, not a change of the admitted plan.
@@ -46,6 +46,14 @@ func ValidateImageSetAdmission(run Run, plan Plan) error {
 		return ErrRevisionConflict
 	}
 	return nil
+}
+
+func imageSetLimits(plan Plan, elapsedSeconds int64) agentconfig.ImageRunLimits {
+	unit := "ai-micropoint-v1"
+	if plan.Set.Source.OwnProduct {
+		unit = providerUsageUnit
+	}
+	return agentconfig.ImageRunLimits{UnitVersion: unit, Images: len(plan.Slots), Points: plan.Set.MaxPoints, ElapsedSeconds: elapsedSeconds}
 }
 
 func ImageSetBudget(limits agentconfig.ImageRunLimits) Budget {

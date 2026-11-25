@@ -129,6 +129,12 @@ func runImageAgentWorkflow(ctx workflow.Context, input WorkflowInput) (WorkflowR
 		if updates == nil || !updates.cancelRequested {
 			return WorkflowResult{}, false, fmt.Errorf("image agent cancellation was not committed by the command saga")
 		}
+		if input.Plan.Set != nil && input.Plan.Set.Source.OwnProduct && len(results) == 0 {
+			if len(*updates.results) == 0 {
+				*updates.results = make([]SlotWorkflowResult, len(input.Plan.Slots))
+			}
+			results = *updates.results
+		}
 		for !updates.cancelCommitted {
 			if updates.cancelPending {
 				updates.commitPendingCancellation(ctx, results)
@@ -325,7 +331,7 @@ runPlan:
 			}
 		}
 		projection = result
-		if input.Plan.Set != nil && input.Plan.Set.ModeSnapshotRef.Valid() {
+		if input.Plan.Set != nil && !input.Plan.Set.Source.OwnProduct && input.Plan.Set.ModeSnapshotRef.Valid() {
 			var command *productasset.ImageSetCommand
 			if err := workflow.ExecuteActivity(imageAgentActivityContext(ctx), activityPrepareImageSetPolicyAdoption, input.Identity).Get(ctx, &command); err != nil {
 				return WorkflowResult{}, err
@@ -501,7 +507,7 @@ func (o *workflowEffectOwner) persistImageSetCompletion(ctx workflow.Context, in
 		if err := workflow.ExecuteActivity(ownerCtx, activityPersistImageSetSlotResult, activityInput).Get(ownerCtx, &projection); err != nil {
 			return err
 		}
-		if projection.Slot.ID != result.Published.SlotID || projection.Slot.Status != result.Status && (result.Status != imageagent.SlotStatusBlocked || projection.Slot.Status != imageagent.SlotStatusAccepted || projection.Closure == nil || projection.Closure.Kind != "settled") {
+		if projection.Slot.ID != result.Published.SlotID || projection.Slot.Status != result.Status && (result.Status != imageagent.SlotStatusBlocked || projection.Slot.Status != imageagent.SlotStatusAccepted || projection.Closure == nil || projection.Closure.CandidateProof() == nil) {
 			return imageagent.ErrRevisionConflict
 		}
 		phase := result.EffectPhase
@@ -766,6 +772,10 @@ func (s *workflowUpdateState) applyEffectRecoveryCompleted(signal EffectRecovery
 		return false
 	}
 	ownerIndex := recoverableEffectIndex(s.projection.RecoverableEffects, signal.SlotID, signal.Attempt)
+	if ownerIndex < 0 && s.input.Plan.Set != nil && s.input.Plan.Set.Source.OwnProduct &&
+		current.Closure != nil && current.Closure.Valid(signal.Attempt) {
+		return false
+	}
 	clearOwner := false
 	if (s.input.Plan.Set != nil || s.input.Plan.Artwork != nil) && signal.Result.Closure != nil && !signal.Result.Closure.Valid(signal.Attempt) {
 		return false
@@ -774,13 +784,20 @@ func (s *workflowUpdateState) applyEffectRecoveryCompleted(signal EffectRecovery
 		if s.input.Plan.Set != nil || s.input.Plan.Artwork != nil {
 			closure, proof := signal.Result.Closure, signal.Result.GenerationProof
 			recipe := s.input.Plan.Slots[index].Recipe
-			points := int64(0)
+			var quote imageagent.ImageGenerationQuote
 			if s.input.Plan.Artwork != nil {
-				points = s.input.Plan.Artwork.Quote.Points
+				quote = s.input.Plan.Artwork.Quote
 			} else if recipe != nil {
-				points = recipe.Quote.Points
+				quote = recipe.Quote
 			}
-			if closure == nil || closure.Kind != "settled" || !closure.Valid(signal.Attempt) || proof == nil || points <= 0 || closure.Points < 0 || closure.Points > points || *proof != (imageagent.ImageGenerationProof{UnitVersion: closure.UnitVersion, IntentID: closure.IntentID, Fingerprint: closure.Fingerprint, SettlementProofDigest: closure.SettlementProofDigest, Points: closure.Points}) {
+			if closure == nil || !closure.Valid(signal.Attempt) || !closure.MatchesQuote(quote) || proof == nil {
+				return false
+			}
+			if quote.UsesProviderUsage() && !quote.Valid() || !quote.UsesProviderUsage() && quote.Points <= 0 {
+				return false
+			}
+			expectedProof := closure.CandidateProof()
+			if expectedProof == nil || *proof != *expectedProof {
 				return false
 			}
 		}
@@ -1307,7 +1324,22 @@ func (s *workflowUpdateState) applyCancel(ctx workflow.Context, signal CancelSig
 }
 
 func (s *workflowUpdateState) commitPendingCancellation(ctx workflow.Context, results []SlotWorkflowResult) {
-	if !cancellationResultsTerminalized(results) {
+	requireClosure := s.input.Plan.Set != nil && s.input.Plan.Set.Source.OwnProduct
+	if requireClosure {
+		for index := range results {
+			if results[index].Execution.SlotID != "" {
+				continue
+			}
+			completion := blockedSlotCompletion(*s.input, index, 1, imageagent.SlotProviderNotDispatchedCode)
+			if err := s.effects.persistImageSetCompletion(ctx, *s.input, &completion); err != nil {
+				s.cancelPending, s.cancelBlocked, s.cancelCommitErr = false, false, err
+				s.wake.SendAsync(struct{}{})
+				return
+			}
+			results[index] = completion.Result
+		}
+	}
+	if !cancellationResultsTerminalized(results, requireClosure) {
 		result := blockedCancellationProjection(*s.input, results)
 
 		markBlockedProjectionCode(&result, recoveryRequestedBlockCode)
@@ -1974,12 +2006,13 @@ func blockedCancellationProjection(input WorkflowInput, results []SlotWorkflowRe
 		Plan:   input.Plan,
 		Slots:  slotProjections(input.Plan, results),
 	}
-	result.RecoverableEffects = recoverableEffectsForCancellation(results)
+	requireClosure := input.Plan.Set != nil && input.Plan.Set.Source.OwnProduct
+	result.RecoverableEffects = recoverableEffectsForCancellation(results, requireClosure)
 	for index, slot := range input.Plan.Slots {
 		if index < len(results) && results[index].Status == imageagent.SlotStatusAccepted {
 			result.CompletedSlotIDs = append(result.CompletedSlotIDs, slot.ID)
 		}
-		if result.Block != nil || index >= len(results) || strings.TrimSpace(results[index].Execution.SlotID) == "" || cancellationResultTerminalized(results[index]) {
+		if result.Block != nil || index >= len(results) || strings.TrimSpace(results[index].Execution.SlotID) == "" || cancellationResultTerminalized(results[index], requireClosure) {
 			continue
 		}
 		code, message := "slot_failed", "slot_failed"
@@ -2076,11 +2109,11 @@ func markSlotProjectionRecoverableCode(slots *[]imageagent.SlotProjection, effec
 	}
 }
 
-func recoverableEffectsForCancellation(results []SlotWorkflowResult) []imageagent.RecoverableEffect {
+func recoverableEffectsForCancellation(results []SlotWorkflowResult, requireClosure bool) []imageagent.RecoverableEffect {
 
 	effects := make([]imageagent.RecoverableEffect, 0, len(results))
 	for _, result := range results {
-		if strings.TrimSpace(result.Execution.SlotID) == "" || cancellationResultTerminalized(result) {
+		if strings.TrimSpace(result.Execution.SlotID) == "" || cancellationResultTerminalized(result, requireClosure) {
 			continue
 		}
 		code := strings.TrimSpace(result.ErrorCode)
@@ -2107,23 +2140,26 @@ func cloneWorkflowResult(result WorkflowResult) WorkflowResult {
 	return cloned
 }
 
-func cancellationResultsTerminalized(results []SlotWorkflowResult) bool {
+func cancellationResultsTerminalized(results []SlotWorkflowResult, requireClosure bool) bool {
 	for _, result := range results {
 		if strings.TrimSpace(result.Execution.SlotID) == "" {
 			continue
 		}
-		if !cancellationResultTerminalized(result) {
+		if !cancellationResultTerminalized(result, requireClosure) {
 			return false
 		}
 	}
 	return true
 }
 
-func cancellationResultTerminalized(result SlotWorkflowResult) bool {
+func cancellationResultTerminalized(result SlotWorkflowResult, requireClosure bool) bool {
 	if closure := result.Closure; closure != nil {
 		if closure.Valid(result.Execution.Attempt) {
 			return result.Status == imageagent.SlotStatusAccepted || result.Status == imageagent.SlotStatusBlocked
 		}
+		return false
+	}
+	if requireClosure {
 		return false
 	}
 	switch result.EffectPhase {

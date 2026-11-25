@@ -22,7 +22,7 @@ func ValidateImageSetExecution(input SlotExecutionInput) error {
 	// Validate the exact slot against the same recipe contract as plan creation.
 	// Set totals are checked on the complete plan by its owner, not by a slot.
 	set := CloneImageSetPlan(input.ImageSet)
-	plan := Plan{Set: set, Slots: []Slot{input.Slot}}
+	plan := Plan{Set: set, Slots: []Slot{input.Slot}, SourceAssetIDs: input.Slot.SourceAssetIDs}
 	set.MaxPoints = input.Slot.Recipe.Quote.Points
 	var err error
 	set.QuoteDigest, err = ImageSetQuoteDigest(plan)

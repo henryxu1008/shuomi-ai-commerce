@@ -51,6 +51,7 @@ func (m modelRoutePricingModule) serveManagedChannel(c *gin.Context, action stri
 		return
 	}
 	canSave := slices.Contains(permissions, authz.PermissionWorkbenchCredentialsManage)
+	ownedImageRegistration := slices.Contains(m.ownedImageTenants, org)
 	if (action == "create" || action == "create-receipt") && !canSave {
 		forbidden()
 		return
@@ -105,11 +106,15 @@ func (m modelRoutePricingModule) serveManagedChannel(c *gin.Context, action stri
 				}
 			}
 		}
-		c.JSON(200, gin.H{
+		response := gin.H{
 			"organizationId": org, "channels": channels, "bindings": bindings, "bindingTemplates": bindingTemplates,
 			"canSave": canSave && manager.CanRegister(), "canRename": manager.CanRegister(), "canAttach": managed != nil, "bindingReadiness": readiness,
 			"modelQueryTargets": m.modelQueryTargets(ctx, id, channels),
-		})
+		}
+		if ownedImageRegistration {
+			response["grsaiImageRegistration"] = true
+		}
+		c.JSON(200, response)
 		return
 	}
 	key := c.GetHeader("Idempotency-Key")
@@ -132,6 +137,10 @@ func (m modelRoutePricingModule) serveManagedChannel(c *gin.Context, action stri
 			}
 			if modelRouteDecode(c, &body) != nil || body.ExpectedMemberID != member {
 				credentialHTTPFailure(c, credential.ErrInvalid)
+				return
+			}
+			if body.Input.Template == credential.GRSaiImageTemplate && !ownedImageRegistration {
+				forbidden()
 				return
 			}
 			result, err = manager.CreateRegistration(ctx, org, actor, key, body.Input)

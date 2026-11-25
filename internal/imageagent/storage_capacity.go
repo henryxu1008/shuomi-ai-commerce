@@ -27,8 +27,10 @@ func ConfigureGenerationRecoveryStorage(recovery GenerationRecovery, w storageca
 }
 func closeGenerationCapacity(ctx context.Context, w storagecapacity.Writer, f GenerationFact) error {
 	noGeneration := f.State == GenerationNoEffect
-	invalidOutput := f.State == GenerationSucceeded && f.Success.ResultUnavailable == "invalid_result" && f.Settlement.State == "committed"
-	if w == nil || !noGeneration && !invalidOutput {
+	invalidOutput := f.State == GenerationSucceeded && (f.ProviderOutputInvalid || f.Success.ResultUnavailable == "invalid_result") &&
+		(f.Intent.UsesProviderUsage() || f.Settlement.State == "committed")
+	supplierFailed := f.Intent.UsesProviderUsage() && f.State == GenerationSupplierFailed
+	if w == nil || !noGeneration && !invalidOutput && !supplierFailed {
 		return nil
 	}
 	if f.Validate() != nil {
@@ -51,6 +53,9 @@ func closeGenerationCapacity(ctx context.Context, w storagecapacity.Writer, f Ge
 		// Native invalid_result is immutable and publication rejects it. Its
 		// settled point charge remains committed; only unused bytes can close.
 		receipt = "invalid-generation:" + f.TerminalProofDigest()
+	}
+	if supplierFailed {
+		receipt = "supplier-failed:" + f.TerminalProofDigest()
 	}
 	return w.CloseWrite(ctx, id.TenantID, reservation.ID, storagecapacity.CloseProof{Owner: "image_agent", OperationID: operation, Fingerprint: f.Fingerprint, TerminalReceipt: receipt})
 }

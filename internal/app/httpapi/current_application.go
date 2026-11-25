@@ -876,7 +876,11 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	modules = append(modules, sms)
 	if supplied.modelRoutePricing != nil {
-		modules = append(modules, modelRoutePricingModule{services: *supplied.modelRoutePricing, authorizer: authorizer, organizationResolver: workbench.authDependencies.organizationResolver})
+		module := modelRoutePricingModule{services: *supplied.modelRoutePricing, authorizer: authorizer, organizationResolver: workbench.authDependencies.organizationResolver}
+		if supplied.fullImages != nil && cfg.ImageAgent.Generation.Configured() && cfg.ImageAgent.Generation.OwnedGRSaiProductImage && cfg.ImageAgent.Admission.Enabled {
+			module.ownedImageTenants = cfg.ImageAgent.Admission.AllowedTenantIDs
+		}
+		modules = append(modules, module)
 	}
 	var resourceRecovery func(context.Context) error
 	var usageObjects *commercialUsageLookup

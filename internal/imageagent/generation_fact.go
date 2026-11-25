@@ -32,8 +32,10 @@ type GenerationIntent struct {
 	Points               int64 "json:\",string\""
 	LimitVersion         int64
 	MonthStart           time.Time
-	InputProtocol        string `json:",omitempty"`
-	InputDigest          string `json:",omitempty"`
+	InputProtocol        string                        `json:",omitempty"`
+	InputDigest          string                        `json:",omitempty"`
+	BillingMode          aicapability.ModelBillingMode `json:",omitempty"`
+	ConnectionID         string                        `json:",omitempty"`
 }
 
 type GenerationReservationReceipt struct {
@@ -57,13 +59,14 @@ type GenerationSuccess struct {
 	RequestID     string
 	ResultDigest  string
 	// Worker-only locator. Never expose GenerationSuccess in a public DTO.
-	ResultURL         string
-	ResultUnavailable string
-	ResultLocatorKind string `json:",omitempty"`
-	UsageKnown        bool
-	InputTokens       int64
-	OutputTokens      int64
-	TotalTokens       int64
+	ResultURL          string
+	ResultUnavailable  string
+	ResultLocatorKind  string `json:",omitempty"`
+	UsageKnown         bool
+	InputTokens        int64
+	OutputTokens       int64
+	TotalTokens        int64
+	ProviderImageCount int64 `json:",omitempty"`
 }
 
 type GenerationState string
@@ -74,6 +77,7 @@ const (
 	GenerationUnknown         GenerationState = "unknown"
 	GenerationNoEffect        GenerationState = "no_generation"
 	GenerationSucceeded       GenerationState = "provider_succeeded"
+	GenerationSupplierFailed  GenerationState = "supplier_failed"
 )
 
 type GenerationFact struct {
@@ -87,7 +91,11 @@ type GenerationFact struct {
 	Settlement  GenerationSettlementReceipt
 	// An over-reserve observation is not success or a settlement proof. The
 	// original fact retains it to stop new sends on this exact frozen binding.
-	ObservedOverage GenerationSuccess `json:",omitzero"`
+	ObservedOverage GenerationSuccess      `json:",omitzero"`
+	ProviderTask    GenerationProviderTask `json:",omitzero"`
+	// Separate from the immutable supplier receipt. An unusable artifact
+	// does not change the number of images the supplier confirmed.
+	ProviderOutputInvalid bool `json:",omitempty"`
 }
 
 type GenerationSettlementReceipt struct {
@@ -114,14 +122,25 @@ type GenerationResources interface {
 }
 
 func NewGenerationFact(intent GenerationIntent) (GenerationFact, error) {
-	for _, value := range []string{intent.Identity.TenantID, intent.Identity.OwnerUserID, intent.Identity.RunID, intent.Identity.SlotID, intent.MemberID, intent.PromptVersion, intent.RouteReference, intent.CredentialReference, intent.ConfigurationVersion, intent.PriceVersion} {
+	for _, value := range []string{intent.Identity.TenantID, intent.Identity.OwnerUserID, intent.Identity.RunID, intent.Identity.SlotID, intent.MemberID, intent.PromptVersion, intent.RouteReference, intent.CredentialReference, intent.ConfigurationVersion} {
 		if strings.TrimSpace(value) != value || value == "" || len(value) > 192 {
 			return GenerationFact{}, ErrValidation
 		}
 	}
-	if !validImageBilling(intent.Billing, intent.Model, intent.PriceVersion, intent.Points) || intent.Identity.PlanRevision <= 0 || intent.Identity.Attempt <= 0 || intent.Points <= 0 || intent.LimitVersion <= 0 ||
+	if intent.Identity.PlanRevision <= 0 || intent.Identity.Attempt <= 0 ||
 		!validGenerationCatalogHash(intent.CatalogHash) || !generationDigest(intent.SourceDigest) ||
-		!validGenerationRoute(intent.Provider, intent.Model, intent.Protocol) || intent.Resolution != "1024x1024" || intent.Quality != GenerationRouteQuality(intent.Provider, intent.Model, intent.Protocol) ||
+		intent.Resolution != "1024x1024" {
+		return GenerationFact{}, ErrValidation
+	}
+	if intent.UsesProviderUsage() {
+		if !intent.validProviderUsage() {
+			return GenerationFact{}, ErrValidation
+		}
+		return GenerationFact{Version: 4, Intent: intent, IntentID: generationHash(intent.Identity), Fingerprint: generationHash(intent), State: GenerationPrepared}, nil
+	}
+	if intent.BillingMode != "" || intent.ConnectionID != "" || strings.TrimSpace(intent.PriceVersion) != intent.PriceVersion || intent.PriceVersion == "" || len(intent.PriceVersion) > 192 ||
+		!validImageBilling(intent.Billing, intent.Model, intent.PriceVersion, intent.Points) || intent.Points <= 0 || intent.LimitVersion <= 0 ||
+		!validGenerationRoute(intent.Provider, intent.Model, intent.Protocol) || intent.Quality != GenerationRouteQuality(intent.Provider, intent.Model, intent.Protocol) ||
 		intent.MonthStart.IsZero() || intent.MonthStart != time.Date(intent.MonthStart.UTC().Year(), intent.MonthStart.UTC().Month(), 1, 0, 0, 0, 0, time.UTC) {
 		return GenerationFact{}, ErrValidation
 	}
@@ -154,7 +173,7 @@ func (f GenerationFact) BindReservation(receipt GenerationReservationReceipt) (G
 	if err := f.Validate(); err != nil {
 		return f, err
 	}
-	if !f.matchesReceipt(receipt) {
+	if f.Intent.UsesProviderUsage() || !f.matchesReceipt(receipt) {
 		return f, ErrRevisionConflict
 	}
 	if f.Reservation.ReservationID != "" {
@@ -176,7 +195,7 @@ func (f GenerationFact) BeginDispatch() (GenerationFact, bool, error) {
 	if f.State != GenerationPrepared {
 		return f, false, nil
 	}
-	if f.Reservation.ReservationID == "" {
+	if f.Reservation.ReservationID == "" && !f.Intent.UsesProviderUsage() {
 		return f, false, ErrRevisionConflict
 	}
 	f.State = GenerationDispatchStarted
@@ -196,7 +215,7 @@ func (f GenerationFact) MarkUnknown() (GenerationFact, error) {
 	if err := f.Validate(); err != nil {
 		return f, err
 	}
-	if f.State == GenerationSucceeded {
+	if f.State == GenerationSucceeded || f.State == GenerationSupplierFailed {
 		return f, nil
 	}
 	if f.State != GenerationDispatchStarted && f.State != GenerationUnknown {
@@ -208,6 +227,12 @@ func (f GenerationFact) MarkUnknown() (GenerationFact, error) {
 func (f GenerationFact) RecordSuccess(success GenerationSuccess) (GenerationFact, error) {
 	if err := f.Validate(); err != nil {
 		return f, err
+	}
+	if f.Intent.UsesProviderUsage() {
+		return f.recordProviderSuccess(success)
+	}
+	if success.ProviderImageCount != 0 {
+		return f, ErrValidation
 	}
 	if !validGenerationSuccess(success) || success.BillableUsage.MappingVersion == aicapability.ReferenceImagesTotalsV1 && !f.Intent.Billing.OfficialTariff.IsReferenceImageEstimate() {
 		return f, ErrValidation
@@ -245,6 +270,12 @@ func (f GenerationFact) RecordSuccess(success GenerationSuccess) (GenerationFact
 func (f GenerationFact) Validate() error {
 	base, err := NewGenerationFact(f.Intent)
 	if err != nil || f.Version != base.Version || f.IntentID != base.IntentID || f.Fingerprint != base.Fingerprint {
+		return ErrValidation
+	}
+	if f.Intent.UsesProviderUsage() {
+		return f.validateProviderUsage()
+	}
+	if f.ProviderTask != (GenerationProviderTask{}) || f.ProviderOutputInvalid || f.Success.ProviderImageCount != 0 || f.ObservedOverage.ProviderImageCount != 0 {
 		return ErrValidation
 	}
 	if f.Reservation != (GenerationReservationReceipt{}) && !f.matchesReceipt(f.Reservation) {
@@ -285,7 +316,7 @@ func (f GenerationFact) BindSettlement(receipt GenerationSettlementReceipt) (Gen
 	if err := f.Validate(); err != nil {
 		return f, err
 	}
-	if !f.matchesSettlement(receipt) {
+	if f.Intent.UsesProviderUsage() || !f.matchesSettlement(receipt) {
 		return f, ErrRevisionConflict
 	}
 	if f.Settlement != (GenerationSettlementReceipt{}) && f.Settlement != receipt {
@@ -295,6 +326,9 @@ func (f GenerationFact) BindSettlement(receipt GenerationSettlementReceipt) (Gen
 	return f, nil
 }
 func (f GenerationFact) TerminalProofDigest() string {
+	if f.Intent.UsesProviderUsage() {
+		return f.providerUsageProofDigest()
+	}
 	if f.State != GenerationSucceeded && f.State != GenerationNoEffect {
 		return ""
 	}

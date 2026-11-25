@@ -49,7 +49,7 @@ func (r *gormRepository) RecoverGenerationStaging(ctx context.Context, reservati
 		if err != nil {
 			return err
 		}
-		if fact.Intent != intent || fact.State != imageagent.GenerationSucceeded || fact.TerminalProofDigest() != proof {
+		if fact.Intent != intent || fact.State != imageagent.GenerationSucceeded || fact.ProviderOutputInvalid || fact.TerminalProofDigest() != proof {
 			return imageagent.ErrRevisionConflict
 		}
 		var catalog assetCatalogManifestRecord

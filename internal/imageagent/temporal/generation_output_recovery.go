@@ -43,7 +43,7 @@ func (a *Activities) recoverSucceededGenerationOutput(ctx context.Context, input
 		outputRecoveryDiagnostic(ctx, input.RunID, "validate_fact", imageagent.ErrRevisionConflict)
 		return effect, imageagent.ErrRevisionConflict
 	}
-	if fact.State != imageagent.GenerationSucceeded {
+	if fact.State != imageagent.GenerationSucceeded || fact.ProviderOutputInvalid {
 		return effect, nil
 	}
 	if input.ImageSet != nil || input.Artwork != nil {

@@ -39,10 +39,11 @@ type ImageOfficialPlacement struct {
 // GenerationEvidence references terminal facts owned by the existing generation
 // and resource protocols. It neither creates nor settles a financial effect.
 type GenerationEvidence struct {
-	IntentID              string `json:"intent_id"`
-	Fingerprint           string `json:"fingerprint"`
-	SettlementProofDigest string `json:"settlement_proof_digest"`
-	ArtifactHash          string `json:"artifact_hash"`
+	IntentID                 string `json:"intent_id"`
+	Fingerprint              string `json:"fingerprint"`
+	SettlementProofDigest    string `json:"settlement_proof_digest"`
+	ArtifactHash             string `json:"artifact_hash"`
+	ProviderUsageProofDigest string `json:"provider_usage_proof_digest,omitempty"`
 }
 
 type ImageInventoryHead struct {
@@ -164,7 +165,9 @@ func ValidateImageSetCommit(commit ApprovalCommit) error {
 		}
 		if a.SourceApproval == nil && a.SelectionReceipt == nil {
 			g := a.GenerationEvidence
-			if g == nil || !imageSetDigest(g.IntentID) || !imageSetDigest(g.Fingerprint) || !imageSetDigest(g.SettlementProofDigest) || !imageSetDigest(g.ArtifactHash) {
+			if g == nil || !imageSetDigest(g.IntentID) || !imageSetDigest(g.Fingerprint) || !imageSetDigest(g.ArtifactHash) ||
+				!(imageSetDigest(g.SettlementProofDigest) && g.ProviderUsageProofDigest == "" ||
+					imageSetDigest(g.ProviderUsageProofDigest) && g.SettlementProofDigest == "") {
 				return ErrInvalidApproval
 			}
 			key := fmt.Sprintf("%s/%d", a.RunID, a.PlanRevision)

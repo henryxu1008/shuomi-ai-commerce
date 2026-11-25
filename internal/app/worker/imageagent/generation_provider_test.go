@@ -20,14 +20,22 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/grsai"
 	openai "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/skillimage"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 )
+
+func TestOwnedGRSaiImageAdmissionMatchesWireContract(t *testing.T) {
+	require.Equal(t, grsai.ProductImageModel, aicapability.GRSaiProductImageModel)
+	require.Equal(t, grsai.ProductImageBaseURL, aicapability.GRSaiProductImageBaseURL)
+	require.Equal(t, grsai.ProductImageMaxSourceBytes, aicapability.GRSaiProductImageMaxSourceBytes)
+}
 
 type officialImageUseStore struct{ material skill.Package }
 

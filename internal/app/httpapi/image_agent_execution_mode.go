@@ -125,6 +125,9 @@ func imagePolicyProvenance(mode agentconfig.ModeSnapshot, p imageagent.RunProjec
 	return asset.ImageSetPolicyProvenance{Identity: mode.Identity, Mode: mode.Mode, ModeRevision: mode.Revision, ModeSnapshotRef: mode.Ref(), ConfigurationSnapshotRef: p.Plan.Set.Configuration, RunID: p.Run.ID, PlanRevision: p.Plan.Revision, ResultDigest: p.ResultDigest, PolicyVersion: mode.PolicyVersion, ActionVersion: asset.ImageSetPolicyAdoptionVersion}
 }
 func completeImagePolicySelection(p imageagent.RunProjection, command asset.ImageSetCommand) bool {
+	if p.Plan.Set != nil && p.Plan.Set.Source.OwnProduct {
+		return false
+	}
 	if len(p.RecoverableEffects) > 0 || len(p.Slots) != len(p.Plan.Slots) || len(command.Choices) != len(p.Plan.Slots) || len(p.Plan.Slots) == 0 {
 		return false
 	}

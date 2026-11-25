@@ -16,8 +16,12 @@ import (
 
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/assetpublication"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -26,6 +30,11 @@ import (
 )
 
 func imageSetPersistenceFixture(t *testing.T) (*Activities, imageagent.Repository, ExecuteSlotV3ActivityInput) {
+	t.Helper()
+	return imageSetPersistenceFixtureWithSource(t, nil, false)
+}
+
+func imageSetPersistenceFixtureWithSource(t *testing.T, ownedSource []byte, includeDetail bool) (*Activities, imageagent.Repository, ExecuteSlotV3ActivityInput) {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "image.db")), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
@@ -40,9 +49,35 @@ func imageSetPersistenceFixture(t *testing.T) (*Activities, imageagent.Repositor
 	require.NoError(t, err)
 	slot := imageagent.Slot{ID: "overview", Role: imageagent.SlotRoleDetail, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "overview", Status: imageagent.SlotStatusPending, Recipe: &imageagent.ImageSlotRecipe{Purpose: "product_overview", Background: "white", Language: "zh", Placement: imageagent.ImagePlacement{Group: "detail", Order: 1}, PromptVersion: imageagent.ImageSetSchema, Prompt: "Create one finished commercial product photograph from the reference photos. Preserve the actual product, shape, color, material and proportions. Product grounding (never render this as text): . Product type: . Visual task: product_overview; direction: . Background: white. Target text language: zh. One large product, generous whitespace. No table, grid, document, information panel or leader-line labels. No visible text: no letters, numbers, headings, labels or symbols. These text and composition rules take priority over the visual direction and method guidance. Product facts and instructions are not visible copy. Output only the finished image.", References: []imageagent.ImageSourceObservation{{AssetID: "source-1", SHA256: hash, Bytes: 100, Width: 1024, Height: 1024, MediaType: "image/png"}}, Quote: imageagent.ImageGenerationQuote{Billing: syntheticImageBilling("gpt-image-2.5", "price", 12), Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price", Points: 12, RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config"}}}
 	plan := imageagent.Plan{Revision: 1, IdempotencyKey: "plan", SourceAssetIDs: []string{"source-1"}, CreatedBy: "actor", Slots: []imageagent.Slot{slot}, Set: &imageagent.ImageSetPlan{Schema: imageagent.ImageSetSchema, Text: &imageagent.ImageTextBinding{PolicyVersion: imageagent.ImageTextPolicyVersion, Mode: "none", Language: "zh"}, Source: imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, ProductID: "product", OperationID: run.BusinessTaskID, OriginalPublicationID: "publication", OriginalVersion: 1, EffectiveVersion: 1, CatalogHash: catalog.Manifest.Hash}, Target: imageagent.ImageTarget{Platform: "product"}, Configuration: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: "9e7afaa9-a9f9-48ba-a11a-b5bb377f08e9", Digest: hash}, ConfigurationEpoch: "1", ParametersDigest: hash, InputDigest: hash, MaxPoints: 12}}
+	limits := agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: 12, ElapsedSeconds: 3600}
+	if ownedSource != nil {
+		slot.Role = imageagent.SlotRoleMain
+		slot.Recipe.Prompt = strings.Replace(slot.Recipe.Prompt, "product_overview", "product_identity", 1)
+		slot.Recipe.Purpose = "product_identity"
+		slot.Recipe.Placement = imageagent.ImagePlacement{Group: "carousel", Order: 1}
+		sum := sha256.Sum256(ownedSource)
+		slot.Recipe.References[0].SHA256 = hex.EncodeToString(sum[:])
+		slot.Recipe.References[0].Bytes = int64(len(ownedSource))
+		slot.Recipe.Quote = ownedImageMetadata().ImageQuote()
+		plan.Slots[0] = slot
+		if includeDetail {
+			detail := slot
+			detail.ID, detail.IdempotencyKey, detail.Role = "detail", "detail", imageagent.SlotRoleDetail
+			detail.Recipe = imageagent.CloneImageSlotRecipe(slot.Recipe)
+			detail.Recipe.Purpose = "product_overview"
+			detail.Recipe.Prompt = strings.Replace(detail.Recipe.Prompt, "product_identity", detail.Recipe.Purpose, 1)
+			detail.Recipe.Placement = imageagent.ImagePlacement{Group: "detail", Order: 1}
+			plan.Slots = append(plan.Slots, detail)
+			limits.Images = 2
+		}
+		plan.Set.Source.ContextKind = imageagent.ImageSourceListing
+		plan.Set.Source.OwnProduct = true
+		plan.Set.Route = &imageagent.ImageRouteSelection{BindingID: slot.Recipe.Quote.RouteReference, RevisionID: slot.Recipe.Quote.ConfigurationVersion}
+		plan.Set.MaxPoints = 0
+		limits.UnitVersion, limits.Points = agentconfig.ProviderImageUsageUnit, 0
+	}
 	plan.Set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(plan)
 	require.NoError(t, err)
-	limits := agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: 12, ElapsedSeconds: 3600}
 	run.Budget = imageagent.ImageSetBudget(limits)
 	run.StartedAt = time.Now().UTC().Truncate(time.Microsecond)
 	planDigest, err := imageagent.ImageSetPlanDigest(plan)
@@ -59,6 +94,351 @@ func imageSetPersistenceFixture(t *testing.T) (*Activities, imageagent.Repositor
 	activities := newV3Activities(t, repo, repo.(imageagent.SlotExternalEffectV3Repository), &recordingStagedExecutor{}, &recordingArtifactStore{})
 	activities.executionAuthorizer = allowGenerationExecution{}
 	return activities, repo, input
+}
+
+func ownedImageMetadata() imageagent.GenerationProviderMetadata {
+	return imageagent.GenerationProviderMetadata{Provider: "grsai", Model: aicapability.GRSaiProductImageModel,
+		Protocol: aicapability.GRSaiProductImageProtocol, RouteReference: strings.Repeat("b", 64), CredentialReference: "credential",
+		ConfigurationVersion: strings.Repeat("c", 64), PromptVersion: imageagent.ImageSetSchema, BillingMode: aicapability.ModelUsageOnly,
+		ConnectionID: "connection"}
+}
+
+type isolatedOwnedImageTasks struct {
+	start  func(string, []byte) (string, error)
+	lookup func(string) (imageagent.ProviderUsageImageResult, error)
+}
+
+type isolatedApprovalProjection imageagent.RunProjection
+
+func (p isolatedApprovalProjection) GetProjection(_ context.Context, scope imageagent.RunScope) (imageagent.RunProjection, error) {
+	if scope != imageagent.ScopeForRun(p.Run) {
+		return imageagent.RunProjection{}, imageagent.ErrRunNotFound
+	}
+	return imageagent.RunProjection(p), nil
+}
+
+type isolatedOwnedImageExecutor struct {
+	*imageagent.GenerationExecution
+	staged *recordingStagedExecutor
+}
+
+type isolatedOwnedStorage struct {
+	storagecapacity.Writer
+	reservation storagecapacity.Reservation
+	proof       storagecapacity.CloseProof
+	failClose   bool
+}
+
+func (s *isolatedOwnedStorage) ReserveWrite(_ context.Context, intent storagecapacity.WriteIntent) (storagecapacity.Reservation, error) {
+	s.reservation = storagecapacity.Reservation{ID: "isolated-write", Intent: intent, State: "RESERVED"}
+	return s.reservation, nil
+}
+
+func (s *isolatedOwnedStorage) ClaimDispatch(context.Context, string, string) error {
+	s.reservation.State = "DISPATCHED"
+	return nil
+}
+
+func (s *isolatedOwnedStorage) FindWrite(context.Context, string, string, string) (storagecapacity.Reservation, error) {
+	return s.reservation, nil
+}
+
+func (s *isolatedOwnedStorage) CloseWrite(_ context.Context, _, _ string, proof storagecapacity.CloseProof) error {
+	if s.failClose {
+		return storagecapacity.ErrUnavailable
+	}
+	s.proof = proof
+	s.reservation.State = "CLOSED"
+	return nil
+}
+
+func (e isolatedOwnedImageExecutor) GenerateSlot(context.Context, imageagent.SlotExecutionInput) (imageagent.SlotGeneratedOutput, error) {
+	return imageagent.SlotGeneratedOutput{}, imageagent.ErrCommandBlocked
+}
+
+func (e isolatedOwnedImageExecutor) BuildSlotResult(ctx context.Context, input imageagent.SlotExecutionInput, output imageagent.PublishedSlotOutput) (imageagent.SlotExecutionResult, error) {
+	return e.staged.BuildSlotResult(ctx, input, output)
+}
+
+func (p isolatedOwnedImageTasks) StartProductImage(_ context.Context, prompt string, source []byte) (string, error) {
+	return p.start(prompt, source)
+}
+
+func (p isolatedOwnedImageTasks) LookupProductImage(_ context.Context, id string) (imageagent.ProviderUsageImageResult, error) {
+	return p.lookup(id)
+}
+
+func TestOwnedGRSaiAuthorizedActivityKeepsOriginalTaskAndUsageProof(t *testing.T) {
+	for _, name := range []string{"first_lookup_success", "lookup_timeout_then_recover_original", "detail_succeeds_while_main_needs_recovery", "detail_succeeds_main_later_fails", "invalid_result"} {
+		t.Run(name, func(t *testing.T) {
+			mainFails := name == "detail_succeeds_main_later_fails"
+			includeDetail := name == "detail_succeeds_while_main_needs_recovery" || mainFails
+			recoverOriginal := name == "lookup_timeout_then_recover_original" || includeDetail
+			invalidResult := name == "invalid_result"
+			ctx := context.Background()
+			var photo bytes.Buffer
+			require.NoError(t, png.Encode(&photo, image.NewNRGBA(image.Rect(0, 0, 1024, 1024))))
+			a, repo, input := imageSetPersistenceFixtureWithSource(t, photo.Bytes(), includeDetail)
+			input.BudgetAuthorization = true
+			runScope := slotEffectReservationV3(slotExecutionInputV3(input)).Identity.RunScope
+			initial, err := repo.GetProjection(ctx, runScope)
+			require.NoError(t, err)
+			policy, err := initial.Run.Budget.Policy()
+			require.NoError(t, err)
+			input.BudgetPolicy = policy
+			execution := slotExecutionInputV3(input)
+			facts := repo.(imageagent.GenerationFactRepository)
+			id := slotEffectReservationV3(execution).Identity
+			const task = "14-task-1"
+			const detailTask = "14-task-2"
+			var detailInput ExecuteSlotV3ActivityInput
+			var detailID imageagent.SlotExternalEffectIdentity
+			if includeDetail {
+				detailInput = input
+				detailInput.Slot = initial.Plan.Slots[1]
+				detailInput.IdempotencyKey = slotAttemptKey(1, detailInput.Slot, 1)
+				detailID = slotEffectReservationV3(slotExecutionInputV3(detailInput)).Identity
+			}
+			submits, lookups := 0, 0
+			detailSubmits, detailLookups := 0, 0
+			provider := isolatedOwnedImageTasks{
+				start: func(prompt string, source []byte) (string, error) {
+					require.Equal(t, photo.Bytes(), source)
+					if includeDetail && prompt == detailInput.Slot.Recipe.Prompt {
+						detailSubmits++
+						return detailTask, nil
+					}
+					submits++
+					require.Equal(t, input.Slot.Recipe.Prompt, prompt)
+					return task, nil
+				},
+				lookup: func(taskID string) (imageagent.ProviderUsageImageResult, error) {
+					if taskID == detailTask {
+						detailLookups++
+						fact, err := facts.ReadGenerationFact(ctx, detailID)
+						require.NoError(t, err)
+						require.Equal(t, detailTask, fact.ProviderTask.ID)
+						return imageagent.ProviderUsageImageResult{TaskID: detailTask, Status: "succeeded", ResultURL: "https://images.example.org/detail.png", Digest: strings.Repeat("e", 64)}, nil
+					}
+					lookups++
+					fact, err := facts.ReadGenerationFact(ctx, id)
+					require.NoError(t, err)
+					require.Equal(t, task, fact.ProviderTask.ID, "the task must be durable before the first query")
+					require.Equal(t, task, taskID)
+					if recoverOriginal && lookups == 1 {
+						return imageagent.ProviderUsageImageResult{}, context.DeadlineExceeded
+					}
+					if mainFails {
+						if lookups == 2 {
+							return imageagent.ProviderUsageImageResult{TaskID: task, Status: "running"}, nil
+						}
+						return imageagent.ProviderUsageImageResult{TaskID: task, Status: "failed", Digest: strings.Repeat("d", 64)}, nil
+					}
+					return imageagent.ProviderUsageImageResult{TaskID: task, Status: "succeeded", ResultURL: "https://images.example.org/result.png", Digest: strings.Repeat("d", 64)}, nil
+				},
+			}
+			readOutput := func(_ context.Context, slot imageagent.SlotExecutionInput, fact imageagent.GenerationFact) (imageagent.SlotGeneratedOutput, error) {
+				require.Equal(t, imageagent.GenerationSucceeded, fact.State)
+				taskID := task
+				if slot.Slot.ID == detailID.SlotID {
+					taskID = detailTask
+				}
+				require.Equal(t, taskID, fact.Success.RequestID)
+				if invalidResult {
+					require.Equal(t, "https://images.example.org/result.png", fact.Success.ResultURL)
+					return imageagent.SlotGeneratedOutput{}, imageagent.ErrInvalidGeneratedOutput
+				}
+				return imageagent.SlotGeneratedOutput{SlotID: slot.Slot.ID, Attempt: 1, SourceAssetID: "source-1",
+					Assets: []imageagent.GeneratedAsset{{Bytes: photo.Bytes(), ContentType: "image/png", Width: 1024, Height: 1024,
+						Operations: []string{"render_source_edit"}, ProviderReceiptID: taskID}}}, nil
+			}
+			generation, err := imageagent.NewGenerationExecution(imageagent.GenerationExecutionDependencies{
+				Facts: facts, Resources: struct{ imageagent.GenerationResources }{}, Authorizer: allowGenerationExecution{},
+				ReadMemberLimit: func(context.Context, string, string) (imageagent.GenerationMemberLimit, error) {
+					t.Fatal("enterprise-owned images must not read platform member point limits")
+					return imageagent.GenerationMemberLimit{}, nil
+				},
+				ReadSourceBytes: func(context.Context, imageagent.SlotExecutionInput) ([]byte, error) { return photo.Bytes(), nil },
+				PrepareProvider: func(context.Context, imageagent.SlotExecutionInput, func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
+					return imageagent.PreparedGenerationProvider{Metadata: ownedImageMetadata(), ProviderUsage: provider}, nil
+				},
+				RevalidateProvider: func(context.Context, imageagent.SlotExecutionInput, imageagent.GenerationProviderMetadata) error {
+					return nil
+				},
+				MaxSourceBytes:     3 << 20,
+				ReadProviderOutput: readOutput,
+			})
+			require.NoError(t, err)
+			capacity := &isolatedOwnedStorage{failClose: invalidResult}
+			recovery, err := imageagent.NewGenerationRecovery(repo.(imageagent.GenerationRecoveryFacts), struct {
+				imageagent.GenerationFinalizationResource
+			}{})
+			require.NoError(t, err)
+			a.generationRecovery = recovery
+			if invalidResult {
+				generation.ConfigureStorageCapacity(capacity, 3<<20)
+				imageagent.ConfigureGenerationRecoveryStorage(recovery, capacity)
+			}
+			recorder := &recordingStagedExecutor{mutateResult: func(result *imageagent.SlotExecutionResult) {
+				for i := range result.Candidates {
+					result.Candidates[i].AssetID = result.SlotID + "-candidate"
+					result.Candidates[i].Width, result.Candidates[i].Height = 1024, 1024
+					result.Candidates[i].Operations = []string{"render_source_edit"}
+				}
+			}}
+			a.stagedSlotExecutor = isolatedOwnedImageExecutor{generation, recorder}
+			a.generationOutputRecovery = generation.ReadGenerationOutput
+			published, err := a.ExecuteSlotV3(ctx, input)
+			if recoverOriginal {
+				require.Error(t, err)
+				fact, readErr := facts.ReadGenerationFact(ctx, id)
+				require.NoError(t, readErr)
+				require.Equal(t, imageagent.GenerationUnknown, fact.State)
+				if includeDetail {
+					detail, detailErr := a.ExecuteSlotV3(ctx, detailInput)
+					require.NoError(t, detailErr)
+					detailProjection, detailErr := a.PersistImageSetSlotResult(ctx, PersistSlotResultV3ActivityInput{
+						RunID: input.RunID, Identity: input.Identity, PlanRevision: 1, AttemptKey: detailInput.IdempotencyKey,
+						Result: SlotWorkflowV3Result{Published: detail, Status: imageagent.SlotStatusAccepted, EffectPhase: imageagent.SlotEffectV3PublicationComplete},
+					})
+					require.NoError(t, detailErr)
+					require.Len(t, detailProjection.Candidates, 1)
+					detailFact, detailErr := facts.ReadGenerationFact(ctx, detailID)
+					require.NoError(t, detailErr)
+					require.EqualValues(t, 1, detailFact.Success.ProviderImageCount)
+					require.Equal(t, detailFact.TerminalProofDigest(), detailProjection.Candidates[0].GenerationProof.ProviderUsageProofDigest)
+					require.Empty(t, detailFact.Reservation)
+					require.Empty(t, detailFact.Settlement)
+					require.Equal(t, 1, detailSubmits)
+					require.Equal(t, 1, detailLookups)
+				}
+				recoveryInput := EffectRecoveryWorkflowInput{RunID: input.RunID,
+					Identity: input.Identity, PlanRevision: 1, Attempt: 1, Slot: input.Slot, ImageSet: input.ImageSet,
+					AssetCatalog: input.AssetCatalog, TargetPlatform: "product", ActionID: "original-task-check"}
+				if mainFails {
+					_, err := a.PersistImageSetSlotResult(ctx, PersistSlotResultV3ActivityInput{RunID: input.RunID,
+						Identity: input.Identity, PlanRevision: 1, AttemptKey: input.IdempotencyKey,
+						Result: SlotWorkflowV3Result{Published: imageagent.SlotEffectV3PublishedResult{SlotID: input.Slot.ID, Attempt: 1},
+							Status: imageagent.SlotStatusBlocked, ErrorCode: imageagent.SlotProviderOutcomeUnknownCode, EffectPhase: imageagent.SlotEffectV3ProviderUnknown}})
+					require.NoError(t, err)
+					current, err := repo.GetProjection(ctx, runScope)
+					require.NoError(t, err)
+					unknown := imageagent.SlotProviderOutcomeUnknownCode
+					require.NoError(t, a.PersistRunState(ctx, PersistRunStateActivityInput{RunID: input.RunID, Identity: input.Identity,
+						PlanRevision: 1, CommitID: "blocked", CurrentNode: "retry_slot", Projection: WorkflowResult{Status: imageagent.RunStatusBlocked,
+							Block: &imageagent.Block{Code: unknown, Message: "waiting for supplier result", SlotID: input.Slot.ID},
+							Plan:  current.Plan, Slots: current.Slots, RecoverableEffects: []imageagent.RecoverableEffect{{SlotID: input.Slot.ID, Attempt: 1, Code: unknown}}}}))
+					_, err = a.RecoverEffectV3(ctx, recoveryInput)
+					require.NoError(t, err)
+					waiting, err := a.ReconcileEffectRecoveryV3(ctx, recoveryInput)
+					require.NoError(t, err)
+					require.Nil(t, waiting.Closure)
+					waitingProjection, err := repo.GetProjection(ctx, runScope)
+					require.NoError(t, err)
+					require.Equal(t, unknown, waitingProjection.Run.Block.Message)
+					require.Len(t, waitingProjection.RecoverableEffects, 1)
+					_, err = a.ReconcileEffectRecoveryV3(ctx, recoveryInput)
+					require.NoError(t, err, "repeated readback while still running is a no-op")
+
+					recoveryInput.ActionID = "original-task-check-again"
+					_, err = a.RecoverEffectV3(ctx, recoveryInput)
+					require.NoError(t, err)
+					failed, err := a.ReconcileEffectRecoveryV3(ctx, recoveryInput)
+					require.NoError(t, err, "later evidence must close the same unknown attempt")
+					require.Equal(t, imageagent.ImageProviderFailedCode, failed.BlockedCode)
+					require.Equal(t, "provider_failed", failed.Closure.Kind)
+					again, err := a.ReconcileEffectRecoveryV3(ctx, recoveryInput)
+					require.NoError(t, err)
+					require.Equal(t, failed, again)
+					closed, err := repo.GetProjection(ctx, runScope)
+					require.NoError(t, err)
+					require.Empty(t, closed.RecoverableEffects)
+					_, err = imageagent.ImageSetCandidateResultDigest(closed)
+					require.NoError(t, err, "the successful detail is eligible for manual adoption")
+					require.Equal(t, 1, submits)
+					require.Equal(t, 3, lookups)
+					return
+				}
+				result, recoverErr := a.RecoverEffectV3(ctx, recoveryInput)
+				require.NoError(t, recoverErr)
+				require.Equal(t, EffectRecoveryOutcomePublished, result.Outcome)
+				published = result.Published
+				require.Equal(t, 2, lookups)
+			} else if invalidResult {
+				require.Error(t, err)
+				published = imageagent.SlotEffectV3PublishedResult{SlotID: input.Slot.ID, Attempt: 1}
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, 1, lookups)
+			}
+			require.Equal(t, 1, submits)
+			fact, err := facts.ReadGenerationFact(ctx, id)
+			require.NoError(t, err)
+			require.EqualValues(t, 1, fact.Success.ProviderImageCount)
+			require.Empty(t, fact.Reservation)
+			require.Empty(t, fact.Settlement)
+			status, phase := imageagent.SlotStatusAccepted, imageagent.SlotEffectV3PublicationComplete
+			if invalidResult {
+				status, phase = imageagent.SlotStatusBlocked, imageagent.SlotEffectV3ProviderUnknown
+				require.True(t, fact.ProviderOutputInvalid)
+				require.Equal(t, "DISPATCHED", capacity.reservation.State)
+			}
+			persist := PersistSlotResultV3ActivityInput{RunID: input.RunID, Identity: input.Identity,
+				PlanRevision: 1, AttemptKey: input.IdempotencyKey, Result: SlotWorkflowV3Result{Published: published,
+					Status: status, EffectPhase: phase}}
+			if invalidResult {
+				_, err := a.PersistImageSetSlotResult(ctx, persist)
+				require.ErrorIs(t, err, storagecapacity.ErrUnavailable, "cannot close the projection before the capacity close")
+				capacity.failClose = false
+			}
+			projection, err := a.PersistImageSetSlotResult(ctx, persist)
+			require.NoError(t, err)
+			if invalidResult {
+				require.Empty(t, projection.Candidates)
+				require.Equal(t, imageagent.InvalidGeneratedOutputCode, projection.ErrorCode)
+				require.Equal(t, fact.TerminalProofDigest(), projection.Closure.ProviderUsageProofDigest)
+				require.Equal(t, "CLOSED", capacity.reservation.State)
+				require.Equal(t, "invalid-generation:"+fact.TerminalProofDigest(), capacity.proof.TerminalReceipt)
+				return
+			}
+			require.Len(t, projection.Candidates, 1)
+			require.Equal(t, fact.TerminalProofDigest(), projection.Candidates[0].GenerationProof.ProviderUsageProofDigest)
+			require.Empty(t, projection.Candidates[0].GenerationProof.SettlementProofDigest)
+			approval, err := repo.GetProjection(ctx, id.RunScope)
+			require.NoError(t, err)
+			approval.Run.Status = imageagent.RunStatusAwaitingFinalApproval
+			approval.ResultDigest, err = imageagent.ImageSetResultDigest(approval.Plan, approval.Slots, nil)
+			require.NoError(t, err)
+			reader, err := assetpublication.NewImageSetCandidateReader(isolatedApprovalProjection(approval), facts, a.slotEffectsV3, a.artifactStore.(*recordingArtifactStore))
+			require.NoError(t, err)
+			bound := approval.Plan.Set.Source
+			source := asset.SourceSelection{ContextKind: string(bound.ContextKind), TenantID: input.Identity.TenantID,
+				ActorID: input.Identity.UserID, MemberID: input.Identity.MemberID, ItemID: bound.OperationID,
+				ProductKey: bound.ProductID, OriginalPublicationID: bound.OriginalPublicationID, OriginalSnapshotVersion: bound.OriginalVersion,
+				EffectiveCatalogVersion: bound.EffectiveVersion, TargetPlatform: "product"}
+			binding := asset.ImageSetResultBinding{RunID: input.RunID, PlanRevision: 1, ResultDigest: approval.ResultDigest}
+			choice := asset.ImageSetChoice{Kind: "generated", RunID: input.RunID, PlanRevision: 1, ResultDigest: approval.ResultDigest,
+				SlotID: input.Slot.ID, Attempt: 1, AssetID: projection.Candidates[0].AssetID, Presentation: asset.ImagePresentation{Group: "carousel", Order: 1}}
+			approved, err := reader.ReadImageSetCandidate(ctx, source, binding, choice)
+			require.NoError(t, err)
+			require.Equal(t, fact.TerminalProofDigest(), approved.Asset.GenerationEvidence.ProviderUsageProofDigest)
+			require.Equal(t, projection.Candidates[0].DurableAsset.SHA256, approved.Asset.GenerationEvidence.ArtifactHash)
+			if includeDetail {
+				for _, slot := range approval.Slots {
+					if slot.Slot.ID == detailInput.Slot.ID {
+						choice.SlotID, choice.AssetID = slot.Slot.ID, slot.Candidates[0].AssetID
+					}
+				}
+				choice.Presentation.Group = "detail"
+				approvedDetail, err := reader.ReadImageSetCandidate(ctx, source, binding, choice)
+				require.NoError(t, err)
+				require.NotEqual(t, approved.Asset.GenerationEvidence.ProviderUsageProofDigest, approvedDetail.Asset.GenerationEvidence.ProviderUsageProofDigest)
+			}
+			source.TenantID = "another-enterprise"
+			_, err = reader.ReadImageSetCandidate(ctx, source, binding, choice)
+			require.Error(t, err)
+		})
+	}
 }
 
 type settledSetExecutor struct {

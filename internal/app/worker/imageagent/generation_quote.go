@@ -2,6 +2,8 @@ package imageagentworker
 
 import (
 	"context"
+
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
@@ -31,17 +33,44 @@ func (r imageGenerationQuoteReader) ReadImageGenerationQuote(ctx context.Context
 	if err != nil {
 		return imageagent.ImageGenerationQuote{}, err
 	}
-	return imageagent.ImageGenerationQuote{Billing: metadata.Billing, Provider: metadata.Provider, Model: metadata.Model, Protocol: metadata.Protocol, Resolution: "1024x1024", Quality: imageagent.GenerationRouteQuality(metadata.Provider, metadata.Model, metadata.Protocol), PriceVersion: metadata.PriceVersion, Points: metadata.Points, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion}, nil
+	return metadata.ImageQuote(), nil
 }
 
 func (r imageGenerationQuoteReader) ReadImageGenerationOptions(ctx context.Context, identity imageagent.ExecutionIdentity) ([]imageagent.ImageGenerationOption, error) {
+	verified, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+	if !ok || identity.ScopeProtocol != imageagent.OrganizationScopeProtocol || identity.TenantID == "" ||
+		verified.TenantID != identity.TenantID || verified.EffectiveOrganizationID != identity.TenantID ||
+		identity.UserID == "" || verified.UserID != identity.UserID || identity.MemberID == "" || verified.EffectiveMemberID != identity.MemberID {
+		return nil, imageagent.ErrIdentityRequired
+	}
 	q, e := r.ReadImageGenerationQuote(ctx, identity, nil)
-	if e != nil {
+	project := func(route *imageagent.ImageRouteSelection, q imageagent.ImageGenerationQuote) imageagent.ImageGenerationOption {
+		unit := "ai-micropoint-v1"
+		if q.UsesProviderUsage() {
+			unit = agentconfig.ProviderImageUsageUnit
+		}
+		return imageagent.ImageGenerationOption{ReferencePriceVersion: q.Billing.OfficialTariff.ReferencePriceVersion(), UnitVersion: unit, Route: route, Model: q.Model, Quality: q.Quality, Resolution: q.Resolution, Points: q.Points}
+	}
+	rows := make([]imageagent.ImageGenerationOption, 0)
+	if e == nil {
+		rows = append(rows, project(nil, q))
+	}
+	owned, err := r.factory.ownedProductImageOptions(ctx, identity.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	for _, option := range owned {
+		route := imageagent.ImageRouteSelection{BindingID: option.BindingID, RevisionID: option.RevisionID}
+		quote := ownedProductImageMetadata(option).ImageQuote()
+		if !quote.Valid() {
+			return nil, imageagent.ErrBudgetQuoteUnavailable
+		}
+		row := project(&route, quote)
+		row.ChannelName = option.ChannelName
+		rows = append(rows, row)
+	}
+	if len(rows) == 0 && e != nil {
 		return nil, e
 	}
-	project := func(route *imageagent.ImageRouteSelection, q imageagent.ImageGenerationQuote) imageagent.ImageGenerationOption {
-		return imageagent.ImageGenerationOption{ReferencePriceVersion: q.Billing.OfficialTariff.ReferencePriceVersion(), UnitVersion: "ai-micropoint-v1", Route: route, Model: q.Model, Quality: q.Quality, Resolution: q.Resolution, Points: q.Points}
-	}
-	rows := []imageagent.ImageGenerationOption{project(nil, q)}
 	return rows, nil
 }

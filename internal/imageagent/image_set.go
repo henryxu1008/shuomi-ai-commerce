@@ -9,10 +9,12 @@ import (
 
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 )
 
 const ImageSetSchema = "product-image-set-v1"
 const InvalidGeneratedOutputCode = "invalid_generated_output"
+const ImageProviderFailedCode = "image_provider_failed"
 
 type ImageSourceContextKind string
 
@@ -26,6 +28,7 @@ func (k ImageSourceContextKind) Valid() bool {
 }
 
 type ImageSourceBinding struct {
+	OwnProduct                                    bool `json:",omitempty"`
 	ContextKind                                   ImageSourceContextKind
 	ProductID, OperationID, OriginalPublicationID string
 	OriginalVersion, EffectiveVersion             uint64
@@ -100,6 +103,8 @@ type ImageGenerationQuote struct {
 	PriceVersion                                              string
 	Points                                                    int64 "json:\",string\""
 	RouteReference, CredentialReference, ConfigurationVersion string
+	BillingMode                                               aicapability.ModelBillingMode `json:",omitempty"`
+	ConnectionID                                              string                        `json:",omitempty"`
 }
 
 type ImageSlotRecipe struct {
@@ -117,7 +122,8 @@ type ImageSlotRecipe struct {
 type ImageGenerationProof struct {
 	UnitVersion                                  string
 	IntentID, Fingerprint, SettlementProofDigest string
-	Points                                       int64 "json:\",string\""
+	Points                                       int64  "json:\",string\""
+	ProviderUsageProofDigest                     string `json:",omitempty"`
 }
 
 // A closure references the existing generation/resource owners. It is not a
@@ -126,11 +132,23 @@ type ImageSlotClosure struct {
 	UnitVersion                                  string
 	Kind                                         string
 	IntentID, Fingerprint, SettlementProofDigest string
-	Points                                       int64 "json:\",string\""
+	Points                                       int64  "json:\",string\""
+	ProviderUsageProofDigest                     string `json:",omitempty"`
 }
 
 func (q ImageGenerationQuote) Valid() bool {
-	return validImageBilling(q.Billing, q.Model, q.PriceVersion, q.Points) && validGenerationRoute(q.Provider, q.Model, q.Protocol) && q.Resolution == "1024x1024" && q.Quality == GenerationRouteQuality(q.Provider, q.Model, q.Protocol) && q.Points > 0 && canonicalImageValue(q.PriceVersion) && canonicalImageValue(q.RouteReference) && canonicalImageValue(q.CredentialReference) && canonicalImageValue(q.ConfigurationVersion)
+	if !canonicalImageValue(q.RouteReference) || !canonicalImageValue(q.CredentialReference) || !canonicalImageValue(q.ConfigurationVersion) || q.Resolution != "1024x1024" {
+		return false
+	}
+	if q.UsesProviderUsage() {
+		return q.Provider == "grsai" && q.Model == aicapability.GRSaiProductImageModel && q.Protocol == aicapability.GRSaiProductImageProtocol &&
+			q.Quality == "auto" && q.Points == 0 && q.PriceVersion == "" && q.Billing == (ImageBilling{}) && canonicalImageValue(q.ConnectionID)
+	}
+	return q.BillingMode == "" && q.ConnectionID == "" && validImageBilling(q.Billing, q.Model, q.PriceVersion, q.Points) && validGenerationRoute(q.Provider, q.Model, q.Protocol) && q.Quality == GenerationRouteQuality(q.Provider, q.Model, q.Protocol) && q.Points > 0 && canonicalImageValue(q.PriceVersion)
+}
+
+func (q ImageGenerationQuote) UsesProviderUsage() bool {
+	return q.BillingMode == aicapability.ModelUsageOnly
 }
 
 func canonicalImageValue(value string) bool {
@@ -176,7 +194,13 @@ func ValidateImageSetPlan(plan Plan) error {
 			if i == 0 {
 				first = q
 			}
-			if q != first || q.Provider != "grsai" || q.Model != "gpt-image-2-vip" || q.Quality != "medium" || q.ConfigurationVersion != r.RevisionID || q.PriceVersion != r.RevisionID {
+			if q != first || q.ConfigurationVersion != r.RevisionID {
+				return ErrValidation
+			}
+			if q.UsesProviderUsage() && q.RouteReference != r.BindingID {
+				return ErrValidation
+			}
+			if !q.UsesProviderUsage() && (q.Provider != "grsai" || q.Model != "gpt-image-2-vip" || q.Quality != "medium" || q.PriceVersion != r.RevisionID) {
 				return ErrValidation
 			}
 		}
@@ -214,10 +238,18 @@ func ValidateImageSetPlan(plan Plan) error {
 		return fmt.Errorf("%w: generic material cannot claim platform requirements", ErrValidation)
 	}
 	positions := map[string]bool{}
+	usageOriginals := map[string]ImageSourceObservation{}
 	for _, slot := range plan.Slots {
 		r := slot.Recipe
 		if r == nil || !r.Quote.Valid() || r.PromptVersion != ImageSetSchema || strings.TrimSpace(r.Prompt) == "" || !agentconfig.ValidSetText(r.Prompt, 16<<10) || !agentconfig.ValidSetText(r.Background, agentconfig.MaxSetBackgroundBytes) || strings.TrimSpace(r.Background) == "" || !agentconfig.ValidSetText(slot.Brief, agentconfig.MaxSetBriefBytes) || len(slot.StyleReferenceIDs) > 0 || len(r.References) < 1 || len(r.References) > agentconfig.MaxSetSourceReferences || len(r.References) != len(slot.SourceAssetIDs) {
 			return fmt.Errorf("%w: invalid image slot recipe", ErrValidation)
+		}
+		if r.Quote.UsesProviderUsage() != s.Source.OwnProduct {
+			return ErrValidation
+		}
+		if r.Quote.UsesProviderUsage() && (s.Route == nil || s.Source.ContextKind != ImageSourceListing || s.Target.Platform != "product" ||
+			len(r.References) != 1 || r.Placement.VariantID != "" || r.OfficialPlacement != nil) {
+			return ErrValidation
 		}
 		if len(r.VisibleText) > 2 {
 			return ErrValidation
@@ -232,6 +264,13 @@ func ValidateImageSetPlan(plan Plan) error {
 		}
 		if r.Placement.Group != "carousel" && r.Placement.Group != "detail" || r.Placement.Order < 1 || r.Placement.Order > MaxPlanSlots || r.Placement.VariantID != "" && !canonicalImageValue(r.Placement.VariantID) {
 			return fmt.Errorf("%w: invalid image presentation position", ErrValidation)
+		}
+		if r.Quote.UsesProviderUsage() {
+			original := r.References[0]
+			if prior, exists := usageOriginals[r.Placement.Group]; exists && prior != original {
+				return ErrValidation
+			}
+			usageOriginals[r.Placement.Group] = original
 		}
 		key := fmt.Sprintf("%s/%s/%d", r.Placement.Group, r.Placement.VariantID, r.Placement.Order)
 		if positions[key] {
@@ -263,6 +302,9 @@ func ValidateImageSetPlan(plan Plan) error {
 			if ref.AssetID != slot.SourceAssetIDs[i] || !canonicalImageValue(ref.AssetID) || seen[ref.AssetID] || !agentconfig.ImageDigest(ref.SHA256) || ref.Bytes <= 0 || ref.Bytes > agentconfig.MaxSetSourceAggregateBytes || ref.MediaType != "image/png" && ref.MediaType != "image/jpeg" && ref.MediaType != "image/webp" || ref.Width <= 0 || ref.Height <= 0 {
 				return fmt.Errorf("%w: invalid exact source observation", ErrValidation)
 			}
+			if r.Quote.UsesProviderUsage() && !validProviderUsageSource(ref) {
+				return ErrValidation
+			}
 			seen[ref.AssetID] = true
 			sourceBytes += ref.Bytes
 			if sourceBytes > agentconfig.MaxSetSourceAggregateBytes {
@@ -282,15 +324,15 @@ func ValidateImageSetPlan(plan Plan) error {
 }
 
 func ImageSetPoints(plan Plan) (int64, error) {
+	if len(plan.Slots) == 0 {
+		return 0, ErrValidation
+	}
 	var total int64
 	for _, slot := range plan.Slots {
 		if slot.Recipe == nil || !slot.Recipe.Quote.Valid() || total > math.MaxInt64-slot.Recipe.Quote.Points {
 			return 0, ErrValidation
 		}
 		total += slot.Recipe.Quote.Points
-	}
-	if total <= 0 {
-		return 0, ErrValidation
 	}
 	return total, nil
 }

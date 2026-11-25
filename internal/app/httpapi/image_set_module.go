@@ -172,7 +172,8 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 		if !emptyAcquisitionImageBody(c) {
 			return
 		}
-		if _, e := a.readSources.ReadImageSetSource(ctx, exec, imageagent.PrepareImageSetInput{ContextKind: kind, ContextID: contextID, Target: imageagent.ImageTargetSelection{Platform: "product"}}); e != nil {
+		source, e := a.readSources.ReadImageSetSource(ctx, exec, imageagent.PrepareImageSetInput{ContextKind: kind, ContextID: contextID, Target: imageagent.ImageTargetSelection{Platform: "product"}})
+		if e != nil {
 			writeFullImageError(c, e, false)
 			return
 		}
@@ -185,6 +186,19 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 		if e != nil {
 			writeFullImageError(c, e, false)
 			return
+		}
+		if kind != imageagent.ImageSourceListing || !source.OwnProduct {
+			filtered := make([]imageagent.ImageGenerationOption, 0, len(rows))
+			for _, row := range rows {
+				if row.UnitVersion != agentconfig.ProviderImageUsageUnit {
+					filtered = append(filtered, row)
+				}
+			}
+			rows = filtered
+			if len(rows) == 0 {
+				writeFullImageError(c, imageagent.ErrBudgetQuoteUnavailable, false)
+				return
+			}
 		}
 		c.JSON(http.StatusOK, gin.H{"contextKind": kind, "contextId": contextID, "options": rows})
 		return
@@ -668,6 +682,7 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 	}
 	slots := make([]gin.H, 0, len(p.Plan.Slots))
 	settled := int64(0)
+	var providerImageCount int64
 	for _, definition := range p.Plan.Slots {
 		slot := imageagent.SlotProjection{Slot: definition}
 		for _, current := range p.Slots {
@@ -687,11 +702,27 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 		if slot.Closure != nil {
 			settled += slot.Closure.Points
 		}
+		if p.Plan.Set.Source.OwnProduct {
+			count, err := a.providerUsageSlotCount(ctx, p, definition, slot)
+			if err != nil {
+				return nil, err
+			}
+			providerImageCount += count
+		}
 		referencePriceVersion := ""
 		if definition.Recipe != nil {
 			referencePriceVersion = definition.Recipe.Quote.Billing.OfficialTariff.ReferencePriceVersion()
 		}
-		slots = append(slots, gin.H{"referencePriceVersion": referencePriceVersion, "slotId": definition.ID, "status": slot.Slot.Status, "attempt": slot.Attempt, "errorCode": slot.ErrorCode, "recipe": definition.Recipe, "candidates": candidates, "closure": slot.Closure})
+		var recipe any = definition.Recipe
+		if definition.Recipe != nil && definition.Recipe.Quote.UsesProviderUsage() {
+			declared := *definition.Recipe
+			recipe = struct {
+				imageagent.ImageSlotRecipe
+				Quote gin.H
+			}{declared, gin.H{"Provider": declared.Quote.Provider, "Model": declared.Quote.Model, "Quality": declared.Quote.Quality,
+				"Resolution": declared.Quote.Resolution, "Points": "0", "BillingMode": "usage_only", "ConfigurationVersion": declared.Quote.ConfigurationVersion}}
+		}
+		slots = append(slots, gin.H{"referencePriceVersion": referencePriceVersion, "slotId": definition.ID, "status": slot.Slot.Status, "attempt": slot.Attempt, "errorCode": slot.ErrorCode, "recipe": recipe, "candidates": candidates, "closure": slot.Closure})
 	}
 	closed := false
 	if p.Run.ImageAdmission != nil && p.PendingCommand == nil && imageagent.ImageSetClosedRunStatus(p.Run.Status) {
@@ -699,6 +730,12 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 		closed = e == nil
 	}
 	response := gin.H{"runId": p.Run.ID, "status": p.Run.Status, "planRevision": p.Plan.Revision, "planDigest": prepared.PlanDigest, "quoteDigest": prepared.QuoteDigest, "images": prepared.Images, "unitVersion": "ai-micropoint-v1", "points": strconv.FormatInt(prepared.Points, 10), "settledPoints": strconv.FormatInt(settled, 10), "plan": fullImagePlanResponse{ImageSetPlan: p.Plan.Set, Source: fullImageSource(p.Plan.Set.Source)}, "slots": slots, "resultDigest": p.ResultDigest, "originals": p.AssetCatalog.Assets, "recoverableEffects": p.RecoverableEffects, "pendingCommand": p.PendingCommand, "approvalAvailable": p.Run.Status == imageagent.RunStatusAwaitingFinalApproval && p.ResultDigest != "" && closed, "regenerationAvailable": closed, "block": p.Run.Block}
+	if p.Plan.Set.Source.OwnProduct {
+		response["unitVersion"] = agentconfig.ProviderImageUsageUnit
+		if providerImageCount > 0 {
+			response["providerImageCount"] = providerImageCount
+		}
+	}
 	candidateDigest, candidateErr := imageagent.ImageSetCandidateResultDigest(p)
 	response["candidateSelectionAvailable"] = candidateErr == nil
 	if candidateErr == nil {
@@ -717,7 +754,7 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 			if currentErr != nil {
 				response["modeUnavailableReason"] = "EXECUTION_MODE_CHANGED"
 			}
-			if mode.Mode == agent.ModeFullAccess && p.ResultDigest != "" && a.approvals != nil {
+			if mode.Mode == agent.ModeFullAccess && !p.Plan.Set.Source.OwnProduct && p.ResultDigest != "" && a.approvals != nil {
 				if commit, err := a.approvals.ReadApprovalCommit(ctx, p.Run.TenantID, imagePolicyActionID(p, mode.Ref())); err == nil && commit.ImageSet != nil && commit.ImageSet.PolicyAdoption != nil {
 					proof := imagePolicyProvenance(mode, p)
 					if asset.ValidateApprovalCommit(commit) != nil || !reflect.DeepEqual(commit.ImageSet.PolicyAdoption, &proof) {
@@ -739,6 +776,9 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 	if p.Run.ImageAdmission != nil {
 		response["confirmationActionId"] = p.Run.ImageAdmission.Command.ConfirmActionID
 	}
+	if p.Plan.Set.Source.OwnProduct {
+		return response, nil
+	}
 	release, err := a.releaseSummary(ctx, p)
 	if err != nil {
 		return nil, err
@@ -759,6 +799,32 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 		response["settledPoints"] = strconv.FormatInt(settled+paid.SettledPoints, 10)
 	}
 	return response, nil
+}
+
+func (a *fullImageApplication) providerUsageSlotCount(ctx context.Context, p imageagent.RunProjection, definition imageagent.Slot, slot imageagent.SlotProjection) (int64, error) {
+	if slot.Closure != nil {
+		if slot.Closure.Kind == "provider_usage" {
+			return 1, nil
+		}
+		return 0, nil
+	}
+	if slot.Attempt < 1 || a.generationFacts == nil {
+		return 0, nil
+	}
+	id := imageagent.SlotExternalEffectIdentity{RunScope: imageagent.ScopeForRun(p.Run), PlanRevision: p.Plan.Revision, SlotID: definition.ID, Attempt: slot.Attempt}
+	fact, err := a.generationFacts.ReadGenerationFact(ctx, id)
+	if errors.Is(err, imageagent.ErrRunNotFound) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	if fact.Validate() != nil || fact.Intent.Identity != id || fact.Intent.MemberID != p.Run.MemberID ||
+		fact.Intent.CatalogHash != p.AssetCatalog.Manifest.Hash || !definition.Recipe.Quote.MatchesGenerationIntent(fact.Intent) ||
+		fact.Intent.SourceDigest != imageagent.ImageSourceBundleDigest(definition.Recipe.References) {
+		return 0, imageagent.ErrRevisionConflict
+	}
+	return fact.Success.ProviderImageCount, nil
 }
 
 func imageSetTemplateReference(p imageagent.RunProjection, snapshot agentconfig.ImageConfigurationSnapshot) (agentconfig.TemplateRef, error) {

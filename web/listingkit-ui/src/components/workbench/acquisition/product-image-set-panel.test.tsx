@@ -3,7 +3,7 @@ import {act,cleanup,fireEvent,render,screen,waitFor,within} from "@testing-libra
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {ProductImageSetPanel} from "./product-image-set-panel";
 import {imageTemplateSchema} from "@/lib/contracts/image-set-configuration";
-import {imageSetRunSchema} from "@/lib/contracts/product-image-set";
+import {imageSetRunSchema,providerImageUsageUnit} from "@/lib/contracts/product-image-set";
 import {genericImagePresets} from "@/lib/image-template-presets";
 import {contentProposalFixture} from "@/test/product-content-review-fixture";
 const calls=vi.hoisted(()=>({context:{} as Record<string,unknown>,mode:vi.fn()}));
@@ -93,6 +93,57 @@ it("blocks new preparation when the shared enterprise image model is unavailable
 it("retains an original pending model binding without offering a new model override",async()=>{
  const key=`product-image-set:actor:org:acquisition:${operation}:intent`,raw=JSON.stringify({action:"prepare",requestKey:templateId,body:{route:{BindingID:"image-vip",RevisionID:"original"},text:{mode:"none"},expectedModeRevision:"0",target:{Platform:"product"}}});localStorage.setItem(key,raw);
  render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);await screen.findByText(/原计划绑定 image-vip/);expect(screen.getByRole("button",{name:"新计划使用企业模型"})).toBeDisabled();expect(localStorage.getItem(key)).toBe(raw);expect(fetch.mock.calls.some(([url])=>String(url).endsWith("/prepare"))).toBe(false);
+});
+
+it("verifies a lost GRSai recovery response and unlocks human adoption",async()=>{
+ const result=projection("awaiting_final_approval",templateId);
+ const main=result.slots[0];
+ const owned={...result,unitVersion:providerImageUsageUnit,points:"0",settledPoints:"0",images:1,providerImageCount:1,
+  slots:[{...main,recipe:{...main.recipe,Quote:{Points:"0",BillingMode:"usage_only"}},closure:{UnitVersion:providerImageUsageUnit,Kind:"provider_usage",Points:"0"}}]};
+ const key=`product-image-set:actor:org:acquisition:${operation}:intent`;
+ localStorage.setItem(key,JSON.stringify({action:"recover",runId,body:{actionId:operation,planRevision:1,slotId:"main",attempt:1}}));
+ const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((input,init)=>String(input).endsWith(`/runs/${runId}`)?Promise.resolve(Response.json(owned)):real(input,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ expect(await screen.findByRole("button",{name:"选择采用"})).toBeDisabled();
+ fireEvent.click(screen.getByRole("button",{name:"核实原请求"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"选择采用"})).toBeEnabled());
+ expect(localStorage.getItem(key)).toBeNull();
+ expect(screen.getByText(/GRSai 已确认生成 1 张/)).toBeVisible();
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+});
+
+it("prepares both image groups through GRSai and confirms the full call count",async()=>{
+ const route={BindingID:sha,RevisionID:digest},listingSource={...source,ContextKind:"supply"};
+ const primary={id:"original",displayUrl:"https://images.test/original.png",width:1024,height:1024};
+ const pending=projection(),submitted=projection("awaiting_final_approval",templateId);
+ const owned=<T extends ReturnType<typeof projection>>(run:T)=>({...run,unitVersion:providerImageUsageUnit,
+  points:"0",settledPoints:"0",plan:{...run.plan,Route:route,Source:listingSource},
+  slots:run.slots.map(slot=>({...slot,recipe:{...slot.recipe,Quote:{Points:"0",BillingMode:"usage_only"}},
+   closure:slot.closure&&{UnitVersion:providerImageUsageUnit,Kind:"provider_usage",Points:"0"}}))});
+ let confirmed=false;
+ const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/model-options"))return Promise.resolve(Response.json({contextKind:"supply",contextId:operation,
+   options:[{unitVersion:providerImageUsageUnit,model:"gpt-image-2.6",quality:"auto",resolution:"1024x1024",points:"0",route,channelName:"企业 GRSai"}]}));
+  if(new URL(url,"http://localhost").pathname.endsWith("/images/sources"))return Promise.resolve(Response.json({
+   contextKind:"supply",contextId:operation,source:listingSource,manualReplacementAvailable:false,originals:[primary],evidence:{}}));
+  if(url.endsWith("/prepare"))return Promise.resolve(Response.json(owned(pending),{status:201}));
+  if(url.endsWith("/confirm")){confirmed=true;return Promise.resolve(Response.json({runId,status:"accepted"},{status:202}));}
+  if(url.endsWith(`/runs/${runId}`))return Promise.resolve(Response.json(confirmed?{...owned(submitted),providerImageCount:2}:owned(pending)));
+  return real(input,init);
+ });
+ render(<ProductImageSetPanel kind="supply" contextId={operation}/>);
+ const model=await screen.findByRole("combobox",{name:"企业图片模型"});
+ fireEvent.change(model,{target:{value:`${sha}/${digest}`}});
+ await prepare();
+ await screen.findByText(/最多向 GRSai 提交 2 次/);
+ const request=fetch.mock.calls.find(([url])=>String(url).endsWith("/prepare"))!;
+ expect(JSON.parse(String(request[1]?.body))).toMatchObject({route,selectedTaskIds:["main","detail"],sharedOriginalIds:["original"]});
+ fireEvent.click(screen.getByRole("button",{name:"确认生成 2 张图片"}));
+ expect(await screen.findByText(/GRSai 已确认生成 2 张/)).toBeVisible();
+ expect(screen.getAllByRole("button",{name:"选择采用"})).toHaveLength(2);
 });
 
 it("archives a definite image-review rejection and unlocks correction without generating",async()=>{
