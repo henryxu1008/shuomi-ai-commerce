@@ -60,8 +60,11 @@ func (p *CredentialProtection) Open(binding domain.CredentialBinding, keyID, cip
 		return domain.TokenSet{}, domain.ErrInvalidGrantInput
 	}
 	token := domain.TokenSet{AccessToken: envelope.Access, RefreshToken: envelope.Refresh, ExpiresAt: envelope.Expiry}
-	if !usableEnvelope(token) {
+	if !validToken(token.AccessToken) || token.ExpiresAt.IsZero() {
 		return domain.TokenSet{}, domain.ErrInvalidGrantInput
+	}
+	if !validToken(token.RefreshToken) {
+		return domain.TokenSet{}, domain.ErrGrantRejected
 	}
 	return token, nil
 }

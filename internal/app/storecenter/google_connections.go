@@ -17,6 +17,7 @@ import (
 type GoogleOAuth interface {
 	BeginAuthorization(string) (string, error)
 	ExchangeAuthorization(context.Context, string, string) (google.TokenSet, error)
+	Refresh(context.Context, google.TokenSet) (google.TokenSet, error)
 }
 
 type GoogleAccounts interface {
@@ -29,6 +30,7 @@ type GoogleAccounts interface {
 
 type GoogleConnectionStore interface {
 	storecenter.GoogleConnectionRepository
+	storecenter.GoogleRefreshRepository
 	Get(context.Context, string, string) (*storecenter.Store, error)
 }
 
@@ -214,47 +216,36 @@ func (s *GoogleConnections) currentGrant(ctx context.Context, org, storeID strin
 	if err != nil {
 		return grant, err
 	}
-	if grant.AppID != s.registration.Application.ID || grant.AppRevision != s.registration.Application.Revision ||
-		!time.Now().Before(grant.AccessExpiresAt) {
-		return storecenter.GoogleGrant{}, storecenter.ErrOfficialCredentialExpired
+	if grant.RefreshUnavailable || grant.AppID != s.registration.Application.ID || grant.AppRevision != s.registration.Application.Revision {
+		return storecenter.GoogleGrant{}, storecenter.ErrGoogleReauthorization
 	}
 	return grant, nil
 }
 
-func (s *GoogleConnections) Publish(ctx context.Context, org, storeID string, binding GooglePublicationBinding, offer google.Offer, beforeSend func(context.Context) error) (google.Receipt, error) {
-	grant, err := s.currentGrant(ctx, org, storeID)
+func (s *GoogleConnections) Publish(ctx context.Context, org, storeID string, binding GooglePublicationBinding, ref GoogleCredentialRef,
+	offer google.Offer, authorize func(context.Context) error, beforeSend func(context.Context) error,
+) (google.Receipt, error) {
+	request := s.credentialRequest(org, storeID, binding)
+	token, err := s.openPublicationCredential(ctx, request, ref, authorize)
 	if err != nil {
 		return google.Receipt{}, err
 	}
-	if grant.Generation != binding.Generation || grant.Target != binding.Target {
-		return google.Receipt{}, storecenter.ErrVersionConflict
-	}
-	token, err := s.registration.Protection.Open(grant.CredentialBinding(), grant.KeyID, grant.Ciphertext)
-	if err != nil || !time.Now().Before(token.ExpiresAt) {
-		return google.Receipt{}, storecenter.ErrOfficialCredentialExpired
-	}
 	return s.registration.Accounts.InsertConfirmed(ctx, token.AccessToken, binding.Target, offer, func(ctx context.Context) error {
-		current, err := s.currentGrant(ctx, org, storeID)
-		if err != nil {
+		if _, err := s.publicationCredential(ctx, request, ref, authorize); err != nil {
 			return err
-		}
-		if current.Generation != grant.Generation || current.Target != grant.Target {
-			return storecenter.ErrVersionConflict
 		}
 		return beforeSend(ctx)
 	})
 }
 
-func (s *GoogleConnections) ReadProduct(ctx context.Context, org, storeID, offerID string) (google.Observation, error) {
-	grant, err := s.currentGrant(ctx, org, storeID)
+func (s *GoogleConnections) ReadProduct(ctx context.Context, org, storeID string, target google.Target, offerID string,
+	ref GoogleCredentialRef, authorize func(context.Context) error,
+) (google.Observation, error) {
+	token, err := s.openPublicationCredential(ctx, s.credentialRequest(org, storeID, GooglePublicationBinding{Target: target}), ref, authorize)
 	if err != nil {
 		return google.Observation{}, err
 	}
-	token, err := s.registration.Protection.Open(grant.CredentialBinding(), grant.KeyID, grant.Ciphertext)
-	if err != nil {
-		return google.Observation{}, storecenter.ErrOfficialCredentialExpired
-	}
-	return s.registration.Accounts.ReadProduct(ctx, token.AccessToken, grant.Target, offerID)
+	return s.registration.Accounts.ReadProduct(ctx, token.AccessToken, target, offerID)
 }
 
 func googleStateHash(state string) string {
@@ -279,7 +270,7 @@ func googleView(grant storecenter.GoogleGrant) storecenter.GoogleConnectionView 
 	status := storecenter.ConnectionStatusConnected
 	if grant.Revoked {
 		status = storecenter.ConnectionStatusDisconnected
-	} else if !time.Now().Before(grant.AccessExpiresAt) {
+	} else if grant.RefreshUnavailable {
 		status = storecenter.ConnectionStatusExpired
 	}
 	return storecenter.GoogleConnectionView{Status: status, AccountID: grant.Target.AccountID, DataSourceID: grant.Target.DataSourceID,
