@@ -152,6 +152,11 @@ func (s *UploadService) uploadShopify(ctx context.Context, scope collection.Scop
 	if err != nil {
 		return stop(submission.NoSendImageContentChanged)
 	}
+	if len(images.contents) > 0 {
+		if _, _, err := s.shopifyDraftFacts(ctx, scope, saved); err != nil {
+			return stop(submission.NoSendFactsChanged)
+		}
+	}
 	writer, err := stores.VerifyDraftWrite(ctx, scope, binding)
 	if err != nil || writer == nil {
 		return stop(submission.NoSendAccessRecheckFailed)

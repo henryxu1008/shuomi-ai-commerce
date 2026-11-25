@@ -222,7 +222,7 @@ func TestShopifyUploadRechecksAccessAndPreservesFrozenGalleryAfterStaging(t *tes
 	}
 	uploader.dependencies.Assets = uploadAssets{inventory}
 	store := &stagingDraftFixture{shopifyDraftFixture: shopifyDraftFixture{binding: saved.Merchant}, stageError: errors.New("temporary stage failed")}
-	var revokeWhileReading bool
+	var revokeWhileReading, replaceWhileReading bool
 	uploader.dependencies.ShopifyGeneratedImages = func(_ context.Context, selection asset.SourceSelection, selected asset.ApprovedAsset, limit int64) ([]byte, error) {
 		store.calls = append(store.calls, "read")
 		require.Equal(t, scope.OrganizationID, selection.TenantID)
@@ -232,6 +232,12 @@ func TestShopifyUploadRechecksAccessAndPreservesFrozenGalleryAfterStaging(t *tes
 		require.Positive(t, limit)
 		if revokeWhileReading {
 			store.preflight = errors.New("store authorization changed while reading approved images")
+		}
+		if replaceWhileReading {
+			replacement := inventory
+			replacement.Assets = append([]asset.ApprovedAsset(nil), inventory.Assets...)
+			replacement.Assets[0].Width = 1024
+			uploader.dependencies.Assets = uploadAssets{replacement}
 		}
 		return []byte("approved bytes"), nil
 	}
@@ -260,7 +266,15 @@ func TestShopifyUploadRechecksAccessAndPreservesFrozenGalleryAfterStaging(t *tes
 	require.Equal(t, []string{"read", "verify"}, store.calls)
 	require.Zero(t, store.writes)
 
-	store.calls, store.preflight, revokeWhileReading = nil, nil, false
+	store.calls, store.preflight, revokeWhileReading, replaceWhileReading = nil, nil, false, true
+	replaced, err := uploader.Upload(ctx, scope, uuid.NewString(), saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionNotSent, replaced.Status)
+	require.Equal(t, []string{"read"}, store.calls)
+	require.Zero(t, store.writes)
+
+	store.calls, replaceWhileReading = nil, false
+	uploader.dependencies.Assets = uploadAssets{inventory}
 	result, err := uploader.Upload(ctx, scope, uuid.NewString(), saved.ID)
 	require.NoError(t, err)
 	require.Equal(t, submission.ExecutionSucceeded, result.Status)
