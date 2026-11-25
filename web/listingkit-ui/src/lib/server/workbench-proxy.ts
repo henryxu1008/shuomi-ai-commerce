@@ -1115,7 +1115,7 @@ export async function buildWorkbenchUpstreamRequest(
       route.requestContract==="supply-local-context"?`${new URL(request.url).searchParams.get("sourceId")}:${new URL(request.url).searchParams.get("completionRecordId")}:${new URL(request.url).searchParams.get("revision")}`:
       route.requestContract==="supply-color-split-list"?`${path[2]}:${path[4]}`:
  route.requestContract==="supply-color-split-family"?`${path[2]}:${path[4]}`:
- ["supply-color-split-preview","supply-create-color-split"].includes(route.requestContract)&&typeof body==="string"?body:
+ ["supply-color-split-preview","supply-create-color-split","supply-shopify-draft-media-preview"].includes(route.requestContract)&&typeof body==="string"?body:
  (route.requestContract==="supply-shein-completion-preview"||route.requestContract==="supply-shein-sales-mapping-preview")&&typeof body==="string"?body:
       route.requestContract.startsWith("supply-materials-")?`${path[2]}:${path[5]??request.headers.get("Idempotency-Key")??(typeof body==="string"?JSON.parse(body).requestKey:"")}`:
       route.requestContract==="product-acquisition-plan-read"||route.requestContract==="product-acquisition-plan-advance"?path[3]:

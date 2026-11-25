@@ -1,3 +1,4 @@
+import {shopifyMediaPreviewInput,shopifyMediaPreviewSchema,matchesShopifyMediaPreview,type ShopifyMediaPreviewInput} from "../contracts/shopify-media-preview";
 import {sheinSalesRequestSchema,type SheinSalesRequest} from "../contracts/shein-sales-mapping";
 import * as plans from "@/lib/contracts/upload-plan";
 import {sourceProductInputsSchema} from "@/lib/contracts/source-materials";
@@ -12,6 +13,13 @@ import { SupplyAPIError } from "./supply-error";
 import {amazonListingInputSchema,amazonConfirmSchema,amazonListingResultSchema,amazonReviewInputSchema,amazonReviewSchema,matchesAmazonListingResponse} from "@/lib/contracts/amazon-listing";
 
 export type SupplyScope=CollectionScope & {draftKind?:c.DraftKind;draftSourceId?:string};
+export async function previewShopifyDraftMedia(scope: SupplyScope, input: ShopifyMediaPreviewInput, signal?: AbortSignal) {
+ const command = shopifyMediaPreviewInput.parse(input);
+ const result = await send(base+"/shopify-draft-media-preview",scope,shopifyMediaPreviewSchema,signal,{method:"POST",command});
+ if (!matchesShopifyMediaPreview(result, command)) throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);
+ return result;
+}
+
 export type SupplyIntent=Readonly<SupplyScope & { key:string; route:"create-color-split"|"cancel-upload-plan"|"create-upload-plan"|"continue-upload-plan"|"shein-shelf-confirm"|"save-completion-draft"|"transfer"|"save-target"|"approve"|"create-operation"|"resolve-upload"|"review-decision"|"review-apply"; command:unknown; lookupOnly?:true }>;
 // An existing unresolved local command is retained without assigning a URL
 // namespace. Only an explicit matching page purpose may look up its key.

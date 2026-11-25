@@ -23,6 +23,7 @@ import (
 	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
 	temurules "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/rules"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
@@ -166,6 +167,17 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 	}
 	app := &listingapp.Application{Preparations: preparations, Sources: sources, Operations: operations, Execution: listingapp.OperationApplication{Service: operations, Repository: operationsRepo, Starter: d.Starter}, Targets: targets, Records: records, Products: effective, Rules: rules, TemuRules: temuRules, TikTokRules: tiktokRules, TikTokCatalog: tiktokRules, TikTokStatusStores: listingapp.OfficialTikTokRuleStore{Access: access}, WalmartRules: walmartRules, WalmartCatalog: walmartRules, WalmartStatusStores: walmartStores, WalmartResults: official, Assets: assets, Approvals: approvals, Authorization: auth, PublicationReceipts: official, PublicationStores: listingapp.OfficialRuleStore{Access: access}, TargetMerchants: listingapp.OfficialTargetMerchantStore{Access: access}}
 	app.ShopifyStatus = &listingapp.ShopifyStatusService{Store: access, Attempts: effects, Kernel: kernel, Intents: official, Resolutions: official, Records: records}
+	if apps.ShopifyConfigured() && d.shopifyGeneratedImages != nil {
+		inventoryRepo, e := assetstore.NewRepository(d.AssetDB)
+		if e != nil {
+			return empty, e
+		}
+		inventory, ok := inventoryRepo.(asset.ImageSetInventoryReader)
+		if !ok {
+			return empty, preparation.ErrUnavailable
+		}
+		app.ShopifyMedia = &listingapp.ShopifyMediaPreviewService{Store: access, Inventory: inventory, ReadImage: d.shopifyGeneratedImages}
+	}
 	app.ValidateDraftRead = formalDraftRead
 	app.WalmartFeedSource = official
 	app.WalmartFeedMerchant = func(ctx context.Context, scope collection.Scope, id string) (storecenter.ProductMerchantBinding, error) {

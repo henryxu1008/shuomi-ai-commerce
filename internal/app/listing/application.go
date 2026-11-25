@@ -34,6 +34,7 @@ type Application struct {
 	SourceMaterialsOnly     bool
 	SheinPublication        *SheinPublicationService
 	ShopifyStatus           *ShopifyStatusService
+	ShopifyMedia            *ShopifyMediaPreviewService
 	WalmartCatalog          WalmartRuleReader
 	Preparations            *preparation.Service
 	Sources                 *preparation.SourceSelector

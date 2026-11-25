@@ -10,6 +10,7 @@ import {SupplyAPIError} from "@/lib/api/supply-error";
 import type {z} from "zod";
 import {ProductImageSetPanel} from "../acquisition/product-image-set-panel";
 import type {ListingCommandState} from "./use-listing-command";
+import {ShopifyMediaPreviewPanel} from "./shopify-media-preview";
 
 type ApprovedImage = z.infer<typeof inventorySchema>["assets"][number];
 
@@ -75,6 +76,8 @@ export function ShopifyDraftEditor({scope, source, storeId, storeName, existing,
  {imagesAvailable ? <ProductImageSetPanel colorGroupsAvailable kind="supply" contextId={sourceId}
   translationItemId={source.source.source.kind === "own" ? source.source.collectionItemId : undefined}
   onSaved={() => setImageRefresh(value => value + 1)} /> : null}
+ {imagesAvailable && original.kind === "own" ? <ShopifyMediaPreviewPanel
+  key={imageRefresh} scope={scope} sourceId={sourceId} storeId={storeId} storeName={storeName} disabled={disabled}/> : null}
  <form className="space-y-4" onSubmit={event => {
   event.preventDefault();
   if (canSave && input.success) void command.execute("save-target", input.data);
