@@ -61,9 +61,15 @@ func execute() error {
 		return json.NewEncoder(os.Stdout).Encode(currentapplication.InspectModules(ctx, cfg, nil))
 	}
 	openRuntimeDB := platformdatabase.OpenExistingWritableContext
+	openStoreDB := platformdatabase.OpenExistingWritableContext
+	shopifyPairingTrial := cfg.ShopifyPairingTrial
 	var previewImages imageapp.GeneratedMaterialByteReader
+	if shopifyPairingTrial {
+		openRuntimeDB = platformdatabase.OpenExistingReadOnlyContext
+	}
 	if cfg.ShopifyPreviewOnly() {
 		openRuntimeDB = platformdatabase.OpenExistingReadOnlyContext
+		openStoreDB = platformdatabase.OpenExistingReadOnlyContext
 		artifactConfig := &coreconfig.Config{}
 		artifactConfig.ImageAgent.ArtifactStore = *cfg.SupplyChain.ShopifyPreviewArtifacts
 		reader, err := imageworker.NewImageSetMaterialReader(artifactConfig)
@@ -124,7 +130,7 @@ func execute() error {
 			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
 		},
 		OpenStoreCenter: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
-			return openRuntimeDB(ctx, databaseConfig(cfg))
+			return openStoreDB(ctx, databaseConfig(cfg))
 		},
 		OpenLocalTrial: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
 			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
@@ -310,6 +316,9 @@ func execute() error {
 				if features.OfficialStoreApplications != nil {
 					options = append(options, httpapi.WithStoreOfficialApplications(features.OfficialStoreApplications))
 				}
+			}
+			if shopifyPairingTrial {
+				options = append(options, httpapi.WithShopifyPairingTrial())
 			}
 			if features.Fulfillment != nil {
 				options = append(options, httpapi.WithFulfillment(fulfillmentmodule.Dependencies{Configuration: features.Fulfillment, Starter: fulfillmentruntime.Starter{Client: features.FulfillmentWorkflow}, NewWorker: fulfillmentruntime.WorkerFactory(features.FulfillmentWorkflow, features.FulfillmentLifecycle), Lifecycle: features.FulfillmentLifecycle}))

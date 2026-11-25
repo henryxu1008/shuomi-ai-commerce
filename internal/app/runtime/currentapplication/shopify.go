@@ -7,8 +7,10 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"errors"
+	"net"
 	"net/url"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
@@ -27,6 +29,38 @@ type ShopifyConfig struct {
 	SigningKeyID           string `json:"signingKeyId"`
 	StartedInstallation    bool   `json:"startedInstallation"`
 	LifecycleNotifications bool   `json:"lifecycleNotifications"`
+}
+
+func (cfg *Config) validateShopifyPairingTrial() error {
+	if !cfg.ShopifyPairingTrial {
+		return nil
+	}
+	const message = "Shopify pairing trial requires a dedicated loopback Store with only pairing configured"
+	store := cfg.StoreCenter
+	if store == nil || !store.Enabled || store.Shopify == nil || cfg.Identity.TenantDirectoryToken == "" ||
+		!net.ParseIP(cfg.Listen.Host).IsLoopback() || !net.ParseIP(store.Database.Host).IsLoopback() {
+		return errors.New(message)
+	}
+	shopify := store.Shopify
+	callback, err := url.Parse(shopify.CallbackURL)
+	if err != nil || !net.ParseIP(callback.Hostname()).IsLoopback() || callback.Port() == "" ||
+		callback.Path != "/api/shopify/callback" || shopify.StartedInstallation || shopify.LifecycleNotifications ||
+		!reflect.DeepEqual(*store, StoreCenterConfig{Enabled: true, Database: store.Database, Shopify: shopify}) {
+		return errors.New(message)
+	}
+	allowed := Config{
+		SchemaVersion: cfg.SchemaVersion, Listen: cfg.Listen, Identity: cfg.Identity,
+		SourceAccountDatabase: cfg.SourceAccountDatabase, CommercialOwnerDatabase: cfg.CommercialOwnerDatabase,
+		Membership: cfg.Membership, ListingKitAuthorization: cfg.ListingKitAuthorization,
+		StoreCenter: store, ShopifyPairingTrial: true, StorageCapacity: cfg.StorageCapacity,
+	}
+	if cfg.StorageCapacity {
+		allowed.MoneyOwnerDatabase = cfg.MoneyOwnerDatabase
+	}
+	if !reflect.DeepEqual(*cfg, allowed) {
+		return errors.New(message)
+	}
+	return nil
 }
 
 func (c *ShopifyConfig) validate() error {

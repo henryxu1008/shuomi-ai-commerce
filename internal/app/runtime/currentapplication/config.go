@@ -58,6 +58,7 @@ type Config struct {
 	NotificationCenterDatabase           *DatabaseConfig                           `json:"notificationCenterDatabase,omitempty"`
 	Knowledge                            *KnowledgeConfig                          `json:"knowledge,omitempty"`
 	StoreCenter                          *StoreCenterConfig                        `json:"storeCenter,omitempty"`
+	ShopifyPairingTrial                  bool                                      `json:"shopifyPairingTrial,omitempty"`
 	LocalTrial                           *LocalTrialConfig                         `json:"localTrial,omitempty"`
 	SchemaVersion                        int                                       `json:"schemaVersion"`
 	Listen                               ListenConfig                              `json:"listen"`
@@ -643,6 +644,9 @@ func (cfg *Config) validate() error {
 		return err
 	}
 	if err := cfg.validateStoreCenter(); err != nil {
+		return err
+	}
+	if err := cfg.validateShopifyPairingTrial(); err != nil {
 		return err
 	}
 	if err := cfg.LocalTrial.validate(cfg); err != nil {

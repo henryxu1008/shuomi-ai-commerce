@@ -192,6 +192,7 @@ type currentApplicationOptions struct {
 	storeObservationDependencies *StoreObservationsDependencies
 	storeCenters                 int
 	storeCenterDB                *gorm.DB
+	shopifyPairingTrial          bool
 	localTrials                  int
 	localTrialDB                 *gorm.DB
 	officialStoreApplications    *storeapp.OfficialApplicationRegistry
@@ -1701,6 +1702,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	if supplied.listing != nil && supplied.listing.shopifyPreviewOnly {
 		return buildCurrentApplicationHTTPServer(shopifyDraftPreviewRoutes(bundle.routes), *workbench.authDependencies), nil
+	}
+	if supplied.shopifyPairingTrial {
+		return buildCurrentApplicationHTTPServer(shopifyPairingTrialRoutes(bundle.routes), *workbench.authDependencies), nil
 	}
 	server := buildCurrentApplicationHTTPServer(bundle.routes, *workbench.authDependencies)
 	if storeCapabilities.ShopifyStartedInstallation {

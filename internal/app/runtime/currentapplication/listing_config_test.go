@@ -91,6 +91,30 @@ func TestShopifyPreviewManifestHasNoExecutionConfiguration(t *testing.T) {
 	}
 }
 
+func TestShopifyPairingTrialManifestExcludesNonPairingCapabilities(t *testing.T) {
+	root := t.TempDir()
+	base := supplyRuntimeConfig(t)
+	store := StoreCenterConfig{Enabled: true, Database: base.StoreCenter.Database, Shopify: &ShopifyConfig{
+		ApplicationGID: "gid://shopify/App/123", ClientID: "fixture-app",
+		InstallURL: "https://admin.shopify.com/store/test/apps/fixture-app", CallbackURL: "https://127.0.0.1:19444/api/shopify/callback",
+		ClientSecret: filepath.Join(root, "secret"), PairingKey: filepath.Join(root, "pairing"), SigningKey: filepath.Join(root, "signing"),
+		PairingKeyID: "pairing-1", SigningKeyID: "signing-1",
+	}}
+	cfg := Config{
+		ShopifyPairingTrial: true, SchemaVersion: base.SchemaVersion, Listen: base.Listen, Identity: base.Identity,
+		SourceAccountDatabase: base.SourceAccountDatabase, CommercialOwnerDatabase: base.CommercialOwnerDatabase, StoreCenter: &store,
+	}
+	require.NoError(t, cfg.validateShopifyPairingTrial())
+	denied := cfg
+	denied.SupplyChain = base.SupplyChain
+	require.Error(t, denied.validateShopifyPairingTrial())
+	store.Shopify.LifecycleNotifications = true
+	require.Error(t, cfg.validateShopifyPairingTrial())
+	store.Shopify.LifecycleNotifications = false
+	store.Shopify.CallbackURL = "https://localhost:19444/api/shopify/callback"
+	require.Error(t, cfg.validateShopifyPairingTrial())
+}
+
 func TestSupplyRuntimePassesCanonicalPoolsAndClosesWorkflowOnConstructionFailure(t *testing.T) {
 	c := supplyRuntimeConfig(t)
 	c.Identity.IssuerURL = "https://localhost:18080"
