@@ -101,8 +101,8 @@ func generationOutputRecovery(fetch func(context.Context, string) ([]byte, error
 			logOutputRecoveryFailure(logger, input.RunID, "inspect_result", imageagent.ErrInvalidGeneratedOutput)
 			return imageagent.SlotGeneratedOutput{}, imageagent.ErrInvalidGeneratedOutput
 		}
-		if fact.Intent.Provider == aicapability.ToAPIsProductImageProvider {
-			data, err = normalizeToAPIsProductImage(data, contentType, width, height)
+		if fact.Intent.BillingMode == aicapability.ModelUsageOnly && aicapability.OwnedProductImageQuality(fact.Intent.Provider, fact.Intent.Model, fact.Intent.Protocol) != "" {
+			data, err = normalizeOwnedProductImagePNG(data, contentType, width, height)
 			if err != nil {
 				logOutputRecoveryFailure(logger, input.RunID, "inspect_result", err)
 				return imageagent.SlotGeneratedOutput{}, err
@@ -125,7 +125,7 @@ func generationOutputRecovery(fetch func(context.Context, string) ([]byte, error
 	}
 }
 
-func normalizeToAPIsProductImage(data []byte, contentType string, width, height int) ([]byte, error) {
+func normalizeOwnedProductImagePNG(data []byte, contentType string, width, height int) ([]byte, error) {
 	if contentType != "image/png" || width != height || width < 1 || width > 2048 {
 		return nil, imageagent.ErrInvalidGeneratedOutput
 	}

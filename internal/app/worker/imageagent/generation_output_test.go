@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
 )
@@ -111,13 +112,13 @@ func TestGenerationOutputRecoveryOnlyFetchesBoundOriginalResult(t *testing.T) {
 		"tcp_timeout":     &net.OpError{Op: "read", Net: "tcp", Err: os.ErrDeadlineExceeded},
 		"invalid_status":  &httpimage.HTTPStatusError{StatusCode: 987654},
 	}
-	for _, mode := range []string{"valid", "image_set", "changed_set", "bad_set", "truncated_pixels", "wrong_size", "empty_set", "oversized_declared", "oversized_streamed", "fetch_failure_set", "forbidden_set", "gone_set", "not_found_set", "timeout_set", "throttle_set", "unavailable_set", "canceled_set", "unavailable_locator_set", "malformed_locator_set", "private_locator_set", "oversized_locator_set", "changed_unavailable_set", "private", "oversized_locator", "member", "catalog", "unknown", "bad_image", "fetch_failure", "dns", "certificate", "tls", "deadline", "network_timeout", "network", "tcp_timeout", "invalid_status", "bad_source"} {
+	for _, mode := range []string{"valid", "image_set", "grsai_set_size", "grsai_set_native", "changed_set", "bad_set", "truncated_pixels", "wrong_size", "empty_set", "oversized_declared", "oversized_streamed", "fetch_failure_set", "forbidden_set", "gone_set", "not_found_set", "timeout_set", "throttle_set", "unavailable_set", "canceled_set", "unavailable_locator_set", "malformed_locator_set", "private_locator_set", "oversized_locator_set", "changed_unavailable_set", "private", "oversized_locator", "member", "catalog", "unknown", "bad_image", "fetch_failure", "dns", "certificate", "tls", "deadline", "network_timeout", "network", "tcp_timeout", "invalid_status", "bad_source"} {
 		t.Run(mode, func(t *testing.T) {
 			calls := 0
 			logger, hook := logtest.NewNullLogger()
 			in, current := input, fact
 			switch mode {
-			case "image_set", "changed_set", "bad_set", "truncated_pixels", "wrong_size", "empty_set", "oversized_declared", "oversized_streamed", "fetch_failure_set", "forbidden_set", "gone_set", "not_found_set", "timeout_set", "throttle_set", "unavailable_set", "canceled_set", "unavailable_locator_set", "malformed_locator_set", "private_locator_set", "oversized_locator_set", "changed_unavailable_set":
+			case "image_set", "grsai_set_size", "grsai_set_native", "changed_set", "bad_set", "truncated_pixels", "wrong_size", "empty_set", "oversized_declared", "oversized_streamed", "fetch_failure_set", "forbidden_set", "gone_set", "not_found_set", "timeout_set", "throttle_set", "unavailable_set", "canceled_set", "unavailable_locator_set", "malformed_locator_set", "private_locator_set", "oversized_locator_set", "changed_unavailable_set":
 				hash := strings.Repeat("a", 64)
 				in.ImageSet = &imageagent.ImageSetPlan{Schema: imageagent.ImageSetSchema, Text: &imageagent.ImageTextBinding{PolicyVersion: imageagent.ImageTextPolicyVersion, Mode: "none", Language: "en"}, Source: imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, ProductID: "product-1", OperationID: "source-operation", OriginalPublicationID: "publication-1", OriginalVersion: 1, EffectiveVersion: 1, CatalogHash: catalog.Manifest.Hash}, Target: imageagent.ImageTarget{Platform: "product"}, Configuration: agent.ConfigurationSnapshotRef{Kind: "agent-configuration-v1", ID: "9e7afaa9-a9f9-48ba-a11a-b5bb377f08e9", Digest: hash}, ConfigurationEpoch: "1", ParametersDigest: hash, InputDigest: hash, MaxPoints: 12}
 				in.TargetPlatform = "product"
@@ -131,15 +132,30 @@ func TestGenerationOutputRecoveryOnlyFetchesBoundOriginalResult(t *testing.T) {
 				require.NoError(t, err)
 				i.SourceDigest = imageagent.ImageSourceBundleDigest(in.Slot.Recipe.References)
 				i.PromptVersion = imageagent.ImageSetSchema
+				ownedGRSai := mode == "grsai_set_size" || mode == "grsai_set_native"
+				if ownedGRSai {
+					i.Billing = imageagent.GenerationIntent{}.Billing
+					i.BillingMode = aicapability.ModelUsageOnly
+					i.Model, i.Protocol = aicapability.GRSaiProductImageModel, aicapability.GRSaiProductImageProtocol
+					i.ConnectionID = "connection-1"
+					i.LimitVersion, i.Points, i.PriceVersion, i.MonthStart = 0, 0, "", time.Time{}
+				}
 				current, err = imageagent.NewGenerationFact(i)
 				require.NoError(t, err)
-				reservation := fact.Reservation
-				reservation.Fingerprint = current.Fingerprint
-				current, err = current.BindReservation(reservation)
-				require.NoError(t, err)
+				if !ownedGRSai {
+					reservation := fact.Reservation
+					reservation.Fingerprint = current.Fingerprint
+					current, err = current.BindReservation(reservation)
+					require.NoError(t, err)
+				}
 				current, _, err = current.BeginDispatch()
 				require.NoError(t, err)
 				observed := proof
+				if ownedGRSai {
+					current, err = current.RecordProviderTask(proof.ResponseID, time.Date(2026, 11, 25, 3, 31, 0, 0, time.UTC))
+					require.NoError(t, err)
+					observed = imageagent.GenerationSuccess{ResponseID: proof.ResponseID, ResultDigest: proof.ResultDigest, ProviderImageCount: 1}.WithResultLocator(proof.ResultURL, "")
+				}
 				switch mode {
 				case "unavailable_locator_set", "changed_unavailable_set":
 					observed = proof.WithResultLocator("", "invalid_result")
@@ -206,10 +222,10 @@ func TestGenerationOutputRecoveryOnlyFetchesBoundOriginalResult(t *testing.T) {
 					require.Equal(t, 1024, height)
 					return truncated, nil
 				}
-				if mode == "image_set" {
+				if mode == "image_set" || mode == "grsai_set_native" {
 					return setEncoded.Bytes(), nil
 				}
-				if mode == "wrong_size" {
+				if mode == "wrong_size" || mode == "grsai_set_size" {
 					return mismatched.Bytes(), nil
 				}
 				return encoded.Bytes(), nil
@@ -279,11 +295,16 @@ func TestGenerationOutputRecoveryOnlyFetchesBoundOriginalResult(t *testing.T) {
 					require.NotContains(t, string(wire), secret)
 				}
 			}
-			if mode == "valid" || mode == "image_set" {
+			if mode == "valid" || mode == "image_set" || mode == "grsai_set_size" || mode == "grsai_set_native" {
 				require.NoError(t, err)
-				if mode == "image_set" {
+				switch mode {
+				case "grsai_set_size":
+					decoded, decodeErr := png.Decode(bytes.NewReader(got.Assets[0].Bytes))
+					require.NoError(t, decodeErr)
+					require.Equal(t, image.Rect(0, 0, 1024, 1024), decoded.Bounds())
+				case "image_set", "grsai_set_native":
 					require.Equal(t, setEncoded.Bytes(), got.Assets[0].Bytes)
-				} else {
+				default:
 					require.Equal(t, encoded.Bytes(), got.Assets[0].Bytes)
 				}
 				require.Equal(t, "https://source.example/original.png", got.Assets[0].SourceURL)
@@ -300,7 +321,7 @@ func TestGenerationOutputRecoveryOnlyFetchesBoundOriginalResult(t *testing.T) {
 			} else if mode != "bad_image" {
 				require.NotErrorIs(t, err, imageagent.ErrInvalidGeneratedOutput)
 			}
-			if mode == "valid" || mode == "image_set" || mode == "bad_image" || mode == "fetch_failure" || mode == "bad_set" || mode == "truncated_pixels" || mode == "wrong_size" || mode == "empty_set" || mode == "oversized_declared" || mode == "oversized_streamed" || mode == "fetch_failure_set" || responseStatuses[mode] != 0 || mode == "canceled_set" || fetchErrors[mode] != nil {
+			if mode == "valid" || mode == "image_set" || mode == "grsai_set_size" || mode == "grsai_set_native" || mode == "bad_image" || mode == "fetch_failure" || mode == "bad_set" || mode == "truncated_pixels" || mode == "wrong_size" || mode == "empty_set" || mode == "oversized_declared" || mode == "oversized_streamed" || mode == "fetch_failure_set" || responseStatuses[mode] != 0 || mode == "canceled_set" || fetchErrors[mode] != nil {
 				require.Equal(t, 1, calls)
 			} else {
 				require.Zero(t, calls)
