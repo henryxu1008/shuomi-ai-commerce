@@ -1,12 +1,15 @@
 import {cleanup, fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {afterEach, expect, it, vi} from "vitest";
-import {readSupplyPublicationStatus, shopifySupplyRules, supplyInventory} from "@/lib/api/supply-chain";
+import {previewShopifyDraftMedia, readSupplyPublicationStatus, shopifySupplyRules, supplyInventory} from "@/lib/api/supply-chain";
 import {SupplyAPIError} from "@/lib/api/supply-error";
 import {publicationSchema, type SupplySourceDetail} from "@/lib/contracts/supply-chain";
 import {ShopifyDraftEditor, ShopifyDraftResult} from "./shopify-draft";
+import {ShopifyMediaPreviewPanel} from "./shopify-media-preview";
+import {shopifyMediaPreviewSchema} from "@/lib/contracts/shopify-media-preview";
 import type {ListingCommandState} from "./use-listing-command";
 
 vi.mock("@/lib/api/supply-chain", () => ({
+ previewShopifyDraftMedia: vi.fn(),
  readSupplyPublicationStatus: vi.fn(),
  shopifySupplyRules: vi.fn(),
  supplyInventory: vi.fn(),
@@ -22,6 +25,29 @@ const receipt = {
 };
 const readback = {...receipt, shopifyStatus: receipt.shopify};
 const adminUrl = "https://fixture-shop.myshopify.com/admin/products/12345";
+
+it("previews the original draft and six variants with shared color covers", async () => {
+ const colors = ["黑色","灰色","白色"];
+ const images = colors.flatMap((color, group) => [0,1,2,3].map(position => ({
+  id: "fixture-"+group+"-"+position,
+  url: "https://fixture-images.test/"+group+"-"+position+".png",
+  color, role: position === 0 ? "main" : "gallery", state: "present",
+ })));
+ const variants = colors.flatMap((_, group) => ["S","M"].map(size => ({
+  sku: "FIXTURE-"+group+"-"+size, state: "same",
+  currentAssetId: images[group*4]?.id, assetId: images[group*4]?.id,
+ })));
+ const preview = shopifyMediaPreviewSchema.parse({sourceId,storeId,title:"测试外套",adminUrl,galleryCount:27,images,variants});
+ const scope = {organizationId:"org",userId:"user"};
+ vi.mocked(previewShopifyDraftMedia).mockResolvedValue(preview);
+ render(<ShopifyMediaPreviewPanel scope={scope} sourceId={sourceId} storeId={storeId}
+  storeName="开发店" disabled={false} initialProduct="12345"/>);
+ fireEvent.click(screen.getByRole("button",{name:"预览图片"}));
+ expect(await screen.findByText(/已采用图片与 Shopify 图库、变体配图一致/)).toHaveTextContent("图库现有 27 项，工作台已采用 12 张");
+ expect(screen.getAllByText("配图一致")).toHaveLength(6);
+ expect(screen.getByRole("link",{name:"在 Shopify 后台打开原草稿"})).toHaveAttribute("href",adminUrl);
+ expect(previewShopifyDraftMedia).toHaveBeenCalledExactlyOnceWith(scope,{sourceId,storeId,product:"12345"},expect.any(AbortSignal));
+});
 
 it.each([undefined, 4])("submits confirmed Shopify prices with the visible target revision %s", async priorRevision => {
  vi.mocked(shopifySupplyRules).mockImplementation(async () => ({
