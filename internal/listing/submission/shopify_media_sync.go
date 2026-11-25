@@ -6,6 +6,7 @@ import (
 	"errors"
 	"regexp"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,6 +46,14 @@ type ShopifyMediaPlan struct {
 	GalleryIDs    []string
 	Images        []string
 	Covers        []ShopifyMediaCover
+}
+
+func (p ShopifyMediaPlan) Fingerprint() string {
+	return collection.Digest(p)
+}
+
+func (p ShopifyMediaPlan) StepIntentKey(phase ShopifyMediaPhase, cycle, index int) string {
+	return collection.StableID(p.Owner.OrganizationID, p.ID, string(phase), strconv.Itoa(cycle), strconv.Itoa(index))
 }
 
 type ShopifyMediaCover struct{ VariantID, ImageHash, CurrentMediaID string }
@@ -228,7 +237,7 @@ func (s ShopifyMediaSync) send(ctx context.Context, run ShopifyMediaRun, request
 	fingerprint := collection.Digest(struct {
 		Plan         string
 		Associations []ShopifyMediaAssociation
-	}{collection.Digest(run.Plan), request.Associations})
+	}{run.Plan.Fingerprint(), request.Associations})
 	permit, err := s.Journal.Admit(ctx, run, request.Phase, request.Index, fingerprint)
 	if err != nil {
 		return ShopifyMediaResponse{}, err

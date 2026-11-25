@@ -6,13 +6,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/shopifyguard"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
-	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
 )
 
@@ -92,7 +90,7 @@ func lockedMediaRun(tx *gorm.DB, plan submission.ShopifyMediaPlan) (retainedMedi
 	if err != nil {
 		return retainedMediaRun{}, err
 	}
-	if result.hash != collection.Digest(plan) {
+	if result.hash != plan.Fingerprint() {
 		return retainedMediaRun{}, submission.ErrExecutionIntentConflict
 	}
 	if json.Unmarshal(candidates, &result.run.Candidates) != nil {
@@ -123,7 +121,7 @@ func (j *isolatedMediaJournal) Begin(ctx context.Context, plan submission.Shopif
 			return err
 		}
 		insert := tx.Exec("INSERT INTO "+mediaPlanTable+" (organization_id,plan_id,shop_key,product_id,generation,source_key,body_hash,body_json,expires_at) VALUES (?,?,?,?,?,?,?,?::jsonb,?) ON CONFLICT DO NOTHING",
-			plan.Owner.OrganizationID, plan.ID, plan.ShopKey, plan.ProductID, plan.Generation, plan.SourceKey, collection.Digest(plan), string(raw), plan.ExpiresAt)
+			plan.Owner.OrganizationID, plan.ID, plan.ShopKey, plan.ProductID, plan.Generation, plan.SourceKey, plan.Fingerprint(), string(raw), plan.ExpiresAt)
 		if insert.Error != nil {
 			return insert.Error
 		}
@@ -195,7 +193,7 @@ func (j *isolatedMediaJournal) Admit(ctx context.Context, run submission.Shopify
 		if err := validateMediaStep(tx, retained.run, phase, index); err != nil {
 			return err
 		}
-		key := collection.StableID(plan.Owner.OrganizationID, plan.ID, string(phase), strconv.Itoa(run.Cycle), strconv.Itoa(index))
+		key := plan.StepIntentKey(phase, run.Cycle, index)
 		id, err := uuid.NewV7()
 		if err != nil {
 			return err
