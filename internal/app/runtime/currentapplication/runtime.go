@@ -231,7 +231,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		if err != nil {
 			return err
 		}
-		officialApplications, err = cfg.StoreCenter.Shopify.prepare(ctx, officialApplications)
+		officialApplications, err = cfg.StoreCenter.Shopify.prepare(ctx, officialApplications, cfg.ShopifyPairingTrial)
 		if err != nil {
 			return err
 		}

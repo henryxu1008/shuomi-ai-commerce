@@ -89,7 +89,7 @@ func (c *ShopifyConfig) validate() error {
 	return nil
 }
 
-func (c *ShopifyConfig) prepare(ctx context.Context, registry *storeapp.OfficialApplicationRegistry) (*storeapp.OfficialApplicationRegistry, error) {
+func (c *ShopifyConfig) prepare(ctx context.Context, registry *storeapp.OfficialApplicationRegistry, pairingTrial bool) (*storeapp.OfficialApplicationRegistry, error) {
 	if c == nil {
 		return registry, nil
 	}
@@ -101,7 +101,14 @@ func (c *ShopifyConfig) prepare(ctx context.Context, registry *storeapp.Official
 		return nil, err
 	}
 	defer clear(secret)
-	oauth, err := wire.NewOAuthClient(nil, c.ClientID, strings.TrimSpace(string(secret)), c.CallbackURL)
+	var oauth *wire.OAuthClient
+	var admin *wire.AdminClient
+	if pairingTrial {
+		oauth, admin, err = wire.NewDevelopmentPairingClients(c.ClientID, strings.TrimSpace(string(secret)), c.CallbackURL)
+	} else {
+		oauth, err = wire.NewOAuthClient(nil, c.ClientID, strings.TrimSpace(string(secret)), c.CallbackURL)
+		admin = wire.NewDevelopmentAdminClient(nil)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +140,7 @@ func (c *ShopifyConfig) prepare(ctx context.Context, registry *storeapp.Official
 		return nil, err
 	}
 	return storeapp.WithShopifyApplication(registry, storeapp.ShopifyApplication{AppID: c.ApplicationGID, InstallURL: c.InstallURL,
-		OAuth: oauth, Admin: wire.NewDevelopmentAdminClient(nil), Issuer: issuer, Protection: protection, StartedInstallation: c.StartedInstallation, LifecycleNotifications: c.LifecycleNotifications})
+		OAuth: oauth, Admin: admin, Issuer: issuer, Protection: protection, StartedInstallation: c.StartedInstallation, LifecycleNotifications: c.LifecycleNotifications})
 }
 
 func parseShopifySigningKey(raw []byte) (*ecdsa.PrivateKey, error) {
