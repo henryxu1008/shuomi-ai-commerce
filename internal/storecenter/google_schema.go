@@ -55,6 +55,26 @@ var googleMerchantSchemaStatements = []string{
 	)`,
 }
 
+const googleRefreshTable = "public.workbench_store_google_oauth_refresh"
+
+const googleRefreshTableDDL = `CREATE TABLE ` + googleRefreshTable + ` (
+	organization_id VARCHAR(200) NOT NULL,
+	store_id CHAR(36) NOT NULL,
+	generation BIGINT NOT NULL,
+	revision BIGINT NOT NULL,
+	phase VARCHAR(24) NOT NULL,
+	claim_id CHAR(36),
+	deadline TIMESTAMPTZ,
+	CONSTRAINT google_refresh_key PRIMARY KEY (organization_id,store_id),
+	CONSTRAINT google_refresh_grant FOREIGN KEY (organization_id,store_id)
+		REFERENCES public.workbench_store_google_oauth_grants(organization_id,store_id),
+	CONSTRAINT google_refresh_version CHECK (generation > 0 AND revision > 0),
+	CONSTRAINT google_refresh_phase CHECK (
+		(phase = 'idle' AND claim_id IS NULL)
+		OR (phase IN ('claimed','possible') AND claim_id IS NOT NULL AND deadline IS NOT NULL)
+		OR (phase = 'reauthorize' AND claim_id IS NULL AND deadline IS NULL))
+)`
+
 // InstallGoogleMerchantSchemaTx adds this channel through an explicit owner
 // operation. Runtime clients never install or alter Store schema.
 func InstallGoogleMerchantSchemaTx(ctx context.Context, tx *sql.Tx) error {
@@ -78,19 +98,30 @@ func InstallGoogleMerchantSchemaTx(ctx context.Context, tx *sql.Tx) error {
 		return err
 	}
 	installed, err := googleMerchantSchemaPresent(ctx, tx)
-	if err != nil || installed {
+	if err != nil {
 		return err
 	}
-	next := storePlatformDefinition(amazonInstalled, true, shopifyInstalled)
-	if _, err := tx.ExecContext(ctx, "ALTER TABLE public.workbench_stores DROP CONSTRAINT store_platform, ADD CONSTRAINT store_platform "+next); err != nil {
+	if !installed {
+		next := storePlatformDefinition(amazonInstalled, true, shopifyInstalled)
+		if _, err := tx.ExecContext(ctx, "ALTER TABLE public.workbench_stores DROP CONSTRAINT store_platform, ADD CONSTRAINT store_platform "+next); err != nil {
+			return err
+		}
+		for _, statement := range googleMerchantSchemaStatements {
+			if _, err := tx.ExecContext(ctx, statement); err != nil {
+				return err
+			}
+		}
+	}
+	var refreshInstalled bool
+	if err := tx.QueryRowContext(ctx, "SELECT to_regclass($1) IS NOT NULL", googleRefreshTable).Scan(&refreshInstalled); err != nil {
 		return err
 	}
-	for _, statement := range googleMerchantSchemaStatements {
-		if _, err := tx.ExecContext(ctx, statement); err != nil {
+	if !refreshInstalled {
+		if _, err := tx.ExecContext(ctx, googleRefreshTableDDL); err != nil {
 			return err
 		}
 	}
-	return nil
+	return verifyGoogleRefreshSchema(ctx, tx)
 }
 
 func googleMerchantSchemaPresent(ctx context.Context, db coreSchemaQueryer) (bool, error) {
@@ -108,6 +139,29 @@ func verifyGoogleSchema(ctx context.Context, db coreSchemaQueryer) error {
 		AND to_regclass('public.workbench_store_google_oauth_attempts') IS NOT NULL`).Scan(&valid)
 	if err != nil || !valid {
 		return errors.New("Google Merchant Store authorization schema unavailable")
+	}
+	return nil
+}
+
+// Check types, nullability and check definitions on the read-only runtime path.
+func verifyGoogleRefreshSchema(ctx context.Context, db coreSchemaQueryer) error {
+	var valid bool
+	err := db.QueryRowContext(ctx, `SELECT
+		(SELECT array_agg(attname::text || ':' || format_type(atttypid,atttypmod) || ':' || attnotnull::text ORDER BY attnum)
+		FROM pg_attribute WHERE attrelid=to_regclass($1) AND attnum>0 AND NOT attisdropped)
+		= ARRAY['organization_id:character varying(200):true','store_id:character(36):true',
+			'generation:bigint:true','revision:bigint:true','phase:character varying(24):true',
+			'claim_id:character(36):false','deadline:timestamp with time zone:false']
+		AND (SELECT count(*)=4 FROM pg_constraint WHERE conrelid=to_regclass($1) AND convalidated AND (
+			(conname='google_refresh_key' AND contype='p' AND pg_get_constraintdef(oid)='PRIMARY KEY (organization_id, store_id)')
+			OR (conname='google_refresh_grant' AND contype='f' AND confrelid=to_regclass('public.workbench_store_google_oauth_grants')
+				AND conkey=ARRAY[1,2]::smallint[] AND confkey=ARRAY[1,2]::smallint[])
+			OR (conname='google_refresh_version' AND contype='c' AND pg_get_expr(conbin,conrelid)='((generation > 0) AND (revision > 0))')
+			OR (conname='google_refresh_phase' AND contype='c' AND pg_get_expr(conbin,conrelid)=
+				'((((phase)::text = ''idle''::text) AND (claim_id IS NULL)) OR (((phase)::text = ANY ((ARRAY[''claimed''::character varying, ''possible''::character varying])::text[])) AND (claim_id IS NOT NULL) AND (deadline IS NOT NULL)) OR (((phase)::text = ''reauthorize''::text) AND (claim_id IS NULL) AND (deadline IS NULL)))')
+		))`, googleRefreshTable).Scan(&valid)
+	if err != nil || !valid {
+		return errors.New("Google Merchant Store renewal schema unavailable")
 	}
 	return nil
 }

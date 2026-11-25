@@ -213,6 +213,11 @@ func verifyCurrentSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilit
 			return err
 		}
 	}
+	if capabilities.GoogleMerchant {
+		if err := verifyGoogleRefreshSchema(ctx, sqlDB); err != nil {
+			return err
+		}
+	}
 	if capabilities.AmazonAuthorization || googleInstalled || capabilities.Shopify {
 		definitions = maps.Clone(definitions)
 		definitions["store_platform"] = storePlatformDefinition(capabilities.AmazonAuthorization, googleInstalled, capabilities.Shopify)
@@ -434,7 +439,7 @@ const storeRuntimePermissionQuery = `SELECT current_user,
  OR ($6 AND n.nspname='public' AND r.relname IN ('workbench_store_shopify_shops','workbench_store_shopify_authorizations','workbench_store_shopify_pairings') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))
  OR ($7 AND n.nspname='public' AND r.relname='workbench_store_shopify_lifecycle_events' AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))
  OR ($6 AND n.nspname='public' AND r.relname='workbench_store_shopify_installs' AND p.privilege_type IN ('SELECT','INSERT','UPDATE','DELETE'))
- OR (n.nspname='public' AND to_regclass('public.workbench_store_google_oauth_grants') IS NOT NULL AND r.relname IN ('workbench_store_google_oauth_grants','workbench_store_google_oauth_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')))) FROM (SELECT current_user::text AS runtime_role) subject`
+ OR (n.nspname='public' AND to_regclass('public.workbench_store_google_oauth_grants') IS NOT NULL AND r.relname IN ('workbench_store_google_oauth_grants','workbench_store_google_oauth_attempts','workbench_store_google_oauth_refresh') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')))) FROM (SELECT current_user::text AS runtime_role) subject`
 
 // RuntimeCapabilities admits only explicitly enabled feature tables.
 // The default Store boundary continues to reject every additional privilege.
@@ -521,7 +526,7 @@ func VerifyRuntimePermissionsForCapabilities(ctx context.Context, db *gorm.DB, c
 	if capabilities.GoogleMerchant {
 		var complete bool
 		err := sqlDB.QueryRowContext(ctx, `SELECT NOT EXISTS(
-   SELECT 1 FROM (VALUES ('workbench_store_google_oauth_attempts'),('workbench_store_google_oauth_grants')) t(name)
+   SELECT 1 FROM (VALUES ('workbench_store_google_oauth_attempts'),('workbench_store_google_oauth_grants'),('workbench_store_google_oauth_refresh')) t(name)
    CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE')) p(privilege)
    WHERE NOT coalesce(has_table_privilege(current_user,to_regclass('public.'||t.name),p.privilege),false))`).Scan(&complete)
 		if err != nil || !complete {
