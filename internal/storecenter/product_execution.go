@@ -2,6 +2,7 @@ package storecenter
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"strconv"
 	"strings"
@@ -189,6 +190,22 @@ type ProductExecutionReader interface {
 	ReadProductExecution(context.Context, ProductExecutionSubject, string, ProductExecutionAuthorizer, time.Time) (ProductExecutionMaterial, error)
 }
 
+type shopifyPreviewProductReader struct{ stores *MemberScopedStoreRepository }
+
+func (r *MemberScopedStoreRepository) ShopifyPreviewReader() ProductExecutionReader {
+	return shopifyPreviewProductReader{stores: r}
+}
+
+func (r shopifyPreviewProductReader) ReadProductExecution(ctx context.Context, subject ProductExecutionSubject, storeID string, authorization ProductExecutionAuthorizer, now time.Time) (ProductExecutionMaterial, error) {
+	if isNilDependency(authorization) || subject.Purpose != ProductPurposeRules && subject.Purpose != ProductPurposeStatus {
+		return ProductExecutionMaterial{}, ErrNotFound
+	}
+	access := StoreMemberAccess{OrganizationID: subject.OrganizationID, ActorID: subject.ActorID, MemberID: subject.MemberID}
+	return r.stores.readOfficialMaterialFor(ctx, access, storeID, now, func(ctx context.Context) (ProductExecutionAuthorization, error) {
+		return authorization.AuthorizeProductExecution(ctx, subject)
+	}, true)
+}
+
 func (r *MemberScopedStoreRepository) ReadProductExecution(ctx context.Context, subject ProductExecutionSubject, storeID string, authorization ProductExecutionAuthorizer, now time.Time) (ProductExecutionMaterial, error) {
 	if isNilDependency(authorization) || (subject.Purpose != ProductPurposeRules && subject.Purpose != ProductPurposePublish && subject.Purpose != ProductPurposeImage && subject.Purpose != ProductPurposeStatus && subject.Purpose != ProductPurposeShelfOn) {
 		return ProductExecutionMaterial{}, ErrNotFound
@@ -208,6 +225,10 @@ func (r *MemberScopedStoreRepository) ReadProductExecution(ctx context.Context, 
 // Borrow the same current Store transaction and material checks for each
 // explicitly admitted purpose. The callback is live, never a durable proof.
 func (r *MemberScopedStoreRepository) readOfficialMaterial(ctx context.Context, subject StoreMemberAccess, storeID string, now time.Time, authorize func(context.Context) (ProductExecutionAuthorization, error)) (ProductExecutionMaterial, error) {
+	return r.readOfficialMaterialFor(ctx, subject, storeID, now, authorize, false)
+}
+
+func (r *MemberScopedStoreRepository) readOfficialMaterialFor(ctx context.Context, subject StoreMemberAccess, storeID string, now time.Time, authorize func(context.Context) (ProductExecutionAuthorization, error), shopifyPreview bool) (ProductExecutionMaterial, error) {
 	if ctx != nil && ctx.Err() != nil {
 		return ProductExecutionMaterial{}, ErrDependencyUnavailable
 	}
@@ -236,15 +257,27 @@ func (r *MemberScopedStoreRepository) readOfficialMaterial(ctx context.Context, 
 		return ProductExecutionMaterial{}, ErrNotFound
 	}
 	var material ProductExecutionMaterial
+	var options *sql.TxOptions
+	if shopifyPreview {
+		options = &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true}
+	}
 	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := lockMemberStore(tx, subject.OrganizationID, storeID); err != nil {
-			return err
-		}
-		if err := requireMemberGrant(tx, approved.Access, storeID); err != nil {
-			return err
+		store := tx.Where("organization_id = ? AND id = ? AND deleted_at IS NULL", subject.OrganizationID, storeID)
+		if shopifyPreview {
+			store = store.Where("platform = ?", PlatformShopify)
+			if err := lockActiveMemberGrant(tx, approved.Access, storeID, ""); err != nil {
+				return err
+			}
+		} else {
+			if err := lockMemberStore(tx, subject.OrganizationID, storeID); err != nil {
+				return err
+			}
+			if err := requireMemberGrant(tx, approved.Access, storeID); err != nil {
+				return err
+			}
 		}
 		var stored workbenchStoreRecord
-		if err := tx.Where("organization_id = ? AND id = ? AND deleted_at IS NULL", subject.OrganizationID, storeID).Take(&stored).Error; err != nil {
+		if err := store.Take(&stored).Error; err != nil {
 			return err
 		}
 		if stored.Platform != "shein" && stored.Platform != "temu" && stored.Platform != "tiktokshop" && stored.Platform != "walmart" && stored.Platform != "shopify" || stored.RecordStatus != "active" || stored.ServiceStatus == nil || *stored.ServiceStatus != "active" || stored.ServiceStartedAt == nil || stored.ServiceExpiresAt == nil || now.Before(*stored.ServiceStartedAt) || !now.Before(*stored.ServiceExpiresAt) || stored.ConnectionRef == "" {
@@ -316,7 +349,7 @@ func (r *MemberScopedStoreRepository) readOfficialMaterial(ctx context.Context, 
 		}
 		material = ProductExecutionMaterial{StoreVersion: stored.Version, Platform: Platform(stored.Platform), ServiceExpiresAt: stored.ServiceExpiresAt.UTC(), Connection: connectionView(connection, attempt), Attempt: attemptValue(attempt)}
 		return ctx.Err()
-	})
+	}, options)
 	if err != nil {
 		return ProductExecutionMaterial{}, productExecutionReadError(err)
 	}
