@@ -48,6 +48,28 @@ type ShopifyMediaPlan struct {
 	Covers        []ShopifyMediaCover
 }
 
+type ShopifyMediaOperation struct {
+	ID         string
+	Owner      collection.Scope
+	ShopKey    string
+	Generation int64
+	ProductID  string
+	SourceKey  string
+}
+
+func (p ShopifyMediaPlan) Operation() ShopifyMediaOperation {
+	return ShopifyMediaOperation{ID: p.ID, Owner: p.Owner, ShopKey: p.ShopKey,
+		Generation: p.Generation, ProductID: p.ProductID, SourceKey: p.SourceKey}
+}
+
+func (o ShopifyMediaOperation) Valid() bool {
+	id, err := uuid.Parse(o.ID)
+	shop, shopErr := uuid.Parse(o.ShopKey)
+	return err == nil && shopErr == nil && id.String() == o.ID && shop.String() == o.ShopKey &&
+		o.Owner.Validate() == nil && o.Generation > 0 && shopifyMediaProductID.MatchString(o.ProductID) &&
+		authidentity.IsBoundedIdentifier(o.SourceKey)
+}
+
 func (p ShopifyMediaPlan) Fingerprint() string {
 	return collection.Digest(p)
 }
@@ -91,6 +113,7 @@ func (r ShopifyMediaReceipt) Evidence(dispatch ShopifyMediaDispatch) (string, []
 }
 
 type ShopifyMediaJournal interface {
+	ReadPlan(context.Context, ShopifyMediaOperation) (ShopifyMediaPlan, error)
 	Begin(context.Context, ShopifyMediaPlan) (ShopifyMediaRun, error)
 	Admit(context.Context, ShopifyMediaRun, ShopifyMediaPhase, int, string) (ShopifyMediaDispatch, error)
 	Observe(context.Context, ShopifyMediaRun, ShopifyMediaDispatch, ShopifyMediaReceipt) error
@@ -134,11 +157,37 @@ type ShopifyMediaSync struct {
 	Provider ShopifyMediaProvider
 }
 
+// ConfirmOperation resolves the original plan before rebuilding anything from
+// Shopify. The gallery may already include the images from this operation.
+func (s ShopifyMediaSync) ConfirmOperation(ctx context.Context, operation ShopifyMediaOperation, build func(context.Context) (ShopifyMediaPlan, error)) (ShopifyMediaStatus, error) {
+	if ctx == nil || s.Journal == nil || s.Provider == nil || !operation.Valid() || build == nil {
+		return "", ErrExecutionInvalid
+	}
+	ctx, cancel := context.WithTimeout(ctx, shopifyMediaConfirmTimeout)
+	defer cancel()
+	plan, err := s.Journal.ReadPlan(ctx, operation)
+	if errors.Is(err, ErrExecutionNotFound) {
+		plan, err = build(ctx)
+	}
+	if err != nil {
+		return "", err
+	}
+	if plan.Operation() != operation {
+		return "", ErrExecutionIntentConflict
+	}
+	return s.Confirm(ctx, plan)
+}
+
+const (
+	shopifyMediaConfirmTimeout = 45 * time.Second
+	shopifyMediaGalleryLimit   = 60
+)
+
 func (s ShopifyMediaSync) Confirm(ctx context.Context, plan ShopifyMediaPlan) (status ShopifyMediaStatus, err error) {
 	if ctx == nil || s.Provider == nil || s.Journal == nil || !plan.Valid() {
 		return "", ErrExecutionInvalid
 	}
-	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, shopifyMediaConfirmTimeout)
 	defer cancel()
 	if err = s.Provider.Verify(ctx, plan, false); err != nil {
 		return "", err
@@ -280,7 +329,7 @@ func validMediaReply(request ShopifyMediaRequest, response ShopifyMediaResponse)
 		return true
 	case ShopifyMediaAppend:
 		return len(response.Staged) == 0 && len(response.Candidates) >= len(request.Plan.Images) &&
-			validShopifyMediaIDs(response.Candidates, shopifyMediaImageID, 60)
+			validShopifyMediaIDs(response.Candidates, shopifyMediaImageID, shopifyMediaGalleryLimit)
 	case ShopifyMediaUpload, ShopifyMediaAssociate:
 		return len(response.Staged) == 0 && len(response.Candidates) == 0
 	default:
@@ -295,13 +344,10 @@ var (
 )
 
 func (p ShopifyMediaPlan) Valid() bool {
-	id, err := uuid.Parse(p.ID)
-	shop, shopErr := uuid.Parse(p.ShopKey)
-	if err != nil || shopErr != nil || id.String() != p.ID || shop.String() != p.ShopKey || p.Owner.Validate() != nil ||
-		p.Generation < 1 || !shopifyMediaProductID.MatchString(p.ProductID) || !authidentity.IsBoundedIdentifier(p.SourceKey) ||
-		p.SourceVersion < 1 || !validMediaHash(p.ApprovalHash) || !validMediaHash(p.BeforeHash) || p.ExpiresAt.IsZero() ||
-		!validShopifyMediaIDs(p.GalleryIDs, shopifyMediaImageID, 60) || len(p.Images) > 10 || len(p.Covers) > 30 ||
-		len(p.Images)+len(p.Covers) == 0 {
+	if !p.Operation().Valid() || p.SourceVersion < 1 || !validMediaHash(p.ApprovalHash) || !validMediaHash(p.BeforeHash) ||
+		p.ExpiresAt.IsZero() || len(p.Images) > 10 || len(p.Covers) > 30 || len(p.Images)+len(p.Covers) == 0 ||
+		len(p.GalleryIDs)+len(p.Images) > shopifyMediaGalleryLimit ||
+		!validShopifyMediaIDs(p.GalleryIDs, shopifyMediaImageID, shopifyMediaGalleryLimit) {
 		return false
 	}
 	hashes := make(map[string]bool, len(p.Images))
@@ -345,7 +391,7 @@ func validShopifyMediaIDs(ids []string, pattern *regexp.Regexp, limit int) bool 
 }
 
 func (p ShopifyMediaPlan) correlate(obs ShopifyMediaObservation, candidates []string) ([]ShopifyMediaAssociation, bool) {
-	if !obs.Draft || !obs.Complete || obs.ProductID != p.ProductID || len(obs.Gallery) > 60 {
+	if !obs.Draft || !obs.Complete || obs.ProductID != p.ProductID || len(obs.Gallery) > shopifyMediaGalleryLimit {
 		return nil, false
 	}
 	added := make(map[string]bool, len(candidates))

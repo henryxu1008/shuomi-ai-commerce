@@ -104,6 +104,39 @@ func (r retainedMediaRun) matches(run submission.ShopifyMediaRun) bool {
 		subtle.ConstantTimeCompare([]byte(r.tokenHash), []byte(submission.ExecutionClaimTokenHash(run.Token))) == 1
 }
 
+func (j *isolatedMediaJournal) ReadPlan(ctx context.Context, operation submission.ShopifyMediaOperation) (submission.ShopifyMediaPlan, error) {
+	if !operation.Valid() {
+		return submission.ShopifyMediaPlan{}, submission.ErrExecutionInvalid
+	}
+	var plan submission.ShopifyMediaPlan
+	err := j.repository.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := shopifyguard.Check(tx, operation.Owner.OrganizationID, operation.ShopKey, operation.Generation, operation.SourceKey); err != nil {
+			return err
+		}
+		var hash string
+		var body []byte
+		err := tx.Raw("SELECT body_hash,body_json FROM "+mediaPlanTable+" WHERE organization_id=? AND plan_id=?",
+			operation.Owner.OrganizationID, operation.ID).Row().Scan(&hash, &body)
+		if errors.Is(err, sql.ErrNoRows) {
+			return submission.ErrExecutionNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if json.Unmarshal(body, &plan) != nil || !plan.Valid() || plan.Fingerprint() != hash {
+			return submission.ErrExecutionUnavailable
+		}
+		if plan.Operation() != operation {
+			return submission.ErrExecutionIntentConflict
+		}
+		return nil
+	})
+	if err != nil {
+		return submission.ShopifyMediaPlan{}, err
+	}
+	return plan, nil
+}
+
 func (j *isolatedMediaJournal) Begin(ctx context.Context, plan submission.ShopifyMediaPlan) (submission.ShopifyMediaRun, error) {
 	if !plan.Valid() {
 		return submission.ShopifyMediaRun{}, submission.ErrExecutionInvalid

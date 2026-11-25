@@ -86,6 +86,82 @@ func TestIsolatedShopifyMediaSync(t *testing.T) {
 		require.ErrorIs(t, err, submission.ErrExecutionIntentConflict)
 	})
 
+	t.Run("repeat confirmation reuses the frozen plan after the gallery changes", func(t *testing.T) {
+		plan := fixtureMediaPlan("repeat-operation")
+		shop := fixtureMediaProvider(plan)
+		shop.processing = true
+		service := submission.ShopifyMediaSync{Journal: open(), Provider: shop}
+		operation := plan.Operation()
+		builds := 0
+		build := func(context.Context) (submission.ShopifyMediaPlan, error) {
+			builds++
+			return plan, nil
+		}
+		status, err := service.ConfirmOperation(ctx, operation, build)
+		require.NoError(t, err)
+		require.Equal(t, submission.ShopifyMediaPending, status)
+		require.Len(t, shop.gallery, 7)
+
+		shop.processing = false
+		service.Journal = open()
+		plan.BeforeHash = collection.Digest("gallery after append")
+		wrongMember := operation
+		wrongMember.Owner.MemberID = "another-member"
+		_, err = service.ConfirmOperation(ctx, wrongMember, build)
+		require.ErrorIs(t, err, submission.ErrExecutionIntentConflict)
+		wrongSource := operation
+		wrongSource.SourceKey = "another-source"
+		_, err = service.ConfirmOperation(ctx, wrongSource, build)
+		require.ErrorIs(t, err, submission.ErrExecutionIntentConflict)
+		wrongProduct := operation
+		wrongProduct.ProductID = "gid://shopify/Product/45"
+		_, err = service.ConfirmOperation(ctx, wrongProduct, build)
+		require.ErrorIs(t, err, submission.ErrExecutionIntentConflict)
+		require.Equal(t, 1, builds)
+
+		shop.denied = true
+		_, err = service.ConfirmOperation(ctx, operation, build)
+		require.ErrorIs(t, err, submission.ErrExecutionEvidenceRequired)
+		require.Zero(t, shop.count(submission.ShopifyMediaAssociate))
+		shop.denied = false
+
+		for range 2 {
+			status, err = service.ConfirmOperation(ctx, operation, build)
+			require.NoError(t, err)
+			require.Equal(t, submission.ShopifyMediaComplete, status)
+		}
+		for _, id := range plan.GalleryIDs {
+			require.Contains(t, shop.gallery, id)
+		}
+		require.Equal(t, shop.desiredCovers(), shop.covers)
+		require.Len(t, shop.gallery, 7)
+		require.Equal(t, 1, builds)
+		require.Equal(t, 1, shop.count(submission.ShopifyMediaPrepare))
+		require.Equal(t, 3, shop.count(submission.ShopifyMediaUpload))
+		require.Equal(t, 1, shop.count(submission.ShopifyMediaAppend))
+		require.Equal(t, 1, shop.count(submission.ShopifyMediaAssociate))
+
+		require.NoError(t, db.Exec("UPDATE "+shopifyguard.MediaSyncPlanTable+" SET body_hash=? WHERE organization_id=? AND plan_id=?",
+			collection.Digest("invalid stored fingerprint"), plan.Owner.OrganizationID, plan.ID).Error)
+		_, err = service.ConfirmOperation(ctx, operation, build)
+		require.ErrorIs(t, err, submission.ErrExecutionUnavailable)
+		require.Equal(t, 1, builds)
+	})
+
+	t.Run("rejects a gallery beyond the verification limit before staging", func(t *testing.T) {
+		plan := fixtureMediaPlan("gallery-limit")
+		for i := len(plan.GalleryIDs) + 1; i <= 57; i++ {
+			plan.GalleryIDs = append(plan.GalleryIDs, fmt.Sprintf("gid://shopify/MediaImage/%d", i))
+		}
+		require.True(t, plan.Valid())
+		plan.GalleryIDs = append(plan.GalleryIDs, "gid://shopify/MediaImage/58")
+		shop := fixtureMediaProvider(plan)
+		service := submission.ShopifyMediaSync{Journal: open(), Provider: shop}
+		_, err := service.Confirm(ctx, plan)
+		require.ErrorIs(t, err, submission.ErrExecutionInvalid)
+		require.Empty(t, shop.calls)
+	})
+
 	t.Run("lost append response cannot authorize duplicate transfer or drain", func(t *testing.T) {
 		plan := fixtureMediaPlan("lost")
 		shop := fixtureMediaProvider(plan)
