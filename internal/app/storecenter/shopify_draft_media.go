@@ -33,28 +33,3 @@ func (a *OfficialProductAccess) InspectShopifyDraftMedia(ctx context.Context, su
 	}
 	return draft, wire.ProductAdminURL(value.Domain, draft.ID), nil
 }
-
-// ReadShopifyDraftMediaEvidence checks the same Store binding around a single
-// draft read that includes the complete gallery and variant evidence.
-func (a *OfficialProductAccess) ReadShopifyDraftMediaEvidence(ctx context.Context, subject storecenter.ProductExecutionSubject, expected MerchantBinding, productID string) (wire.DraftMediaEvidence, string, error) {
-	if subject.Purpose != storecenter.ProductPurposeStatus {
-		return wire.DraftMediaEvidence{}, "", ErrProductAccessChanged
-	}
-	value, before, err := a.shopifyProductMaterial(ctx, subject, expected.StoreID)
-	if err != nil || before != expected {
-		return wire.DraftMediaEvidence{}, "", ErrProductAccessChanged
-	}
-	app := a.applications.shopify
-	token, err := app.Issuer.Issue(ctx, value.Domain)
-	if err != nil {
-		return wire.DraftMediaEvidence{}, "", ErrProductAccessChanged
-	}
-	draft, err := app.Admin.ReadDraftMediaEvidence(ctx, shopifyWireIdentity(value.ShopifyInstallation), token.Value, productID)
-	if err != nil {
-		return wire.DraftMediaEvidence{}, "", err
-	}
-	if _, after, err := a.shopifyProductMaterial(ctx, subject, expected.StoreID); err != nil || after != expected {
-		return wire.DraftMediaEvidence{}, "", ErrProductAccessChanged
-	}
-	return draft, wire.ProductAdminURL(value.Domain, draft.ID), nil
-}

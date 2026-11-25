@@ -1,6 +1,7 @@
 package listingapp
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"slices"
@@ -27,7 +28,9 @@ func TestShopifyTrialPreviewAndPlanUseTheSameEvidence(t *testing.T) {
 	remote := wire.DraftMediaEvidence{ID: operation.ProductID, Title: "Six-variant Shopify trial",
 		Gallery: []wire.DraftGalleryEvidence{oldImage}}
 	var local []catalog.Variant
-	selected := shopifyMediaSourceEvidence{inventory: inventory}
+	selected := shopifyMediaSourceEvidence{inventory: inventory, selection: asset.SourceSelectionRequest{
+		OriginalPublicationID: "trial-original", OriginalSnapshotVersion: 1,
+	}}
 	for i, color := range []string{"Black", "Gray", "White"} {
 		originalID := "source-" + color
 		mainID := "main-" + color
@@ -87,4 +90,127 @@ func TestShopifyTrialPreviewAndPlanUseTheSameEvidence(t *testing.T) {
 	_, blocked, err = projectShopifyMediaEvidence(input, operation, selected, local, 1, latest, preview.AdminURL, time.Now().Add(time.Minute))
 	require.NoError(t, err)
 	require.False(t, blocked.Valid(), "unproven replacement of an old cover must stay unavailable")
+	t.Run("the provider only uses invocation-local evidence", func(t *testing.T) {
+		testShopifyMediaTrialProvider(t, plan, selected, remote)
+	})
+}
+
+type mediaTrialWriterFixture struct {
+	images                         []*wire.StagedDraftMedia
+	appended                       func()
+	uploads, appends, associations int
+}
+
+func (w *mediaTrialWriterFixture) Prepare(_ context.Context, digests [][32]byte) ([]*wire.StagedDraftMedia, error) {
+	w.images = make([]*wire.StagedDraftMedia, len(digests))
+	for i := range digests {
+		w.images[i] = &wire.StagedDraftMedia{}
+	}
+	return w.images, nil
+}
+func (w *mediaTrialWriterFixture) Upload(_ context.Context, _ *wire.StagedDraftMedia, _ []byte) error {
+	w.uploads++
+	return nil
+}
+func (w *mediaTrialWriterFixture) Append(_ context.Context, _ []*wire.StagedDraftMedia) ([]string, error) {
+	w.appends++
+	w.appended()
+	return []string{"gid://shopify/MediaImage/501", "gid://shopify/MediaImage/502", "gid://shopify/MediaImage/503"}, nil
+}
+func (w *mediaTrialWriterFixture) Associate(context.Context, []wire.DraftMediaAssociation) error {
+	w.associations++
+	return wire.ErrDraftMediaRejected
+}
+
+func testShopifyMediaTrialProvider(t *testing.T, plan submission.ShopifyMediaPlan, selected shopifyMediaSourceEvidence, remote wire.DraftMediaEvidence) {
+	t.Helper()
+	ctx := context.Background()
+	evidence := shopifyTrialDispatchEvidence{source: selected, remote: remote}
+	writer := &mediaTrialWriterFixture{appended: func() {
+		for i, approved := range selected.proofs {
+			evidence.remote.Gallery = append(evidence.remote.Gallery, wire.DraftGalleryEvidence{
+				ID: fmt.Sprintf("gid://shopify/MediaImage/%d", 501+i), Type: "IMAGE", Status: "READY", DraftMediaFingerprint: approved,
+			})
+		}
+	}}
+	files := map[string][]byte{}
+	for i, id := range plan.Images {
+		files[id] = []byte(selected.images[i].ID)
+	}
+	var galleryReads, writerLeases int
+	provider := &shopifyMediaTrialProvider{operation: plan.Operation(),
+		read: func(_ context.Context, _ submission.ShopifyMediaPlan, gallery bool) (shopifyTrialDispatchEvidence, error) {
+			if gallery {
+				galleryReads++
+				return evidence, nil
+			}
+			return shopifyTrialDispatchEvidence{source: evidence.source}, nil
+		},
+		image: func(_ context.Context, _ shopifyMediaSourceEvidence, hash string) ([]byte, error) {
+			return files[hash], nil
+		},
+		writer: func(context.Context) (shopifyMediaTrialWriter, error) {
+			writerLeases++
+			return writer, nil
+		},
+	}
+	prepare := submission.ShopifyMediaRequest{Plan: plan, Phase: submission.ShopifyMediaPrepare}
+	_, err := provider.Send(ctx, prepare)
+	require.ErrorIs(t, err, submission.ErrExecutionEvidenceRequired)
+	require.NoError(t, provider.Verify(ctx, plan, submission.ShopifyMediaPrepare))
+	prepared, err := provider.Send(ctx, prepare)
+	require.NoError(t, err)
+	require.True(t, prepared.OriginalResponse)
+	require.Len(t, prepared.Staged, 3)
+	for _, key := range prepared.Staged {
+		_, err := uuid.Parse(key)
+		require.NoError(t, err, "the execution engine receives only opaque generated handles")
+	}
+
+	bad := submission.ShopifyMediaRequest{Plan: plan, Phase: submission.ShopifyMediaUpload, Index: 0, Staged: []string{prepared.Staged[1]}}
+	require.NoError(t, provider.Verify(ctx, plan, submission.ShopifyMediaUpload))
+	_, err = provider.Send(ctx, bad)
+	require.ErrorIs(t, err, submission.ErrExecutionEvidenceRequired)
+	bad.Staged = []string{prepared.Staged[0]}
+	originalBytes := files[plan.Images[0]]
+	files[plan.Images[0]] = []byte("different approved file bytes")
+	require.NoError(t, provider.Verify(ctx, plan, submission.ShopifyMediaUpload))
+	_, err = provider.Send(ctx, bad)
+	require.ErrorIs(t, err, submission.ErrExecutionEvidenceRequired)
+	files[plan.Images[0]] = originalBytes
+	require.Zero(t, writer.uploads)
+	require.Equal(t, 1, writerLeases, "bad upload data must be refused before acquiring a short-lived writer")
+	for i, key := range prepared.Staged {
+		require.NoError(t, provider.Verify(ctx, plan, submission.ShopifyMediaUpload))
+		_, err = provider.Send(ctx, submission.ShopifyMediaRequest{Plan: plan, Phase: submission.ShopifyMediaUpload, Index: i, Staged: []string{key}})
+		require.NoError(t, err)
+	}
+	require.Equal(t, 1, galleryReads, "uploading the signed files does not fetch all remote originals again")
+	require.NoError(t, provider.Verify(ctx, plan, submission.ShopifyMediaAppend))
+	appended, err := provider.Send(ctx, submission.ShopifyMediaRequest{Plan: plan, Phase: submission.ShopifyMediaAppend, Staged: prepared.Staged})
+	require.NoError(t, err)
+	require.Equal(t, 1, writer.appends)
+
+	view, err := provider.Read(ctx, plan)
+	require.NoError(t, err)
+	require.Len(t, view.Gallery, 4)
+	originalVariant := evidence.remote.Variants[0]
+	evidence.remote.Variants = slices.Clone(evidence.remote.Variants)
+	evidence.remote.Variants[0].SKU = "changed after append"
+	require.ErrorIs(t, provider.Verify(ctx, plan, submission.ShopifyMediaAssociate), submission.ErrExecutionEvidenceRequired)
+	evidence.remote.Variants[0] = originalVariant
+	extraGallery := evidence.remote.Gallery
+	extra := extraGallery[1]
+	extra.ID = "gid://shopify/MediaImage/701"
+	evidence.remote.Gallery = append(slices.Clone(extraGallery), extra)
+	require.ErrorIs(t, provider.Verify(ctx, plan, submission.ShopifyMediaAssociate), submission.ErrExecutionEvidenceRequired, "new remote media invalidates the association readback")
+	evidence.remote.Gallery = extraGallery
+	require.Zero(t, writer.associations)
+	require.NoError(t, provider.Verify(ctx, plan, submission.ShopifyMediaAssociate))
+	reply, err := provider.Send(ctx, submission.ShopifyMediaRequest{Plan: plan, Phase: submission.ShopifyMediaAssociate,
+		Associations: []submission.ShopifyMediaAssociation{{VariantID: plan.Covers[0].VariantID, MediaID: appended.Candidates[0]}}})
+	require.NoError(t, err)
+	require.True(t, reply.OriginalResponse)
+	require.True(t, reply.Rejected)
+	require.Equal(t, 1, writer.associations)
 }

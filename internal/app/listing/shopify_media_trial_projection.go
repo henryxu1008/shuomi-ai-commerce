@@ -41,12 +41,13 @@ func (a *Application) readShopifyMediaTrial(ctx context.Context, input ShopifyMe
 	if err != nil {
 		return ShopifyMediaPreview{}, submission.ShopifyMediaPlan{}, err
 	}
-	subject := shopifyProductSubject(operation.Owner, storecenter.ProductPurposeStatus)
-	binding, err := service.Store.ShopifyProductBinding(ctx, subject, input.StoreID)
-	if err != nil || binding.Shopify.ShopKey != operation.ShopKey || binding.ConnectionRevision != operation.Generation {
+	binding := a.ShopifyMediaConfirm.PairedInstallation
+	if binding == nil || binding.ShopKey != operation.ShopKey || binding.Generation != operation.Generation {
 		return ShopifyMediaPreview{}, submission.ShopifyMediaPlan{}, preparation.ErrForbidden
 	}
-	remote, adminURL, err := service.Store.ReadShopifyDraftMediaEvidence(ctx, subject, binding, operation.ProductID)
+	subject := shopifyProductSubject(operation.Owner, storecenter.ProductPurposePublish)
+	remote, err := service.Store.ReadPairedShopifyTrialMedia(ctx, subject, *binding, operation.ProductID)
+	adminURL := wire.ProductAdminURL(binding.Domain, operation.ProductID)
 	if err != nil {
 		return ShopifyMediaPreview{}, submission.ShopifyMediaPlan{}, shopifyMediaPreviewError(err)
 	}
@@ -111,19 +112,22 @@ func projectShopifyMediaEvidence(input ShopifyMediaPreviewRequest, operation sub
 	if !valid || len(additions) == 0 && !needsCover {
 		return preview, plan, nil
 	}
-	approvalHash := collection.Digest(struct {
-		Head           asset.ImageInventoryHead
-		Action, Origin string
-		Digests        map[string]string
-	}{selected.inventory.Head, selected.inventory.ApprovalActionID, selected.selection.OriginalPublicationID, approved})
 	plan = submission.ShopifyMediaPlan{ID: operation.ID, Owner: operation.Owner, ShopKey: operation.ShopKey, Generation: operation.Generation,
 		SourceKey: operation.SourceKey, ProductID: operation.ProductID, SourceVersion: version,
-		ApprovalHash: approvalHash, BeforeHash: shopifyTrialBeforeHash(remote), ExpiresAt: expires,
+		ApprovalHash: shopifyTrialApprovalHash(selected, approved), BeforeHash: shopifyTrialBeforeHash(remote), ExpiresAt: expires,
 		GalleryIDs: gallery, Images: additions, Covers: covers}
 	if !plan.Valid() {
 		return preview, submission.ShopifyMediaPlan{}, nil
 	}
 	return preview, plan, nil
+}
+
+func shopifyTrialApprovalHash(selected shopifyMediaSourceEvidence, approved map[string]string) string {
+	return collection.Digest(struct {
+		Head           asset.ImageInventoryHead
+		Action, Origin string
+		Digests        map[string]string
+	}{selected.inventory.Head, selected.inventory.ApprovalActionID, selected.selection.OriginalPublicationID, approved})
 }
 
 func shopifyTrialGallery(media []wire.DraftGalleryEvidence) ([]string, bool) {
@@ -170,6 +174,9 @@ func shopifyTrialBeforeHash(remote wire.DraftMediaEvidence) string {
 		options := slices.Clone(variant.Options)
 		slices.SortFunc(options, func(a, b wire.DraftMediaOption) int { return strings.Compare(a.Name, b.Name) })
 		remote.Variants[i].Options = options
+		if len(variant.MediaIDs) == 0 {
+			remote.Variants[i].MediaIDs = nil
+		}
 	}
 	return collection.Digest(remote)
 }

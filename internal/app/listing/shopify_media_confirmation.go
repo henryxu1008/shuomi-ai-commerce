@@ -7,6 +7,7 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 type ShopifyMediaConfirmationRequest struct {
@@ -27,6 +28,7 @@ type ShopifyMediaConfirmation struct {
 	Domain, Product, ShopKey string
 	Generation               int64
 	Sync                     submission.ShopifyMediaSync
+	PairedInstallation       *storecenter.ShopifyBinding
 	BuildPlan                func(context.Context, submission.ShopifyMediaOperation, preparation.SourceItem) (submission.ShopifyMediaPlan, error)
 }
 
@@ -35,9 +37,18 @@ func (a *Application) ShopifyMediaConfirmationEnabled() bool {
 		return false
 	}
 	trial := a.ShopifyMediaConfirm
-	return trial.Sync.Journal != nil && trial.Sync.Provider != nil && (a.ShopifyMedia != nil || trial.BuildPlan != nil) &&
-		collection.ValidID(trial.SourceID) && collection.ValidID(trial.StoreID) &&
-		trial.scopeMatches(ShopifyMediaPreviewRequest{SourceID: trial.SourceID, StoreID: trial.StoreID, Product: trial.Product})
+	if trial.Sync.Journal == nil || !collection.ValidID(trial.SourceID) || !collection.ValidID(trial.StoreID) ||
+		!trial.scopeMatches(ShopifyMediaPreviewRequest{SourceID: trial.SourceID, StoreID: trial.StoreID, Product: trial.Product}) {
+		return false
+	}
+	if trial.PairedInstallation == nil {
+		return a.ShopifyMedia == nil && trial.Sync.Provider != nil && trial.BuildPlan != nil
+	}
+	binding := trial.PairedInstallation
+	return a.ShopifyMedia != nil && trial.Sync.Provider == nil && trial.BuildPlan == nil &&
+		binding.OrganizationID == trial.Organization && binding.StoreID == trial.StoreID &&
+		binding.ShopKey == trial.ShopKey && binding.Generation == trial.Generation &&
+		binding.Domain == trial.Domain && binding.AppID != "" && binding.ShopID != "" && binding.InstallationID != ""
 }
 
 func (trial *ShopifyMediaConfirmation) scopeMatches(input ShopifyMediaPreviewRequest) bool {
@@ -87,8 +98,12 @@ func (a *Application) ConfirmShopifyMedia(ctx context.Context, id string, input 
 	if err != nil {
 		return ShopifyMediaConfirmationResult{}, err
 	}
-	status, err := trial.Sync.ConfirmOperation(ctx, operation, input.ConfirmationHash, func(ctx context.Context) (submission.ShopifyMediaPlan, error) {
-		if a.ShopifyMedia != nil {
+	sync := trial.Sync
+	if trial.PairedInstallation != nil {
+		sync.Provider = a.newShopifyMediaTrialProvider(operation, *trial.PairedInstallation, input.SourceID)
+	}
+	status, err := sync.ConfirmOperation(ctx, operation, input.ConfirmationHash, func(ctx context.Context) (submission.ShopifyMediaPlan, error) {
+		if trial.PairedInstallation != nil {
 			_, plan, err := a.readShopifyMediaTrial(ctx, input.ShopifyMediaPreviewRequest, operation, item, original)
 			if err == nil && !plan.Valid() {
 				err = preparation.ErrConflict

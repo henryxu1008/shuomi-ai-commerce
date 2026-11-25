@@ -664,11 +664,11 @@ func fixtureMediaProvider(plan submission.ShopifyMediaPlan) *fakeMediaProvider {
 	return p
 }
 
-func (p *fakeMediaProvider) Verify(_ context.Context, _ submission.ShopifyMediaPlan, beforeAppend bool) error {
+func (p *fakeMediaProvider) Verify(_ context.Context, _ submission.ShopifyMediaPlan, phase submission.ShopifyMediaPhase) error {
 	if p.denied {
 		return submission.ErrExecutionEvidenceRequired
 	}
-	if beforeAppend && p.stopAfterStaging && p.count(submission.ShopifyMediaUpload) == len(p.plan.Images) {
+	if phase == submission.ShopifyMediaAppend && p.stopAfterStaging && p.count(submission.ShopifyMediaUpload) == len(p.plan.Images) {
 		p.stopAfterStaging = false
 		return submission.ErrExecutionEvidenceRequired
 	}

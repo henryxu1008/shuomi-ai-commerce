@@ -17,6 +17,8 @@ import (
 type ShopifyMediaPhase string
 
 const (
+	// ShopifyMediaOpen preflights access before any dispatch is considered.
+	ShopifyMediaOpen      ShopifyMediaPhase = ""
 	ShopifyMediaPrepare   ShopifyMediaPhase = "prepare_shopify_media"
 	ShopifyMediaUpload    ShopifyMediaPhase = "upload_shopify_media"
 	ShopifyMediaAppend    ShopifyMediaPhase = "append_shopify_media"
@@ -150,10 +152,10 @@ type ShopifyMediaObservation struct {
 }
 
 // The provider port must resolve the current Store, original member and source
-// inventory independently of the retained plan. BeforeAppend also compares
-// the frozen pre-append remote snapshot.
+// inventory independently of the retained plan. Prepare and append compare the
+// frozen pre-append remote snapshot. Associate checks the latest verified view.
 type ShopifyMediaProvider interface {
-	Verify(ctx context.Context, plan ShopifyMediaPlan, beforeAppend bool) error
+	Verify(ctx context.Context, plan ShopifyMediaPlan, phase ShopifyMediaPhase) error
 	Read(context.Context, ShopifyMediaPlan) (ShopifyMediaObservation, error)
 	Send(context.Context, ShopifyMediaRequest) (ShopifyMediaResponse, error)
 }
@@ -195,7 +197,7 @@ func (s ShopifyMediaSync) Confirm(ctx context.Context, plan ShopifyMediaPlan) (s
 	}
 	ctx, cancel := context.WithTimeout(ctx, shopifyMediaConfirmTimeout)
 	defer cancel()
-	if err = s.Provider.Verify(ctx, plan, false); err != nil {
+	if err = s.Provider.Verify(ctx, plan, ShopifyMediaOpen); err != nil {
 		return "", err
 	}
 	run, err := s.Journal.Begin(ctx, plan)
@@ -238,7 +240,7 @@ func (s ShopifyMediaSync) Confirm(ctx context.Context, plan ShopifyMediaPlan) (s
 	changes := slices.DeleteFunc(slices.Clone(desired), func(item ShopifyMediaAssociation) bool {
 		return observation.Associations[item.VariantID] == item.MediaID
 	})
-	_, err = s.send(ctx, run, ShopifyMediaRequest{Plan: plan, Phase: ShopifyMediaAssociate, Associations: changes}, false)
+	_, err = s.send(ctx, run, ShopifyMediaRequest{Plan: plan, Phase: ShopifyMediaAssociate, Associations: changes})
 	if err != nil {
 		return dispatchStatus(err)
 	}
@@ -270,21 +272,21 @@ func dispatchStatus(err error) (ShopifyMediaStatus, error) {
 
 func (s ShopifyMediaSync) appendImages(ctx context.Context, run ShopifyMediaRun) ([]string, error) {
 	plan := run.Plan
-	staging, err := s.send(ctx, run, ShopifyMediaRequest{Plan: plan, Phase: ShopifyMediaPrepare}, true)
+	staging, err := s.send(ctx, run, ShopifyMediaRequest{Plan: plan, Phase: ShopifyMediaPrepare})
 	if err != nil {
 		return nil, err
 	}
 	for i, resource := range staging.Staged {
-		if _, err := s.send(ctx, run, ShopifyMediaRequest{Plan: plan, Phase: ShopifyMediaUpload, Index: i, Staged: []string{resource}}, true); err != nil {
+		if _, err := s.send(ctx, run, ShopifyMediaRequest{Plan: plan, Phase: ShopifyMediaUpload, Index: i, Staged: []string{resource}}); err != nil {
 			return nil, err
 		}
 	}
-	appended, err := s.send(ctx, run, ShopifyMediaRequest{Plan: plan, Phase: ShopifyMediaAppend, Staged: staging.Staged}, true)
+	appended, err := s.send(ctx, run, ShopifyMediaRequest{Plan: plan, Phase: ShopifyMediaAppend, Staged: staging.Staged})
 	return appended.Candidates, err
 }
 
-func (s ShopifyMediaSync) send(ctx context.Context, run ShopifyMediaRun, request ShopifyMediaRequest, beforeAppend bool) (ShopifyMediaResponse, error) {
-	if err := s.Provider.Verify(ctx, run.Plan, beforeAppend); err != nil {
+func (s ShopifyMediaSync) send(ctx context.Context, run ShopifyMediaRun, request ShopifyMediaRequest) (ShopifyMediaResponse, error) {
+	if err := s.Provider.Verify(ctx, run.Plan, request.Phase); err != nil {
 		return ShopifyMediaResponse{}, err
 	}
 	// Signed staging resources are sent directly from memory. The durable
