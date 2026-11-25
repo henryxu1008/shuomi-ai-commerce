@@ -184,7 +184,7 @@ function ScopedImageSetPanel({scope,colorGroupsAvailable,target,effectiveVersion
   }else setPriorRuns([]);
   if(p.status==="completed"){setMessage("本次批准已保存为正式商品素材。");if(notified.current!==p.runId){notified.current=p.runId;savedCallback.current?.()}}
   return p;
- },[stableScope,remember,fail]);
+ },[stableScope,remember,fail,setPhoto,setPreview,setSelected,setRegenerate,setRegenerationTextDraft,setPositions]);
  useEffect(()=>{
   const controller=new AbortController();abort.current=controller;
   void (async()=>{
