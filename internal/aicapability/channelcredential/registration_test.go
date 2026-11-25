@@ -61,6 +61,20 @@ func TestGRSaiImageRegistrationOwnsFixedProviderEndpoint(t *testing.T) {
 	if _, err := NewRegistrationCommand(PlatformOwner, "editor", "request", input); err == nil {
 		t.Fatal("GRSai image registration must not admit a platform credential")
 	}
+	domestic := input
+	domestic.BaseURL = "https://grsai.dakka.com.cn"
+	cn, err := NewRegistrationCommand("enterprise", "editor", "domestic-request", domestic)
+	if err != nil || cn.Validate() != nil || cn.Region != "cn" || cn.BaseURL != domestic.BaseURL || cn.ConnectionID == registered.ConnectionID {
+		t.Fatalf("GRSai domestic must use a new fixed connection: %v", err)
+	}
+	cn.Region = "global"
+	if cn.Validate() == nil {
+		t.Fatal("mismatching a region with its supplier address must fail")
+	}
+	domestic.BaseURL += "/"
+	if _, err := NewRegistrationCommand("enterprise", "editor", "invalid-domestic-request", domestic); err == nil {
+		t.Fatal("regional template must reject all other addresses")
+	}
 	input.BaseURL = "https://grsaiapi.com"
 	if _, err := NewRegistrationCommand("enterprise", "editor", "request", input); err == nil {
 		t.Fatal("GRSai image registration must not take a caller-selected URL")

@@ -29,10 +29,10 @@ func (c *SharedCatalog) ReadOwnedProductImages(ctx context.Context, org string) 
 		switch row.Template {
 		case credential.GRSaiImageTemplate:
 			option = d.OwnedProductImageOption{Provider: "grsai", Model: aicapability.GRSaiProductImageModel,
-				Protocol: aicapability.GRSaiProductImageProtocol, BaseURL: aicapability.GRSaiProductImageBaseURL, Channel: credential.GRSaiImageChannel}
+				Protocol: aicapability.GRSaiProductImageProtocol, Channel: credential.GRSaiImageChannel}
 		case credential.ToAPIsImageTemplate:
 			option = d.OwnedProductImageOption{Provider: aicapability.ToAPIsProductImageProvider, Model: aicapability.ToAPIsProductImageModel,
-				Protocol: aicapability.ToAPIsProductImageProtocol, BaseURL: aicapability.ToAPIsProductImageBaseURL, Channel: credential.ToAPIsImageChannel}
+				Protocol: aicapability.ToAPIsProductImageProtocol, BaseURL: aicapability.ToAPIsProductImageBaseURL, Channel: credential.ToAPIsImageChannel, Region: "global"}
 		default:
 			continue
 		}
@@ -49,9 +49,13 @@ func (c *SharedCatalog) ReadOwnedProductImages(ctx context.Context, org string) 
 		if !metadata.Enabled || !metadata.KeyPresent {
 			continue
 		}
-		if metadata.OrganizationID != org || metadata.ConnectionID != row.ConnectionID ||
+		if option.Provider == "grsai" {
+			option.BaseURL = metadata.BaseURL
+			option.Region = aicapability.GRSaiProductImageRegion(metadata.BaseURL)
+		}
+		if option.Region == "" || metadata.OrganizationID != org || metadata.ConnectionID != row.ConnectionID ||
 			metadata.Channel != option.Channel || metadata.Provider != option.Provider ||
-			metadata.Region != "global" || metadata.BaseURL != option.BaseURL ||
+			metadata.Region != option.Region || metadata.BaseURL != option.BaseURL ||
 			!credential.ValidID(metadata.Reference) || !d.ValidFact(metadata.EndpointDigest, 64) {
 			return nil, d.ErrUnavailable
 		}

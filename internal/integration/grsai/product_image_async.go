@@ -16,11 +16,12 @@ import (
 	"unicode/utf8"
 
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 )
 
 const (
 	ProductImageModel          = "gpt-image-2.6"
-	ProductImageBaseURL        = "https://grsaiapi.com"
+	ProductImageBaseURL        = aicapability.GRSaiProductImageBaseURL
 	ProductImageMaxSourceBytes = 3 << 20
 
 	maxProductImageReplyBytes = 1 << 20
@@ -79,7 +80,7 @@ func (c *Client) StartProductImage(ctx context.Context, prompt string, source []
 	if ctx.Err() != nil {
 		return "", ErrProductImagePreflight
 	}
-	response, err := c.readProductImageResponse(ctx, http.MethodPost, ProductImageBaseURL+"/v1/api/generate", bytes.NewReader(body))
+	response, err := c.readProductImageResponse(ctx, http.MethodPost, c.cfg.SubmitURL+"/v1/api/generate", bytes.NewReader(body))
 	if err != nil || !productImageTaskID.MatchString(response.ID) || response.Status != string(ProductImageRunning) || len(response.Results) != 0 || response.Error != "" {
 		return "", errProductImageOutcome
 	}
@@ -95,7 +96,7 @@ func (c *Client) ReadProductImageResult(ctx context.Context, taskID string) (Pro
 	ctx, cancel := context.WithTimeout(ctx, min(c.cfg.Timeout, 5*time.Second))
 	defer cancel()
 	query := url.Values{"id": {taskID}}
-	response, err := c.readProductImageResponse(ctx, http.MethodGet, ProductImageBaseURL+"/v1/api/result?"+query.Encode(), nil)
+	response, err := c.readProductImageResponse(ctx, http.MethodGet, c.cfg.SubmitURL+"/v1/api/result?"+query.Encode(), nil)
 	if err != nil || response.ID != taskID {
 		return ProductImageResult{}, errProductImageOutcome
 	}
@@ -123,7 +124,7 @@ func (c *Client) ReadProductImageResult(ctx context.Context, taskID string) (Pro
 }
 
 func (c *Client) productImageConfigured() bool {
-	return c != nil && c.cfg.SubmitURL == ProductImageBaseURL && c.cfg.Model == ProductImageModel && strings.TrimSpace(c.cfg.APIKey) != ""
+	return c != nil && aicapability.GRSaiProductImageRegion(c.cfg.SubmitURL) != "" && c.cfg.Model == ProductImageModel && strings.TrimSpace(c.cfg.APIKey) != ""
 }
 
 func (c *Client) readProductImageResponse(ctx context.Context, method, endpoint string, body io.Reader) (submitResponse, error) {

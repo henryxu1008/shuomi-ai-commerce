@@ -86,7 +86,8 @@ func (cmd RegistrationCommand) Validate() error {
 		Template: cmd.Registration.Template, Name: cmd.Registration.Name,
 		Account: cmd.Account, APIKey: cmd.Secret,
 	}
-	if input.Template == CompatibleMiniTemplate {
+	if input.Template == CompatibleMiniTemplate ||
+		input.Template == GRSaiImageTemplate && cmd.BaseURL == aicapability.GRSaiProductImageChinaBaseURL {
 		input.BaseURL = cmd.BaseURL
 	}
 	expected, err := NewRegistrationCommand(cmd.OrganizationID, cmd.ActorID, cmd.Key, input)
@@ -106,7 +107,7 @@ func NewRegistrationCommand(org, actor, key string, input RegistrationInput) (Re
 	}
 	id := aicapability.ScopedCommandID("uc-", "create-channel-v1", org, actor, key)
 	base, channel := OfficialOpenAIBaseURL, OfficialOpenAIChannel
-	provider := "openai"
+	provider, region := "openai", "global"
 	switch input.Template {
 	case OfficialMiniTemplate:
 		if input.BaseURL != "" {
@@ -118,10 +119,13 @@ func NewRegistrationCommand(org, actor, key string, input RegistrationInput) (Re
 			return RegistrationCommand{}, ErrInvalid
 		}
 	case GRSaiImageTemplate:
-		if input.BaseURL != "" || org == PlatformOwner {
+		if org == PlatformOwner || input.BaseURL != "" && input.BaseURL != aicapability.GRSaiProductImageChinaBaseURL {
 			return RegistrationCommand{}, ErrInvalid
 		}
 		base, channel, provider = aicapability.GRSaiProductImageBaseURL, GRSaiImageChannel, "grsai"
+		if input.BaseURL != "" {
+			base, region = input.BaseURL, aicapability.GRSaiProductImageRegion(input.BaseURL)
+		}
 	case ToAPIsImageTemplate:
 		if input.BaseURL != "" || org == PlatformOwner {
 			return RegistrationCommand{}, ErrInvalid
@@ -135,7 +139,7 @@ func NewRegistrationCommand(org, actor, key string, input RegistrationInput) (Re
 		account = "default"
 	}
 	cmd := Command{OrganizationID: org, ActorID: actor, Key: key, ConnectionID: id,
-		Provider: provider, Channel: channel, Account: account, Region: "global",
+		Provider: provider, Channel: channel, Account: account, Region: region,
 		BaseURL: base, Secret: input.APIKey, Enabled: true}
 	if err := cmd.Validate(); err != nil {
 		return RegistrationCommand{}, err

@@ -63,7 +63,7 @@ func (f generationProviderFactory) resolveOwnedProductImage(ctx context.Context,
 		m := secret.Metadata
 		if err != nil || secret.APIKey == "" || !m.Enabled || m.OrganizationID != identity.TenantID ||
 			m.ConnectionID != option.ConnectionID || m.Reference != option.CredentialVersion || m.EndpointDigest != option.EndpointDigest ||
-			m.BaseURL != config.BaseURL || m.Provider != option.Provider || m.Channel != option.Channel || m.Region != "global" {
+			m.BaseURL != config.BaseURL || m.Provider != option.Provider || m.Channel != option.Channel || m.Region != option.Region {
 			return reject()
 		}
 		config.APIKey = secret.APIKey

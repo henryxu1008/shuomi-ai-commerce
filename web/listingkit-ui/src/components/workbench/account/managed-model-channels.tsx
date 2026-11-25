@@ -6,7 +6,7 @@ import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
 import {ModelRouteError,modelRouteRequest,type ModelRouteScope} from "@/lib/api/model-route-pricing";
 import {channelTemplate,openAIQueryModel,type ManagedConnection} from "@/lib/contracts/channel-credentials";
-import {createChannel,createChannelReceipt,editBinding,editBindingReceipt,managedChannelPath,managedChannelPending,managedChannels,renameChannel,renameChannelReceipt,type ManagedChannelPending,type ManagedChannelReceipt} from "@/lib/contracts/managed-model-channels";
+import {createChannel,createChannelReceipt,editBinding,editBindingReceipt,grsaiChinaImageURL,managedChannelPath,managedChannelPending,managedChannels,renameChannel,renameChannelReceipt,type ManagedChannelPending,type ManagedChannelReceipt} from "@/lib/contracts/managed-model-channels";
 import {useResourcePending} from "../resources/resource-pending";
 import {AccountDialog} from "./account-dialog";
 import {ChannelModelQuery} from "./channel-model-query";
@@ -176,7 +176,7 @@ export function ManagedModelChannels({scope,memberId,testMemberId,focusModelId,b
     event.preventDefault();
     const data=new FormData(event.currentTarget),name=String(data.get("name")??"").trim();
     if(dialog.action==="name"){save("name",{name,expectedRevision:dialog.channel?.registration?.revision},dialog.channel?.connectionId);return;}
-    save("create",{name,template,baseUrl:template==="openai-compatible-mini-v1"?String(data.get("baseUrl")??"").trim():undefined,
+    save("create",{name,template,baseUrl:String(data.get("baseUrl")??"").trim()||undefined,
      account:String(data.get("account")??"").trim()||undefined,apiKey:keyInput.current?.value??""});
    }}>
     <label className={styles.field}>渠道名称<input name="name" required maxLength={128} defaultValue={dialog.channel?.registration?.name}/></label>
@@ -184,7 +184,7 @@ export function ManagedModelChannels({scope,memberId,testMemberId,focusModelId,b
      {dialog.action==="replace"&&<p>这会新建渠道。保存后，关联模型并发布新选择即可切换地址。</p>}
      <label className={styles.field}>提供方<select value={template} onChange={e=>setTemplate(e.target.value as keyof typeof names)}>
       {channelTemplate.options.filter(value=>(query.data?.grsaiImageRegistration||value!=="grsai-product-image-v1")&&(query.data?.toapisImageRegistration||value!=="toapis-product-image-v1")&&(dialog.action!=="replace"||value==="openai-compatible-mini-v1")).map(value=><option key={value} value={value}>{names[value]}</option>)}</select></label>
-     {template==="openai-compatible-mini-v1"?<label className={styles.field}>服务基础地址<input name="baseUrl" type="url" required maxLength={2048} placeholder="https://models.example.com/v1"/></label>:<p>服务地址 {template==="toapis-product-image-v1"?"https://api.toapis.cn":template==="grsai-product-image-v1"?"https://grsaiapi.com":"https://api.openai.com/v1"}</p>}
+     {template==="openai-compatible-mini-v1"?<label className={styles.field}>服务基础地址<input name="baseUrl" type="url" required maxLength={2048} placeholder="https://models.example.com/v1"/></label>:template==="grsai-product-image-v1"?<label className={styles.field}>GRSai 服务节点<select name="baseUrl" defaultValue=""><option value="">全球 · grsaiapi.com</option><option value={grsaiChinaImageURL}>中国大陆 · grsai.dakka.com.cn</option></select></label>:<p>服务地址 {template==="toapis-product-image-v1"?"https://api.toapis.cn":"https://api.openai.com/v1"}</p>}
      <label className={styles.field}>账号备注（选填）<input name="account" maxLength={128}/></label>
      <label className={styles.field}>API Key<input ref={keyInput} type="password" autoComplete="new-password" spellCheck={false} required maxLength={4096}/></label>
      <p>使用此渠道时，Key 和请求内容会发送到上面的服务地址。保存时不会调用模型。</p>
