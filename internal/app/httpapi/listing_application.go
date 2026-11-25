@@ -271,7 +271,14 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 	}
 	binder := productReviewCapabilityBinder{now: time.Now}
 	routes := listinghttp.ListingRoutes(app, binder.Bind)
-	google, err := apps.GoogleConnections(storeRepo)
+	googleStore, err := storecenter.NewMemberScopedStoreRepository(storeDB, googleListingStoreAccess{
+		live:   &productReviewLiveOrganizationAccess{resolver: resolver, now: time.Now},
+		member: currentStoreMemberAuthorizer{authorizer: permissions},
+	})
+	if err != nil {
+		return empty, err
+	}
+	google, err := apps.GoogleConnections(googleStore)
 	if err != nil {
 		return empty, err
 	}
@@ -285,6 +292,27 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 	}
 	return listingModule{app: app, worker: currentWorker, routes: routes, executionAuthorization: executionAuth}, nil
 }
+
+// Google credential operations must recheck Store read access against current
+// Organization roles, including on the detached save following OAuth.
+type googleListingStoreAccess struct {
+	live   *productReviewLiveOrganizationAccess
+	member currentStoreMemberAuthorizer
+}
+
+func (a googleListingStoreAccess) AuthorizeStoreMember(ctx context.Context, org string) (storecenter.StoreMemberAccess, error) {
+	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+	if !ok {
+		return storecenter.StoreMemberAccess{}, storecenter.ErrNotFound
+	}
+	roles, err := a.live.ResolveLiveRoles(ctx, org, identity.UserID)
+	if err != nil {
+		return storecenter.StoreMemberAccess{}, storecenter.ErrNotFound
+	}
+	identity.Roles = roles
+	return a.member.AuthorizeStoreMember(authidentity.WithAuthenticatedIdentity(ctx, identity), org)
+}
+
 func validateListingDescriptor(route httproute.Descriptor) error {
 	for _, expected := range append(append(listinghttp.ListingRoutes(nil, nil), listinghttp.SourceMaterialRoutes(nil, nil)...), listinghttp.GoogleRoutes(nil, nil)...) {
 		if route.Method == expected.Method && route.Path == expected.Path {

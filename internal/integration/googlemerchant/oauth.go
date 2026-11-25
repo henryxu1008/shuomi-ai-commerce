@@ -5,11 +5,15 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,6 +22,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	merchant "google.golang.org/api/merchantapi/products/v1"
+	sigjson "sigs.k8s.io/json"
 )
 
 var challengeInput = regexp.MustCompile(`^[A-Za-z0-9._~-]{43,128}$`)
@@ -63,9 +68,92 @@ func (c *OAuth) Refresh(ctx context.Context, previous domain.TokenSet) (domain.T
 	if c == nil || ctx == nil || !validToken(previous.RefreshToken) {
 		return domain.TokenSet{}, domain.ErrInvalidGrantInput
 	}
-	ctx = context.WithValue(ctx, oauth2.HTTPClient, c.client)
-	result, err := c.config.TokenSource(ctx, &oauth2.Token{RefreshToken: previous.RefreshToken}).Token()
-	return grantResult(result, err)
+	if ctx.Err() != nil {
+		return domain.TokenSet{}, domain.ErrRefreshNotSent
+	}
+	form := url.Values{
+		"grant_type": {"refresh_token"}, "refresh_token": {previous.RefreshToken},
+		"client_id": {c.config.ClientID}, "client_secret": {c.config.ClientSecret},
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.config.Endpoint.TokenURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		return domain.TokenSet{}, domain.ErrRefreshNotSent
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	// Use the existing bounded, no-redirect, no-POST-replay transport. The
+	// refresh response must preserve the distinction between omitted and
+	// explicitly invalid refresh_token fields.
+	started := time.Now()
+	response, err := c.client.Do(req)
+	if err != nil {
+		return domain.TokenSet{}, domain.ErrGrantUnavailable
+	}
+	defer response.Body.Close()
+	var body struct {
+		AccessToken  string          `json:"access_token"`
+		RefreshToken json.RawMessage `json:"refresh_token"`
+		TokenType    string          `json:"token_type"`
+		Scope        json.RawMessage `json:"scope"`
+		ExpiresIn    json.Number     `json:"expires_in"`
+		Error        string          `json:"error"`
+	}
+	raw, err := io.ReadAll(response.Body)
+	if err != nil {
+		return domain.TokenSet{}, domain.ErrGrantUnavailable
+	}
+	defer clear(raw)
+	if duplicate, err := sigjson.UnmarshalStrict(raw, &body, sigjson.DisallowDuplicateFields); err != nil || len(duplicate) != 0 {
+		return domain.TokenSet{}, domain.ErrGrantUnavailable
+	}
+	if response.StatusCode != http.StatusOK && (body.AccessToken != "" || body.RefreshToken != nil || body.ExpiresIn != "") {
+		return domain.TokenSet{}, domain.ErrGrantUnavailable
+	}
+	switch response.StatusCode {
+	case http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden:
+		switch body.Error {
+		case "invalid_grant", "access_denied":
+			return domain.TokenSet{}, domain.ErrGrantRejected
+		case "invalid_client":
+			return domain.TokenSet{}, domain.RefreshRetry{After: refreshRetryAfter(response.Header.Get("Retry-After"))}
+		}
+	case http.StatusTooManyRequests:
+		if body.Error == "rate_limit_exceeded" || body.Error == "slow_down" {
+			return domain.TokenSet{}, domain.RefreshRetry{After: refreshRetryAfter(response.Header.Get("Retry-After"))}
+		}
+	}
+	if response.StatusCode != http.StatusOK || body.Error != "" {
+		return domain.TokenSet{}, domain.ErrGrantUnavailable
+	}
+	refresh := previous.RefreshToken
+	if body.RefreshToken != nil && (json.Unmarshal(body.RefreshToken, &refresh) != nil ||
+		string(body.RefreshToken) == "null" || !validToken(refresh)) {
+		return domain.TokenSet{}, domain.ErrGrantUnavailable
+	}
+	if body.Scope != nil {
+		var scope string
+		if json.Unmarshal(body.Scope, &scope) != nil || string(body.Scope) == "null" {
+			return domain.TokenSet{}, domain.ErrGrantUnavailable
+		}
+		if !slices.Contains(strings.Fields(scope), merchant.ContentScope) {
+			return domain.TokenSet{}, domain.ErrGrantRejected
+		}
+	}
+	lifetime, err := body.ExpiresIn.Int64()
+	if err != nil || lifetime <= 0 || lifetime > int64(math.MaxInt64/time.Second) {
+		return domain.TokenSet{}, domain.ErrGrantUnavailable
+	}
+	return grantResult(&oauth2.Token{AccessToken: body.AccessToken, RefreshToken: refresh, TokenType: body.TokenType,
+		Expiry: started.Add(time.Duration(lifetime) * time.Second)}, nil)
+}
+
+func refreshRetryAfter(value string) time.Duration {
+	if seconds, err := strconv.ParseUint(value, 10, 32); err == nil {
+		return time.Duration(seconds) * time.Second
+	}
+	if at, err := http.ParseTime(value); err == nil {
+		return time.Until(at)
+	}
+	return 0
 }
 
 func grantResult(token *oauth2.Token, err error) (domain.TokenSet, error) {

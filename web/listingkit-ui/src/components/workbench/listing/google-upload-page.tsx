@@ -40,11 +40,14 @@ function ScopedGoogleUpload({scope,sourceId,initialPlan,preparation}:{scope:Goog
   const [error,setError]=useState("");
   const [submitted,setSubmitted]=useState(Boolean(initialPlan));
   const [prepareKey,setPrepareKey]=useState("");
+  const [showSavedPlan,setShowSavedPlan]=useState(false);
+  const confirmation = submitted ? (showSavedPlan ? result?.pendingPlan : undefined) : plan;
   async function perform(work:()=>Promise<void>,message:string){
     setBusy(true);setError("");
     try {await work();} catch (failure) {
-      setError(failure instanceof GoogleRequestError && failure.code==="NOT_READY" ?
-        "这项商品已有提交记录，或当前还不能上传。请先查询原记录。" : message);
+      const code = failure instanceof GoogleRequestError ? failure.code : "";
+      setError(code==="NOT_READY" ? "这项商品已有提交记录，或当前还不能上传。请先查询原记录。" :
+        code==="PERMISSION_DENIED" || code.startsWith("ORGANIZATION_ACCESS_") ? "当前账号没有执行此操作的权限。" : message);
     } finally {setBusy(false);}
   }
   async function preview(){
@@ -55,16 +58,30 @@ function ScopedGoogleUpload({scope,sourceId,initialPlan,preparation}:{scope:Goog
     "无法生成上传预览。请核对店铺服务、商品资料和已审核的图片。");
   }
   async function confirm(){
-    if(!plan)return;
-    setSubmitted(true);
-    window.history.replaceState(null,"",recordPath(plan.id));
-    await perform(async()=>setResult(await googleRequest(scope,"confirm",sourceId,{sourceId,planId:plan.id})),
-      "暂时无法确认提交结果。请先查询原提交，避免重复上传。");
-    await options.refetch();
+    if(!confirmation)return;
+    const planId=confirmation.id;
+    function showRecord() {
+      setSubmitted(true);
+      window.history.replaceState(null,"",recordPath(planId));
+    }
+    await perform(async()=>{
+      try {
+        const saved=await googleRequest(scope,"confirm",sourceId,{sourceId,planId});
+        setResult(saved);
+        setShowSavedPlan(false);
+        if (saved.confirmationBlocked!=="retry" || saved.items.some(item=>item.status!=="not_sent")) showRecord();
+      } catch (failure) {
+        setShowSavedPlan(false);
+        showRecord();
+        throw failure;
+      }
+    },"暂时无法确认提交结果。请先查询原提交，避免重复上传。");
+    if(!initialPlan) await options.refetch();
   }
   async function refresh(){
     const planId=plan?.id||initialPlan;
     if(!planId)return;
+    setShowSavedPlan(false);
     await perform(async()=>setResult(await googleRequest(scope,"result",sourceId,{sourceId,planId})),
       "暂时无法读取提交结果，请稍后再查。");
   }
@@ -73,6 +90,9 @@ function ScopedGoogleUpload({scope,sourceId,initialPlan,preparation}:{scope:Goog
     <Link className="underline" href={"/workbench/listing/waiting?mode=google"+preparationQuery}>返回待上传商品</Link>
     <h1 className="text-xl font-semibold">上传到 Google Shopping</h1>
     {error&&<p role="alert">{error}</p>}
+    {result?.confirmationBlocked==="retry"&&<p role="alert">暂时无法连接 Google。尚未提交的商品可以稍后继续确认。</p>}
+    {(result?.confirmationBlocked==="reauthorize"||result?.lookupStatus==="reauthorize")&&
+      <p role="alert">请联系有权限的成员在 <Link className="underline" href="/workbench/stores">店铺中心</Link> 重新授权 Google。</p>}
     {!initialPlan&&!plan&&<form className="space-y-3" onChange={()=>{if(prepareKey)setPrepareKey("");}} onSubmit={event=>{event.preventDefault();void preview();}}>
       {options.isPending&&<p role="status">正在读取商品资料…</p>}
       {options.isError&&<p role="alert">无法读取商品资料。请确认商品可访问且已审核商品图片。</p>}
@@ -100,17 +120,18 @@ function ScopedGoogleUpload({scope,sourceId,initialPlan,preparation}:{scope:Goog
       {options.data && options.data.variants.length>1 && <><label htmlFor="google-color">颜色</label><Input id="google-color" value={color} onChange={e=>setColor(e.target.value)} /><label htmlFor="google-size">尺码</label><Input id="google-size" value={size} onChange={e=>setSize(e.target.value)} /></>}
       <Button type="submit" disabled={busy||options.isError||!options.data}>预览上传</Button>
     </form>}
-    {plan&&!submitted&&<section className="space-y-3" aria-label="待确认商品">
+    {confirmation&&<section className="space-y-3" aria-label="待确认商品">
       <h2 className="font-semibold">核对即将提交的商品</h2>
+      {submitted&&<p>本次只提交仍待确认的商品。</p>}
       <dl>
-        <dt>目标店铺</dt><dd>{stores.find(item=>item.id===plan.storeId)?.name}</dd>
-        <dt>Merchant Center 账号</dt><dd>{plan.accountId}</dd>
-        <dt>商品数据源</dt><dd>{plan.dataSourceId}</dd>
-        <dt>商品语言与数据源标签</dt><dd>{plan.contentLanguage} / {plan.feedLabel}</dd>
+        <dt>目标店铺</dt><dd>{stores.find(item=>item.id===confirmation.storeId)?.name}</dd>
+        <dt>Merchant Center 账号</dt><dd>{confirmation.accountId}</dd>
+        <dt>商品数据源</dt><dd>{confirmation.dataSourceId}</dd>
+        <dt>商品语言与数据源标签</dt><dd>{confirmation.contentLanguage} / {confirmation.feedLabel}</dd>
       </dl>
-      {plan.offers.map(item=><dl key={item.ID}>
+      {confirmation.offers.map(item=><dl key={item.ID}>
         <dt>商品</dt><dd>{item.Title}</dd>
-        <dt>商品规格</dt><dd>{options.data?.variants.find(item=>item.id===variant)?.label}</dd>
+        {options.data?.variants.find(item=>item.id===variant)?.label&&<><dt>商品规格</dt><dd>{options.data.variants.find(item=>item.id===variant)?.label}</dd></>}
         <dt>销售价</dt><dd>{item.AmountMicros/1000000} {item.Currency}</dd>
         <dt>库存和状况</dt><dd>{item.Availability==="IN_STOCK"?"有货":"缺货"} · {{NEW:"全新",USED:"二手",REFURBISHED:"翻新"}[item.Condition]}</dd>
         {(item.Color||item.Size)&&<><dt>颜色与尺码</dt><dd>{[item.Color,item.Size].filter(Boolean).join(" / ")}</dd></>}
@@ -119,7 +140,8 @@ function ScopedGoogleUpload({scope,sourceId,initialPlan,preparation}:{scope:Goog
         <dt>描述</dt><dd>{item.Description}</dd>
       </dl>)}
       <Button disabled={busy} onClick={()=>void confirm()}>确认上传到 Google</Button>
-      <Button variant="outline" disabled={busy} onClick={()=>{setPlan(undefined);setPrepareKey("");}}>返回修改</Button>
+      {submitted ? <Button variant="outline" disabled={busy} onClick={()=>setShowSavedPlan(false)}>返回提交记录</Button> :
+        <Button variant="outline" disabled={busy} onClick={()=>{setPlan(undefined);setResult(undefined);setPrepareKey("");}}>返回修改</Button>}
     </section>}
     {!!options.data?.records.length&&<section aria-label="最近的 Google 上传记录" className="space-y-2">
       <h2 className="font-semibold">最近的 Google 上传记录</h2>
@@ -127,9 +149,10 @@ function ScopedGoogleUpload({scope,sourceId,initialPlan,preparation}:{scope:Goog
         <Link className="underline" href={recordPath(item.id)}>{new Date(item.createdAt).toLocaleString("zh-CN")} 的上传记录</Link>
       </li>)}</ul>
     </section>}
-    {submitted&&<section className="space-y-3" aria-label="Google 提交结果"><h2 className="font-semibold">提交结果</h2>
+    {submitted&&!showSavedPlan&&<section className="space-y-3" aria-label="Google 提交结果"><h2 className="font-semibold">提交结果</h2>
       {initialPlan&&<Link className="underline" href={productPath+(preparation?"?preparation="+preparation:"")}>返回商品上传与记录</Link>}
-      {busy&&!result&&<p role="status">正在读取 Google 提交结果…</p>}
+      {busy&&<p role="status">正在读取 Google 提交结果…</p>}
+      {result?.lookupStatus==="unavailable"&&<p role="alert">暂时无法查询 Google 的最新状态。下方保留已有的提交结果。</p>}
       {result?.items.map(item=><div key={item.offerId} className="rounded border p-3">
         <p>{item.status==="succeeded"?"Google 已收到商品":item.status==="failed_definitive"?"本次上传未成功":item.status==="not_sent"?"尚未提交":"正在核对提交结果"}</p>
         {item.remoteProduct&&<p className="break-all">平台商品编号：{item.remoteProduct}</p>}
@@ -140,6 +163,7 @@ function ScopedGoogleUpload({scope,sourceId,initialPlan,preparation}:{scope:Goog
           {item.observation.FreeListings.Disapproved.length>0&&<p>未通过免费展示审核：{item.observation.FreeListings.Disapproved.join("、")}</p>}
           {item.observation.FreeListings.Pending.length>0&&<p>正在审核免费展示资格：{item.observation.FreeListings.Pending.join("、")}</p>}</>}
       </div>)}
+      {result?.pendingPlan&&<Button disabled={busy} onClick={()=>setShowSavedPlan(true)}>继续核对原商品</Button>}
       <Button disabled={busy} variant="outline" onClick={()=>void refresh()}>查询提交结果</Button>
     </section>}
   </section>;

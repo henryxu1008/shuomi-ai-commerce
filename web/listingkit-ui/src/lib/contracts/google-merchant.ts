@@ -11,14 +11,16 @@ const ok = z.object({ok:z.literal(true)});
 const pair = z.strictObject({sourceId:id,planId:id});
 const version = z.strictObject({version:z.number().int().positive()});
 const countries = list(z.string().length(2));
+const offer = z.object({ID:z.string(),Title:z.string(),Description:z.string(),Link:z.url(),ImageLink:z.url(),Currency:z.string(),AmountMicros:z.number().int(),Availability:z.enum(["IN_STOCK","OUT_OF_STOCK"]),Condition:z.enum(["NEW","USED","REFURBISHED"]),Color:z.string(),Size:z.string()});
+const plan = z.object({id,sourceId:id,storeId:id,accountId:merchant,dataSourceId:merchant,contentLanguage:language,feedLabel:feed,version:z.string(),offers:z.array(offer).min(1).max(10),createdAt:z.iso.datetime({offset:true})});
 const result = z.object({id,items:z.array(z.object({
   offerId:z.string().max(50), status:z.enum(["claimed","succeeded","failed_definitive","outcome_unknown","cancelled","not_sent"]),
   remoteProduct:z.string().optional(), observation:z.object({
     Product:z.string(),FreeListings:z.object({Approved:countries,Pending:countries,Disapproved:countries}),
     UnexpectedDestination:z.boolean(),Issues:list(z.object({Code:z.string(),Attribute:z.string(),Severity:z.string()})),
   }).optional(),
-}))});
-const offer = z.object({ID:z.string(),Title:z.string(),Description:z.string(),Link:z.url(),ImageLink:z.url(),Currency:z.string(),AmountMicros:z.number().int(),Availability:z.enum(["IN_STOCK","OUT_OF_STOCK"]),Condition:z.enum(["NEW","USED","REFURBISHED"]),Color:z.string(),Size:z.string()});
+})),pendingPlan:plan.optional(),confirmationBlocked:z.enum(["retry","reauthorize"]).optional(),
+  lookupStatus:z.enum(["unavailable","reauthorize"]).optional()});
 export const googleContracts = {
   status:{method:"GET",response:status},
   begin:{method:"POST",body:version,response:z.object({attemptId:id,authorizationUrl:z.url().refine(value=>{
@@ -33,7 +35,7 @@ export const googleContracts = {
   prepare:{method:"POST",body:z.strictObject({sourceId:id,storeId:id,imageId:z.string().min(1).max(200),variants:z.array(z.strictObject({
     variantId:z.string().min(1).max(512),link:z.url().max(2000),price:z.string().max(17),currency:z.string().regex(/^[A-Z]{3}$/),
     availability:z.enum(["IN_STOCK","OUT_OF_STOCK"]),condition:z.enum(["NEW","USED","REFURBISHED"]),color:z.string().max(100),size:z.string().max(100),
-  })).min(1).max(10)}),response:z.object({id,sourceId:id,storeId:id,accountId:merchant,dataSourceId:merchant,contentLanguage:language,feedLabel:feed,version:z.string(),offers:z.array(offer).min(1).max(10),createdAt:z.iso.datetime({offset:true})})},
+  })).min(1).max(10)}),response:plan},
   confirm:{method:"POST",body:pair,response:result},
   result:{method:"POST",body:pair,response:result},
 } as const;
