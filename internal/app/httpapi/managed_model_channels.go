@@ -52,6 +52,7 @@ func (m modelRoutePricingModule) serveManagedChannel(c *gin.Context, action stri
 	}
 	canSave := slices.Contains(permissions, authz.PermissionWorkbenchCredentialsManage)
 	ownedImageRegistration := slices.Contains(m.ownedImageTenants, org)
+	toapisRegistration := slices.Contains(m.ownedToAPIsTenants, org)
 	if (action == "create" || action == "create-receipt") && !canSave {
 		forbidden()
 		return
@@ -114,6 +115,9 @@ func (m modelRoutePricingModule) serveManagedChannel(c *gin.Context, action stri
 		if ownedImageRegistration {
 			response["grsaiImageRegistration"] = true
 		}
+		if toapisRegistration {
+			response["toapisImageRegistration"] = true
+		}
 		c.JSON(200, response)
 		return
 	}
@@ -139,7 +143,8 @@ func (m modelRoutePricingModule) serveManagedChannel(c *gin.Context, action stri
 				credentialHTTPFailure(c, credential.ErrInvalid)
 				return
 			}
-			if body.Input.Template == credential.GRSaiImageTemplate && !ownedImageRegistration {
+			if body.Input.Template == credential.GRSaiImageTemplate && !ownedImageRegistration ||
+				body.Input.Template == credential.ToAPIsImageTemplate && !toapisRegistration {
 				forbidden()
 				return
 			}

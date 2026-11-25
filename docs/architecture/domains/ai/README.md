@@ -61,7 +61,8 @@
 
 - [DeepSeek 共享文字参考价准入](bailian-deepseek-shared-text-admission.md)：保留原 #1075/#1078 参考估算、配额、原账本及离线接线边界，不将候选费率视为真实账单。
 - [GRSAI VIP 图片绑定](grsai-vip-image-binding.md)：保留原 #840 准确型号、版本、凭据、medium/1024 约束及后续可选路线的新决定，不自动发布绑定。
-- [企业自有 GRSai 渠道生成单张商品主图](enterprise-grsai-product-image.md)：#1628 的专用渠道、单图派发、原任务查询和用量证明。
+- [企业自有 GRSai 商品图片渠道](enterprise-grsai-product-image.md)：#1628 的商品图组、原任务查询和用量证明。
+- [企业 ToAPIs Flare 商品图组](enterprise-toapis-product-image.md)：#1630 的固定模型、公开参考图和原任务核实。
 
 以上合同只调整所在目录，不改变已有模型路由、凭据身份、预算、UNKNOWN 或真实运行资格。
 

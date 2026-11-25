@@ -73,4 +73,32 @@ ADD CONSTRAINT ai_channel_registrations_template_check CHECK (template IN ('open
 	verified, err = PrepareOwnedGRSaiProductImage(ctx, f.db)
 	require.NoError(t, err)
 	require.Equal(t, "VERIFIED", verified.Outcome)
+
+	require.False(t, channelstore.ToAPIsImageRegistrationEnabled(ctx, runtime))
+	toapis, err := credential.NewRegistrationCommand("org-one", "actor", "third", credential.RegistrationInput{
+		Template: credential.ToAPIsImageTemplate, Name: "ToAPIs image", APIKey: "synthetic-toapis-key",
+	})
+	require.NoError(t, err)
+	_, err = channels.CreateRegistration(ctx, toapis)
+	require.Error(t, err)
+	updated, err = PrepareOwnedToAPIsProductImage(ctx, f.db)
+	require.NoError(t, err)
+	require.Equal(t, "UPDATED", updated.Outcome)
+	require.True(t, channelstore.ToAPIsImageRegistrationEnabled(ctx, runtime))
+	require.True(t, channelstore.GRSaiImageRegistrationEnabled(ctx, runtime))
+	toapisResult, err := channels.CreateRegistration(ctx, toapis)
+	require.NoError(t, err)
+	require.Equal(t, "https://api.toapis.cn", toapisResult.Connection.BaseURL)
+	require.NotEqual(t, created.Registration.ConnectionID, toapisResult.Registration.ConnectionID)
+	for _, want := range []credential.Registration{existing.Registration, created.Registration, toapisResult.Registration} {
+		got, err := channels.Registration(ctx, want.OrganizationID, want.ConnectionID)
+		require.NoError(t, err)
+		require.Equal(t, want, got)
+	}
+	verified, err = PrepareOwnedToAPIsProductImage(ctx, f.db)
+	require.NoError(t, err)
+	require.Equal(t, "VERIFIED", verified.Outcome)
+	verified, err = PrepareOwnedGRSaiProductImage(ctx, f.db)
+	require.NoError(t, err)
+	require.Equal(t, "VERIFIED", verified.Outcome)
 }

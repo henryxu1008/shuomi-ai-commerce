@@ -34,6 +34,7 @@ import (
 func TestOwnedGRSaiImageAdmissionMatchesWireContract(t *testing.T) {
 	require.Equal(t, grsai.ProductImageModel, aicapability.GRSaiProductImageModel)
 	require.Equal(t, grsai.ProductImageBaseURL, aicapability.GRSaiProductImageBaseURL)
+	require.Equal(t, grsai.ProductImageChinaBaseURL, aicapability.GRSaiProductImageChinaBaseURL)
 	require.Equal(t, grsai.ProductImageMaxSourceBytes, aicapability.GRSaiProductImageMaxSourceBytes)
 }
 

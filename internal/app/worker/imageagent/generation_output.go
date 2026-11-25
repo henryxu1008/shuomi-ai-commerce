@@ -1,13 +1,20 @@
 package imageagentworker
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"image"
+	"image/png"
+	"net/http"
+
+	"golang.org/x/image/draw"
+
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/imagex"
 	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
-	"net/http"
 
 	"github.com/sirupsen/logrus"
 )
@@ -94,6 +101,14 @@ func generationOutputRecovery(fetch func(context.Context, string) ([]byte, error
 			logOutputRecoveryFailure(logger, input.RunID, "inspect_result", imageagent.ErrInvalidGeneratedOutput)
 			return imageagent.SlotGeneratedOutput{}, imageagent.ErrInvalidGeneratedOutput
 		}
+		if fact.Intent.BillingMode == aicapability.ModelUsageOnly && aicapability.OwnedProductImageQuality(fact.Intent.Provider, fact.Intent.Model, fact.Intent.Protocol) != "" {
+			data, err = normalizeOwnedProductImagePNG(data, contentType, width, height)
+			if err != nil {
+				logOutputRecoveryFailure(logger, input.RunID, "inspect_result", err)
+				return imageagent.SlotGeneratedOutput{}, err
+			}
+			width, height = 1024, 1024
+		}
 		if (input.ImageSet != nil || input.Artwork != nil || fact.Intent.Provider == "grsai" && fact.Intent.Model == "gpt-image-2-vip") && (width != 1024 || height != 1024) {
 			if logger != nil {
 				imageDimensionsDiagnostic(logrus.NewEntry(logger), fact.Intent.Provider, fact.Intent.Model)(1024, 1024, width, height)
@@ -108,6 +123,26 @@ func generationOutputRecovery(fetch func(context.Context, string) ([]byte, error
 		}
 		return imageagent.SlotGeneratedOutput{SlotID: input.Slot.ID, Attempt: input.Attempt, SourceAssetID: sourceID, Assets: []imageagent.GeneratedAsset{{Bytes: append([]byte(nil), data...), ContentType: contentType, Width: width, Height: height, SourceURL: sourceURL, Operations: []string{operation}, ProviderReceiptID: fact.Success.RequestID, Artwork: artwork}}}, nil
 	}
+}
+
+func normalizeOwnedProductImagePNG(data []byte, contentType string, width, height int) ([]byte, error) {
+	if contentType != "image/png" || width != height || width < 1 || width > 2048 {
+		return nil, imageagent.ErrInvalidGeneratedOutput
+	}
+	decoded, err := png.Decode(bytes.NewReader(data))
+	if err != nil || decoded.Bounds().Dx() != width || decoded.Bounds().Dy() != height {
+		return nil, imageagent.ErrInvalidGeneratedOutput
+	}
+	if width == 1024 {
+		return data, nil
+	}
+	output := image.NewNRGBA(image.Rect(0, 0, 1024, 1024))
+	draw.CatmullRom.Scale(output, output.Bounds(), decoded, decoded.Bounds(), draw.Src, nil)
+	var encoded bytes.Buffer
+	if err := png.Encode(&encoded, output); err != nil || encoded.Len() > productimage.MaxInlineArtifactBytes {
+		return nil, imageagent.ErrInvalidGeneratedOutput
+	}
+	return encoded.Bytes(), nil
 }
 
 // Only immutable route identity and measured dimensions reach the log. Neither

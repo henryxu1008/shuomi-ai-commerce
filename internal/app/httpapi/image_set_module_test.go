@@ -261,6 +261,7 @@ func (r imageSetHTTPRepository) GetProjection(_ context.Context, s imageagent.Ru
 
 type imageSetHTTPSource struct {
 	binding imageagent.ImageSourceBinding
+	owned   bool
 	err     error
 	input   imageagent.PrepareImageSetInput
 }
@@ -270,7 +271,41 @@ func (r *imageSetHTTPSource) ReadImageSetSource(_ context.Context, _ imageagent.
 	if r.err != nil {
 		return imageagent.ImageSetPreparation{}, r.err
 	}
-	return imageagent.ImageSetPreparation{Source: r.binding}, nil
+	return imageagent.ImageSetPreparation{Source: r.binding, OwnProduct: r.owned}, nil
+}
+
+func TestOwnedImageConfirmationChecksCurrentProductOwnership(t *testing.T) {
+	const sourceID = "d1abe8da-b381-4924-8d15-d79bdbfacf70"
+	const runID = "30d26689-30b6-4358-b0f5-c310d7ab2e58"
+	binding := imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceListing, ProductID: "product", OperationID: sourceID, OriginalVersion: 2, EffectiveVersion: 2}
+	sources := &imageSetHTTPSource{binding: binding, owned: true}
+	binding.OwnProduct = true
+	repo := imageSetHTTPRepository{projection: imageagent.RunProjection{
+		Run:  imageagent.Run{ID: runID, TenantID: "org", UserID: "actor", MemberID: "member", BusinessTaskID: sourceID, ScopeProtocol: imageagent.OrganizationScopeProtocol},
+		Plan: imageagent.Plan{Set: &imageagent.ImageSetPlan{Source: binding, Target: imageagent.ImageTarget{Platform: "product"}}},
+	}}
+	service, err := imageagent.NewService(repo, imageSetHTTPWorkflow{}, closedImageSetCatalog{}, imageagent.WithOrganizationScope())
+	require.NoError(t, err)
+	module := fullImageModule{application: &fullImageApplication{service: service, readSources: sources}, bind: func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }}
+	router := gin.New()
+	for _, route := range module.routes() {
+		router.Handle(route.Method, route.Path, route.Handler)
+	}
+	call := func() *httptest.ResponseRecorder {
+		identity := authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"}
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/workbench/supply-preparations/sources/"+sourceID+"/images/runs/"+runID+"/confirm", strings.NewReader("invalid JSON"))
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, r.WithContext(authidentity.WithAuthenticatedIdentity(r.Context(), identity)))
+		return w
+	}
+	// A valid owned source reaches command validation; a revoked one does not.
+	response := call()
+	require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+	sources.owned = false
+	response = call()
+	require.Equal(t, http.StatusConflict, response.Code, response.Body.String())
+	require.JSONEq(t, `{"code":"IMAGE_CONFLICT"}`, response.Body.String())
 }
 
 func TestFullImageCatalogVersionsRemainExactAcrossHTTP(t *testing.T) {

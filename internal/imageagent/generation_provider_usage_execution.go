@@ -20,7 +20,7 @@ type ProviderUsageImageTasks interface {
 func (m GenerationProviderMetadata) ImageQuote() ImageGenerationQuote {
 	quality := GenerationRouteQuality(m.Provider, m.Model, m.Protocol)
 	if m.BillingMode != "" {
-		quality = "auto"
+		quality = aicapability.OwnedProductImageQuality(m.Provider, m.Model, m.Protocol)
 	}
 	return ImageGenerationQuote{Billing: m.Billing, Provider: m.Provider, Model: m.Model, Protocol: m.Protocol,
 		Resolution: "1024x1024", Quality: quality, PriceVersion: m.PriceVersion, Points: m.Points,

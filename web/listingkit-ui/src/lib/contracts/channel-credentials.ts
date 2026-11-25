@@ -29,7 +29,7 @@ export const credentialInput=z.discriminatedUnion("action",[
  z.strictObject({action:z.literal("set-key"),expectedRevision,expectedMemberId:routeFact.optional(),account:account.optional(),apiKey:secret}),
  z.strictObject({action:z.literal("disable"),expectedRevision,expectedMemberId:routeFact.optional()}),
 ]);
-export const channelTemplate=z.enum(["openai-mini-v1","openai-compatible-mini-v1","grsai-product-image-v1"]);
+export const channelTemplate=z.enum(["openai-mini-v1","openai-compatible-mini-v1","grsai-product-image-v1","toapis-product-image-v1"]);
 export const channelName=account;
 export const channelBaseUrl=z.url().max(2048).refine(v=>v.startsWith("https://"));
 export const channelAPIKey=secret;

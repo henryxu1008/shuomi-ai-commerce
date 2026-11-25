@@ -17,11 +17,11 @@ import (
 )
 
 func main() {
-	target := flag.String("target", "", "fixed target: run, review, invocation-provider-rejection, invocation-billing-mode, managed-model-channels, or owned-grsai-product-image")
+	target := flag.String("target", "", "fixed target: run, review, invocation-provider-rejection, invocation-billing-mode, managed-model-channels, owned-grsai-product-image, or owned-toapis-product-image")
 	flag.Parse()
 	env := "PRODUCT_AGENT_SCHEMA_DSN"
-	if flag.NArg() != 0 || (*target != "run" && *target != "review" && *target != "invocation-provider-rejection" && *target != "invocation-billing-mode" && *target != "managed-model-channels" && *target != "owned-grsai-product-image") {
-		fmt.Fprintln(os.Stderr, "requires --target run, review, invocation-provider-rejection, invocation-billing-mode, managed-model-channels, or owned-grsai-product-image")
+	if flag.NArg() != 0 || (*target != "run" && *target != "review" && *target != "invocation-provider-rejection" && *target != "invocation-billing-mode" && *target != "managed-model-channels" && *target != "owned-grsai-product-image" && *target != "owned-toapis-product-image") {
+		fmt.Fprintln(os.Stderr, "requires --target run, review, invocation-provider-rejection, invocation-billing-mode, managed-model-channels, owned-grsai-product-image, or owned-toapis-product-image")
 		os.Exit(2)
 	}
 	if *target == "review" {
@@ -58,6 +58,8 @@ func main() {
 		result, err = productagentruntime.PrepareManagedModelChannels(ctx, db)
 	} else if *target == "owned-grsai-product-image" {
 		result, err = productagentruntime.PrepareOwnedGRSaiProductImage(ctx, db)
+	} else if *target == "owned-toapis-product-image" {
+		result, err = productagentruntime.PrepareOwnedToAPIsProductImage(ctx, db)
 	} else if *target == "invocation-provider-rejection" {
 		result, err = productagentruntime.PrepareProviderRejectionProof(ctx, db)
 	} else if *target == "invocation-billing-mode" {

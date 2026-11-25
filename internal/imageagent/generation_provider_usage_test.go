@@ -50,6 +50,28 @@ func TestUsageOnlyImageFactUsesSupplierProofWithoutPointReceipts(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestToAPIsUsageOnlyFactBindsHighQualityAndKeepsUnknownDispatch(t *testing.T) {
+	intent := usageOnlyImageIntent()
+	intent.Provider = aicapability.ToAPIsProductImageProvider
+	intent.Model = aicapability.ToAPIsProductImageModel
+	intent.Protocol = aicapability.ToAPIsProductImageProtocol
+	_, err := NewGenerationFact(intent)
+	require.Error(t, err, "GRSai quality must not carry over")
+	intent.Quality = "high"
+	fact, err := NewGenerationFact(intent)
+	require.NoError(t, err)
+	fact, won, err := fact.BeginDispatch()
+	require.NoError(t, err)
+	require.True(t, won)
+	fact, err = fact.MarkUnknown()
+	require.NoError(t, err)
+	_, won, err = fact.BeginDispatch()
+	require.NoError(t, err)
+	require.False(t, won)
+	require.Zero(t, fact.Reservation)
+	require.Zero(t, fact.Settlement)
+}
+
 func TestUsageOnlyImageFactDistinguishesSupplierFailureFromNeverSent(t *testing.T) {
 	intent := usageOnlyImageIntent()
 	prepared, err := NewGenerationFact(intent)

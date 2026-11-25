@@ -17,6 +17,12 @@ type productImageTransport func(*http.Request) (*http.Response, error)
 func (f productImageTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func TestProductImageAsyncUsesOriginalTaskAndExactReference(t *testing.T) {
+	for _, origin := range []string{ProductImageBaseURL, ProductImageChinaBaseURL} {
+		t.Run(origin, func(t *testing.T) { testProductImageAsyncUsesOriginalTaskAndExactReference(t, origin) })
+	}
+}
+
+func testProductImageAsyncUsesOriginalTaskAndExactReference(t *testing.T, origin string) {
 	data := []byte{0xff, 0xd8, 0xff, 0xe0, 0, 1}
 	var requests []string
 	transport := productImageTransport(func(r *http.Request) (*http.Response, error) {
@@ -35,17 +41,17 @@ func TestProductImageAsyncUsesOriginalTaskAndExactReference(t *testing.T) {
 		}
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(reply))}, nil
 	})
-	client := NewClient(Config{APIKey: "test-key", Model: ProductImageModel, SubmitURL: ProductImageBaseURL, HTTPClient: &http.Client{Transport: transport}})
+	client := NewClient(Config{APIKey: "test-key", Model: ProductImageModel, SubmitURL: origin, HTTPClient: &http.Client{Transport: transport}})
 	id, err := client.StartProductImage(t.Context(), "Preserve this coat", data)
 	require.NoError(t, err)
-	require.Equal(t, []string{"POST https://grsaiapi.com/v1/api/generate"}, requests)
+	require.Equal(t, []string{"POST " + origin + "/v1/api/generate"}, requests)
 	result, err := client.ReadProductImageResult(t.Context(), id)
 	require.NoError(t, err)
 	require.Equal(t, "14-task-one", result.TaskID)
 	require.Equal(t, ProductImageSucceeded, result.State)
 	require.Equal(t, "https://media.example.test/coat.png", result.ResultURL)
 	require.Len(t, result.ResultDigest, 64)
-	require.Equal(t, []string{"POST https://grsaiapi.com/v1/api/generate", "GET https://grsaiapi.com/v1/api/result?id=14-task-one"}, requests)
+	require.Equal(t, []string{"POST " + origin + "/v1/api/generate", "GET " + origin + "/v1/api/result?id=14-task-one"}, requests)
 }
 
 func TestProductImageAsyncRejectsUntrustedRouteAndMismatchedResult(t *testing.T) {

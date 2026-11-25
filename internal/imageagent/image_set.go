@@ -141,8 +141,8 @@ func (q ImageGenerationQuote) Valid() bool {
 		return false
 	}
 	if q.UsesProviderUsage() {
-		return q.Provider == "grsai" && q.Model == aicapability.GRSaiProductImageModel && q.Protocol == aicapability.GRSaiProductImageProtocol &&
-			q.Quality == "auto" && q.Points == 0 && q.PriceVersion == "" && q.Billing == (ImageBilling{}) && canonicalImageValue(q.ConnectionID)
+		quality := aicapability.OwnedProductImageQuality(q.Provider, q.Model, q.Protocol)
+		return quality != "" && q.Quality == quality && q.Points == 0 && q.PriceVersion == "" && q.Billing == (ImageBilling{}) && canonicalImageValue(q.ConnectionID)
 	}
 	return q.BillingMode == "" && q.ConnectionID == "" && validImageBilling(q.Billing, q.Model, q.PriceVersion, q.Points) && validGenerationRoute(q.Provider, q.Model, q.Protocol) && q.Quality == GenerationRouteQuality(q.Provider, q.Model, q.Protocol) && q.Points > 0 && canonicalImageValue(q.PriceVersion)
 }

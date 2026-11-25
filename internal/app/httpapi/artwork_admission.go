@@ -84,13 +84,17 @@ func configuredImageAgentCapabilities(ctx context.Context, agentID string, autho
 		} else if !runtime.gate.AllowTenantStart(ctx, id.TenantID) {
 			capability.Reason = "当前企业尚未开放图片生成"
 		} else {
-			_, err := runtime.quotes.ReadImageGenerationQuote(ctx, imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: id.TenantID, UserID: id.UserID, MemberID: id.EffectiveMemberID}, nil)
+			identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: id.TenantID, UserID: id.UserID, MemberID: id.EffectiveMemberID}
+			_, err := runtime.quotes.ReadImageGenerationQuote(ctx, identity, nil)
 			if err == nil {
 				capability.Readiness = "AVAILABLE"
 				capability.Reason = "可准备整套计划，确认点数后生成"
 				if agentID == agentconfig.ArtworkAgentID {
 					capability.Reason = "可输入主题准备原创图案报价，确认后生成"
 				}
+			} else if agentID == agentconfig.ImageAgentID && hasOwnedProductImageOption(ctx, runtime.quotes, identity) {
+				capability.Readiness = "AVAILABLE"
+				capability.Reason = "自有商品可选用企业图片渠道，确认计划后生成"
 			} else {
 				capability.Readiness = "NEEDS_CONFIGURATION"
 				capability.Reason = "需要有效的企业图片模型配置与凭据"
@@ -98,6 +102,23 @@ func configuredImageAgentCapabilities(ctx context.Context, agentID string, autho
 		}
 	}
 	return capabilities
+}
+
+func hasOwnedProductImageOption(ctx context.Context, quotes imageagent.ImageSetQuoteReader, identity imageagent.ExecutionIdentity) bool {
+	reader, ok := quotes.(imageagent.ImageGenerationOptionsReader)
+	if !ok {
+		return false
+	}
+	options, err := reader.ReadImageGenerationOptions(ctx, identity)
+	if err != nil {
+		return false
+	}
+	for _, option := range options {
+		if option.UnitVersion == agentconfig.ProviderImageUsageUnit && option.Route != nil && option.Route.Valid() {
+			return true
+		}
+	}
+	return false
 }
 
 func artworkSaveAuthorized(ctx context.Context, authorize func(context.Context, ...string) (agent.Scope, error), imageScope agent.Scope, identity authidentity.AuthenticatedIdentity) bool {

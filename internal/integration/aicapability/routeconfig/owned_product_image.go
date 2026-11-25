@@ -25,7 +25,15 @@ func (c *SharedCatalog) ReadOwnedProductImages(ctx context.Context, org string) 
 	}
 	options := make([]d.OwnedProductImageOption, 0)
 	for _, row := range registrations {
-		if row.Template != credential.GRSaiImageTemplate {
+		var option d.OwnedProductImageOption
+		switch row.Template {
+		case credential.GRSaiImageTemplate:
+			option = d.OwnedProductImageOption{Provider: "grsai", Model: aicapability.GRSaiProductImageModel,
+				Protocol: aicapability.GRSaiProductImageProtocol, Channel: credential.GRSaiImageChannel}
+		case credential.ToAPIsImageTemplate:
+			option = d.OwnedProductImageOption{Provider: aicapability.ToAPIsProductImageProvider, Model: aicapability.ToAPIsProductImageModel,
+				Protocol: aicapability.ToAPIsProductImageProtocol, BaseURL: aicapability.ToAPIsProductImageBaseURL, Channel: credential.ToAPIsImageChannel, Region: "global"}
+		default:
 			continue
 		}
 		if row.OrganizationID != org || !credential.IsRegisteredConnection(row.ConnectionID) {
@@ -41,16 +49,21 @@ func (c *SharedCatalog) ReadOwnedProductImages(ctx context.Context, org string) 
 		if !metadata.Enabled || !metadata.KeyPresent {
 			continue
 		}
-		if metadata.OrganizationID != org || metadata.ConnectionID != row.ConnectionID ||
-			metadata.Channel != credential.GRSaiImageChannel || metadata.Provider != "grsai" ||
-			metadata.Region != "global" || metadata.BaseURL != aicapability.GRSaiProductImageBaseURL ||
+		if option.Provider == "grsai" {
+			option.BaseURL = metadata.BaseURL
+			option.Region = aicapability.GRSaiProductImageRegion(metadata.BaseURL)
+		}
+		if option.Region == "" || metadata.OrganizationID != org || metadata.ConnectionID != row.ConnectionID ||
+			metadata.Channel != option.Channel || metadata.Provider != option.Provider ||
+			metadata.Region != option.Region || metadata.BaseURL != option.BaseURL ||
 			!credential.ValidID(metadata.Reference) || !d.ValidFact(metadata.EndpointDigest, 64) {
 			return nil, d.ErrUnavailable
 		}
-		binding := ownedProductImageDigest(aicapability.GRSaiProductImageProtocol, org, row.ConnectionID)
-		options = append(options, d.OwnedProductImageOption{BindingID: binding,
-			RevisionID: ownedProductImageDigest(binding, metadata.Reference, metadata.EndpointDigest), ConnectionID: row.ConnectionID,
-			CredentialVersion: metadata.Reference, EndpointDigest: metadata.EndpointDigest, ChannelName: row.Name})
+		option.BindingID = ownedProductImageDigest(option.Protocol, org, row.ConnectionID)
+		option.RevisionID = ownedProductImageDigest(option.BindingID, metadata.Reference, metadata.EndpointDigest)
+		option.ConnectionID, option.ChannelName = row.ConnectionID, row.Name
+		option.CredentialVersion, option.EndpointDigest = metadata.Reference, metadata.EndpointDigest
+		options = append(options, option)
 	}
 	return options, nil
 }

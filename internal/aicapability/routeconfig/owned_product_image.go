@@ -5,9 +5,10 @@ import "context"
 // OwnedProductImageOption is server-side credential metadata. Keep it out of
 // provider-neutral public model and channel responses.
 type OwnedProductImageOption struct {
-	BindingID, RevisionID           string
-	ConnectionID, CredentialVersion string
-	EndpointDigest, ChannelName     string
+	BindingID, RevisionID                               string
+	ConnectionID, CredentialVersion                     string
+	EndpointDigest, ChannelName                         string
+	Provider, Model, Protocol, BaseURL, Channel, Region string
 }
 
 type OwnedProductImageReader interface {

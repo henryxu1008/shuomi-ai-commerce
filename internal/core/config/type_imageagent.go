@@ -10,10 +10,11 @@ type ImageAgentConfig struct {
 // Generation contains only an explicit admission ceiling, never a customer price.
 // Every charge comes from the shared official tariff and the original ledger.
 type ImageAgentGenerationConfig struct {
-	Enabled                bool   `mapstructure:"enabled" yaml:"enabled" json:"enabled"`
-	UnitVersion            string `mapstructure:"unitVersion" yaml:"unitVersion" json:"unitVersion"`
-	MaximumMicropoints     int64  `mapstructure:"maximumMicropoints" yaml:"maximumMicropoints" json:"maximumMicropoints,string"`
-	OwnedGRSaiProductImage bool   `mapstructure:"ownedGrsaiProductImage" yaml:"ownedGrsaiProductImage" json:"ownedGrsaiProductImage,omitempty"`
+	Enabled                 bool   `mapstructure:"enabled" yaml:"enabled" json:"enabled"`
+	UnitVersion             string `mapstructure:"unitVersion" yaml:"unitVersion" json:"unitVersion"`
+	MaximumMicropoints      int64  `mapstructure:"maximumMicropoints" yaml:"maximumMicropoints" json:"maximumMicropoints,string"`
+	OwnedToAPIsProductImage bool   `mapstructure:"ownedToapisProductImage" yaml:"ownedToapisProductImage" json:"ownedToapisProductImage,omitempty"`
+	OwnedGRSaiProductImage  bool   `mapstructure:"ownedGrsaiProductImage" yaml:"ownedGrsaiProductImage" json:"ownedGrsaiProductImage,omitempty"`
 }
 
 func (c ImageAgentGenerationConfig) Configured() bool {

@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
 )
 
@@ -174,6 +175,16 @@ func ValidatePlanAgainstCatalog(plan Plan, catalog AssetCatalog) error {
 		}
 	}
 	return nil
+}
+
+// ToAPIsImageSetSource returns the exact download address from the frozen asset catalog.
+func ToAPIsImageSetSource(catalog AssetCatalog, id string) (string, error) {
+	for _, asset := range catalog.Assets {
+		if asset.ID == id && asset.Type == AuthorizedAssetSource && aicapability.ToAPIsProductImageSource(asset.URL) {
+			return asset.URL, nil
+		}
+	}
+	return "", fmt.Errorf("%w: ToAPIs requires a public 1688 product image", ErrValidation)
 }
 
 func ValidateSafeImageURL(raw string) (string, error) {

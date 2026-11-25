@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 )
 
 // The transport supplies identities only. URLs, dimensions, prompt, quote and
@@ -306,6 +307,11 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 		ref, ok := byID[id]
 		if !ok || !authorizedSetOriginal(resolved.Catalog, id) {
 			return PreparedImageSet{}, ErrRevisionConflict
+		}
+		if quote.Provider == aicapability.ToAPIsProductImageProvider {
+			if _, err := ToAPIsImageSetSource(resolved.Catalog, id); err != nil {
+				return PreparedImageSet{}, err
+			}
 		}
 		ordered = append(ordered, ref)
 	}

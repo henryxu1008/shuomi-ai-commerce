@@ -172,7 +172,7 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 	intent = GenerationIntent{Billing: m.Billing, Identity: id, MemberID: input.OrganizationIdentity.MemberID, CatalogHash: input.AssetCatalog.Manifest.Hash, SourceDigest: sourceDigest, PromptVersion: m.PromptVersion, RouteReference: m.RouteReference, CredentialReference: m.CredentialReference, ConfigurationVersion: m.ConfigurationVersion, Provider: m.Provider, Model: m.Model, Protocol: m.Protocol, Resolution: "1024x1024", Quality: GenerationRouteQuality(m.Provider, m.Model, m.Protocol), PriceVersion: m.PriceVersion, Points: m.Points, LimitVersion: limit.Version, MonthStart: limit.MonthStart}
 	intent.BillingMode, intent.ConnectionID = m.BillingMode, m.ConnectionID
 	if intent.UsesProviderUsage() {
-		intent.Quality = "auto"
+		intent.Quality = m.ImageQuote().Quality
 		if _, ok := e.dependencies.Facts.(GenerationProviderTaskRepository); !ok || e.dependencies.ReadProviderOutput == nil {
 			return reject(ErrBudgetQuoteUnavailable)
 		}

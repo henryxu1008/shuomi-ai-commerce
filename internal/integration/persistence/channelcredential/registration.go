@@ -70,6 +70,14 @@ func InstallRegistrations(ctx context.Context, db *gorm.DB) error {
 // EnableGRSaiImageRegistration widens only the known template constraint on
 // existing managed registrations. It is called by the explicit Run DB owner.
 func EnableGRSaiImageRegistration(ctx context.Context, db *gorm.DB) (bool, error) {
+	return enableOwnedImageRegistration(ctx, db, false)
+}
+
+func EnableToAPIsImageRegistration(ctx context.Context, db *gorm.DB) (bool, error) {
+	return enableOwnedImageRegistration(ctx, db, true)
+}
+
+func enableOwnedImageRegistration(ctx context.Context, db *gorm.DB, toapis bool) (bool, error) {
 	if ctx == nil || ctx.Err() != nil || db == nil || db.Dialector.Name() != "postgres" {
 		return false, credential.ErrUnavailable
 	}
@@ -81,27 +89,35 @@ func EnableGRSaiImageRegistration(ctx context.Context, db *gorm.DB) (bool, error
 	if err != nil {
 		return false, err
 	}
-	switch definition {
-	case ownedImageRegistrationTemplates:
+	if definition == toapisImageRegistrationTemplates || definition == ownedImageRegistrationTemplates && !toapis {
 		return false, nil
-	case "CHECKtemplate=ANYARRAY['openai-mini-v1','openai-compatible-mini-v1']":
-		err := db.WithContext(ctx).Exec(`ALTER TABLE public.ai_channel_registrations
-DROP CONSTRAINT ai_channel_registrations_template_check,
-ADD CONSTRAINT ai_channel_registrations_template_check
-CHECK (template IN ('openai-mini-v1','openai-compatible-mini-v1','grsai-product-image-v1'))`).Error
-		return err == nil, err
-	default:
+	}
+	if definition != ownedImageRegistrationTemplates && definition != "CHECKtemplate=ANYARRAY['openai-mini-v1','openai-compatible-mini-v1']" {
 		return false, credential.ErrUnavailable
 	}
+	templates := "'openai-mini-v1','openai-compatible-mini-v1','grsai-product-image-v1'"
+	if toapis {
+		templates += ",'toapis-product-image-v1'"
+	}
+	err = db.WithContext(ctx).Exec(`ALTER TABLE public.ai_channel_registrations
+DROP CONSTRAINT ai_channel_registrations_template_check,
+ADD CONSTRAINT ai_channel_registrations_template_check CHECK (template IN (` + templates + `))`).Error
+	return err == nil, err
 }
 
 const ownedImageRegistrationTemplates = "CHECKtemplate=ANYARRAY['openai-mini-v1','openai-compatible-mini-v1','grsai-product-image-v1']"
+const toapisImageRegistrationTemplates = "CHECKtemplate=ANYARRAY['openai-mini-v1','openai-compatible-mini-v1','grsai-product-image-v1','toapis-product-image-v1']"
 
 // GRSaiImageRegistrationEnabled is a read-only preflight for the bounded
 // application role. Schema edits remain with the explicit Run DB owner.
 func GRSaiImageRegistrationEnabled(ctx context.Context, db *gorm.DB) bool {
 	definition, err := registrationTemplateConstraint(ctx, db)
-	return err == nil && definition == ownedImageRegistrationTemplates
+	return err == nil && (definition == ownedImageRegistrationTemplates || definition == toapisImageRegistrationTemplates)
+}
+
+func ToAPIsImageRegistrationEnabled(ctx context.Context, db *gorm.DB) bool {
+	definition, err := registrationTemplateConstraint(ctx, db)
+	return err == nil && definition == toapisImageRegistrationTemplates
 }
 
 func registrationTemplateConstraint(ctx context.Context, db *gorm.DB) (string, error) {
