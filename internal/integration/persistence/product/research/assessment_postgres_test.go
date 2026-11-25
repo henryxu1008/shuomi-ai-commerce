@@ -114,8 +114,52 @@ func TestAssessmentTransactionRecoveryReferenceAndPrivacy(t *testing.T) {
 	invalid.AssessmentRef = &bad
 	_, err = svc.Execute(ctx, scope, project.id, uuid.NewString(), invalid)
 	require.ErrorIs(t, err, research.ErrConflict)
-	_, err = svc.Execute(ctx, scope, project.id, uuid.NewString(), decision)
-	require.NoError(t, err, "technical revision increments must not invalidate the business context")
+
+	require.True(t, t.Run("DecisionOriginalKeyAfterLostReceipt", func(t *testing.T) {
+		countDecisions := func() int64 {
+			var n int64
+			err := scoped(owner.WithContext(ctx).Model(&commandRow{}), scope, project.id).
+				Where("candidate_id=? AND decision_json IS NOT NULL", id).Count(&n).Error
+			require.NoError(t, err)
+			return n
+		}
+		before := countDecisions()
+		decisionKey := uuid.NewString()
+		require.NotEqual(t, key, decisionKey)
+
+		// Discard the successful receipt to simulate losing it after the commit.
+		_, err := svc.Execute(ctx, scope, project.id, decisionKey, decision)
+		require.NoError(t, err, "technical revision increments must not invalidate the business context")
+		require.Equal(t, before+1, countDecisions())
+
+		reader := service()
+		recovered, err := reader.Lookup(ctx, scope, project.id, decisionKey)
+		require.NoError(t, err)
+		require.True(t, recovered.Replayed)
+		require.Equal(t, decisionKey, recovered.Key)
+		require.Equal(t, []string{id}, recovered.CandidateIDs)
+		require.Equal(t, map[string]int64{id: decision.ExpectedRevision + 1}, recovered.Revisions)
+		require.Equal(t, &saved.Detail.Ref, recovered.AssessmentRef)
+		require.Equal(t, before+1, countDecisions())
+
+		row, err := lookup(db.WithContext(ctx), scope, project.id, recovered.Key)
+		require.NoError(t, err)
+		var intent research.Command
+		require.NoError(t, json.Unmarshal(row.IntentJSON, &intent))
+		require.Equal(t, decision.Action, intent.Action)
+		stored, err := commandDecision(row, id)
+		require.NoError(t, err)
+		require.Equal(t, decision.State, stored.State)
+		require.Equal(t, decision.Reason, stored.Reason)
+		require.Equal(t, recovered.Revisions[id], stored.Revision)
+		require.Equal(t, recovered.AssessmentRef, stored.AssessmentRef)
+
+		replayed, err := reader.Execute(ctx, scope, project.id, decisionKey, decision)
+		require.NoError(t, err)
+		require.Equal(t, recovered, replayed)
+		require.Equal(t, before+1, countDecisions())
+	}))
+
 	current, err := repo.Load(ctx, scope, project.id, id)
 	require.NoError(t, err)
 	require.Equal(t, receipts[0].AssessmentRef, current.History[0].AssessmentRef)
