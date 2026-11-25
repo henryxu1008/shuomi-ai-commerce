@@ -103,6 +103,85 @@ func TestExecuteSlotV3ReusesPersistedQuoteAcrossProviderConfigurationChange(t *t
 	require.Zero(t, executor.GenerateCalls(), "recovery must not dispatch the provider again")
 }
 
+type slotReclaimBeforeReserve struct {
+	imageagent.SlotExternalEffectV3Repository
+}
+
+func (r slotReclaimBeforeReserve) ReserveSlotProviderV3(ctx context.Context, reservation imageagent.SlotEffectV3Reservation) (imageagent.SlotEffectV3Attempt, bool, error) {
+	// The caller's earlier read still sees ProviderClaimed. Another activity
+	// records definite no dispatch before the owner locks the row for reserve.
+	if _, err := r.RecordSlotProviderNotDispatchedV3(ctx, reservation); err != nil {
+		return imageagent.SlotEffectV3Attempt{}, false, err
+	}
+	return r.SlotExternalEffectV3Repository.ReserveSlotProviderV3(ctx, reservation)
+}
+
+type reclaimedBudgetedExecutor struct {
+	*recordingStagedExecutor
+	observedQuote  imageagent.SlotUsageQuote
+	deadline       time.Time
+	quotedCalls    int
+	unmeteredCalls int
+}
+
+func (e *reclaimedBudgetedExecutor) QuoteSlot(context.Context, imageagent.SlotExecutionInput, imageagent.BudgetPolicy) (imageagent.SlotUsageQuote, error) {
+	return imageagent.SlotUsageQuote{}, errors.New("reclaim must reuse the persisted quote")
+}
+
+func (e *reclaimedBudgetedExecutor) GenerateQuotedSlot(ctx context.Context, _ imageagent.SlotExecutionInput, quote imageagent.SlotUsageQuote) (imageagent.SlotGeneratedOutput, error) {
+	e.quotedCalls++
+	e.observedQuote = quote
+	e.deadline, _ = ctx.Deadline()
+	return imageagent.SlotGeneratedOutput{}, &imageagent.ProviderDispatchError{State: imageagent.ProviderRejectedBeforeEffect, Err: imageagent.ErrCommandBlocked}
+}
+
+func (e *reclaimedBudgetedExecutor) GenerateSlot(context.Context, imageagent.SlotExecutionInput) (imageagent.SlotGeneratedOutput, error) {
+	e.unmeteredCalls++
+	return imageagent.SlotGeneratedOutput{}, imageagent.ErrCommandBlocked
+}
+
+func TestExecuteSlotV3UsesActualBudgetedReclaimAndDeadline(t *testing.T) {
+	for _, expired := range []bool{false, true} {
+		t.Run(map[bool]string{false: "within_deadline", true: "elapsed"}[expired], func(t *testing.T) {
+			repository, input, policy := initializedBudgetedV3Activity(t, "run-budget-reclaim", 1)
+			effects := repository.(imageagent.SlotExternalEffectV3Repository)
+			ctx := context.Background()
+			reservation := slotEffectReservationV3(slotExecutionInputV3(input))
+			reservation.Policy = policy
+			reservation.Quote = budgetActivityQuote("persisted-reclaim-quote")
+			_, claimed, err := effects.ReserveSlotProviderV3(ctx, reservation)
+			require.NoError(t, err)
+			require.True(t, claimed)
+			input.BudgetAuthorization, input.BudgetPolicy = true, policy
+			input.DeadlineAt = time.Now().Add(time.Minute)
+			if expired {
+				input.DeadlineAt = time.Now().Add(-time.Second)
+			}
+			executor := &reclaimedBudgetedExecutor{recordingStagedExecutor: &recordingStagedExecutor{}}
+			activities := newBudgetV3Activities(t, repository, executor, &recordingArtifactStore{})
+			activities.slotEffectsV3 = slotReclaimBeforeReserve{effects}
+
+			_, err = activities.ExecuteSlotV3(ctx, input)
+			require.Zero(t, executor.unmeteredCalls)
+			var applicationError *sdktemporal.ApplicationError
+			require.ErrorAs(t, err, &applicationError)
+			if expired {
+				require.Equal(t, imageagent.BudgetElapsedCode, applicationError.Type())
+				require.Zero(t, executor.quotedCalls)
+			} else {
+				require.Equal(t, imageagent.SlotProviderNotDispatchedCode, applicationError.Type())
+				require.Equal(t, 1, executor.quotedCalls)
+				require.Equal(t, reservation.Quote, executor.observedQuote)
+				require.Equal(t, input.DeadlineAt, executor.deadline)
+			}
+			effect, err := effects.GetSlotExternalEffectV3(ctx, reservation.Identity)
+			require.NoError(t, err)
+			require.Equal(t, imageagent.SlotEffectV3ProviderNotDispatched, effect.Phase)
+			require.Equal(t, imageagent.SlotBudgetReleased, effect.BudgetStatus)
+		})
+	}
+}
+
 func TestExecuteSlotV3AccountsProviderUsageWhenOnlyElapsedLimitIsEnabled(t *testing.T) {
 	budget := imageagent.Budget{MaxElapsed: time.Hour, EnabledLimits: imageagent.BudgetLimitElapsed}
 	repository, input, policy := initializedBudgetedV3ActivityWithBudget(t, "run-budget-elapsed-only", budget)

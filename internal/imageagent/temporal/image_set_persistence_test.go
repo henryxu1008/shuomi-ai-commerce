@@ -328,6 +328,18 @@ func testOwnedImageAuthorizedActivity(t *testing.T, metadata imageagent.Generati
 				recoveryInput := EffectRecoveryWorkflowInput{RunID: input.RunID,
 					Identity: input.Identity, PlanRevision: 1, Attempt: 1, Slot: input.Slot, ImageSet: input.ImageSet,
 					AssetCatalog: input.AssetCatalog, TargetPlatform: "product", ActionID: "original-task-check"}
+				if name == "lookup_timeout_then_recover_original" {
+					a.configurationCapacity = func(context.Context, int64) (func(), error) {
+						return nil, imageagent.ErrImageConfigurationBusy
+					}
+					_, busyErr := a.RecoverEffectV3(ctx, recoveryInput)
+					require.ErrorIs(t, busyErr, imageagent.ErrImageConfigurationBusy, "temporary contention must reach the activity retry policy")
+					unchanged, readErr := facts.ReadGenerationFact(ctx, id)
+					require.NoError(t, readErr)
+					require.Equal(t, fact, unchanged)
+					require.Equal(t, 1, lookups)
+					a.configurationCapacity = nil
+				}
 				if mainFails {
 					_, err := a.PersistImageSetSlotResult(ctx, PersistSlotResultV3ActivityInput{RunID: input.RunID,
 						Identity: input.Identity, PlanRevision: 1, AttemptKey: input.IdempotencyKey,

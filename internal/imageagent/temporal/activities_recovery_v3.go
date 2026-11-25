@@ -73,6 +73,9 @@ func (a *Activities) RecoverEffectV3(ctx context.Context, input EffectRecoveryWo
 	if strings.TrimSpace(input.ActionID) != "" && executionInput.Slot.Recipe != nil && executionInput.Slot.Recipe.Quote.UsesProviderUsage() &&
 		(effect.Phase == imageagent.SlotEffectV3ProviderUnknown || effect.Phase == imageagent.SlotEffectV3ProviderClaimed) {
 		if err := a.lookupOriginalProviderUsage(ctx, executionInput, reservation.Identity); err != nil {
+			if errors.Is(err, imageagent.ErrImageConfigurationBusy) {
+				return EffectRecoveryResult{}, err
+			}
 			return effectRecoveryBlockedPhaseResult(EffectRecoveryOutcomeProviderUnknown, imageagent.SlotEffectV3ProviderUnknown, slotProviderOutcomeUnknownCode), nil
 		}
 	}
