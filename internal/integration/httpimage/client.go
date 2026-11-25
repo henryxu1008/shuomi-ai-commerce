@@ -154,6 +154,7 @@ func Download(ctx context.Context, client *http.Client, rawURL string, maxBytes 
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("User-Agent", "ShuomiProductImage/1.0 (+https://github.com/henryxu1008/shuomi-ai-commerce)")
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

@@ -150,3 +150,16 @@ func TestDownloadPreservesRejectedResponseStatus(t *testing.T) {
 		})
 	}
 }
+func TestDownloadIdentifiesProductImageClientToSource(t *testing.T) {
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		userAgent := req.Header.Get("User-Agent")
+		if !strings.HasPrefix(userAgent, "ShuomiProductImage/") || !strings.Contains(userAgent, "https://github.com/henryxu1008/shuomi-ai-commerce") {
+			return &http.Response{StatusCode: http.StatusForbidden, Body: io.NopCloser(strings.NewReader(""))}, nil
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("fixture"))}, nil
+	})}
+	data, err := Download(context.Background(), client, "https://example.com/original.jpg", 16)
+	if err != nil || string(data) != "fixture" {
+		t.Fatalf("image source did not accept the identified client: %v", err)
+	}
+}
