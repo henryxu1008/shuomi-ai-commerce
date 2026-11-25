@@ -31,10 +31,10 @@ import (
 
 func imageSetPersistenceFixture(t *testing.T) (*Activities, imageagent.Repository, ExecuteSlotV3ActivityInput) {
 	t.Helper()
-	return imageSetPersistenceFixtureWithSource(t, nil, false)
+	return imageSetPersistenceFixtureWithSource(t, nil, false, imageagent.GenerationProviderMetadata{})
 }
 
-func imageSetPersistenceFixtureWithSource(t *testing.T, ownedSource []byte, includeDetail bool) (*Activities, imageagent.Repository, ExecuteSlotV3ActivityInput) {
+func imageSetPersistenceFixtureWithSource(t *testing.T, ownedSource []byte, includeDetail bool, metadata imageagent.GenerationProviderMetadata) (*Activities, imageagent.Repository, ExecuteSlotV3ActivityInput) {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "image.db")), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
@@ -58,7 +58,7 @@ func imageSetPersistenceFixtureWithSource(t *testing.T, ownedSource []byte, incl
 		sum := sha256.Sum256(ownedSource)
 		slot.Recipe.References[0].SHA256 = hex.EncodeToString(sum[:])
 		slot.Recipe.References[0].Bytes = int64(len(ownedSource))
-		slot.Recipe.Quote = ownedImageMetadata().ImageQuote()
+		slot.Recipe.Quote = metadata.ImageQuote()
 		plan.Slots[0] = slot
 		if includeDetail {
 			detail := slot
@@ -169,6 +169,19 @@ func (p isolatedOwnedImageTasks) LookupProductImage(_ context.Context, id string
 }
 
 func TestOwnedGRSaiAuthorizedActivityKeepsOriginalTaskAndUsageProof(t *testing.T) {
+	testOwnedImageAuthorizedActivity(t, ownedImageMetadata())
+}
+
+func TestOwnedToAPIsAuthorizedActivityKeepsOriginalTaskAndUsageProof(t *testing.T) {
+	metadata := ownedImageMetadata()
+	metadata.Provider = aicapability.ToAPIsProductImageProvider
+	metadata.Model = aicapability.ToAPIsProductImageModel
+	metadata.Protocol = aicapability.ToAPIsProductImageProtocol
+	testOwnedImageAuthorizedActivity(t, metadata)
+}
+
+func testOwnedImageAuthorizedActivity(t *testing.T, metadata imageagent.GenerationProviderMetadata) {
+	t.Helper()
 	for _, name := range []string{"first_lookup_success", "lookup_timeout_then_recover_original", "detail_succeeds_while_main_needs_recovery", "detail_succeeds_main_later_fails", "invalid_result"} {
 		t.Run(name, func(t *testing.T) {
 			mainFails := name == "detail_succeeds_main_later_fails"
@@ -178,7 +191,7 @@ func TestOwnedGRSaiAuthorizedActivityKeepsOriginalTaskAndUsageProof(t *testing.T
 			ctx := context.Background()
 			var photo bytes.Buffer
 			require.NoError(t, png.Encode(&photo, image.NewNRGBA(image.Rect(0, 0, 1024, 1024))))
-			a, repo, input := imageSetPersistenceFixtureWithSource(t, photo.Bytes(), includeDetail)
+			a, repo, input := imageSetPersistenceFixtureWithSource(t, photo.Bytes(), includeDetail, metadata)
 			input.BudgetAuthorization = true
 			runScope := slotEffectReservationV3(slotExecutionInputV3(input)).Identity.RunScope
 			initial, err := repo.GetProjection(ctx, runScope)
@@ -260,7 +273,7 @@ func TestOwnedGRSaiAuthorizedActivityKeepsOriginalTaskAndUsageProof(t *testing.T
 				},
 				ReadSourceBytes: func(context.Context, imageagent.SlotExecutionInput) ([]byte, error) { return photo.Bytes(), nil },
 				PrepareProvider: func(context.Context, imageagent.SlotExecutionInput, func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
-					return imageagent.PreparedGenerationProvider{Metadata: ownedImageMetadata(), ProviderUsage: provider}, nil
+					return imageagent.PreparedGenerationProvider{Metadata: metadata, ProviderUsage: provider}, nil
 				},
 				RevalidateProvider: func(context.Context, imageagent.SlotExecutionInput, imageagent.GenerationProviderMetadata) error {
 					return nil
