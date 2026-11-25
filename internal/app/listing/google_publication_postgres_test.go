@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -76,17 +77,41 @@ func TestGoogleMockAuthorizationPublicationAndSavedResult(t *testing.T) {
 	require.NoError(t, err)
 	store, _, err = storeRepo.CreateOrReplay(ctx, scope.OrganizationID, store)
 	require.NoError(t, err)
-	var insertions atomic.Int32
+	var insertions, refreshes, merchantRequests atomic.Int32
+	var refuseRefresh atomic.Bool
+	var refreshHook atomic.Pointer[func(http.ResponseWriter, *http.Request)]
+	var submittedOffers sync.Map
 	var processed atomic.Bool
 	var failPreflight, loseResponse atomic.Bool
 	var replaceImageDuringPreflight, imageReplaced atomic.Bool
 	var challenge atomic.Value
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path != "/token" {
+			merchantRequests.Add(1)
+		}
 		switch {
 		case r.URL.Path == "/token":
 			if err := r.ParseForm(); err != nil {
 				t.Errorf("invalid OAuth grant: %v", err)
+			}
+			if r.Form.Get("grant_type") == "refresh_token" {
+				refreshes.Add(1)
+				if hook := refreshHook.Load(); hook != nil {
+					(*hook)(w, r)
+					return
+				}
+				if refuseRefresh.Swap(false) {
+					w.Header().Set("Retry-After", "1")
+					w.WriteHeader(http.StatusTooManyRequests)
+					_, _ = w.Write([]byte(`{"error":"rate_limit_exceeded"}`))
+					return
+				}
+				if r.Form.Get("refresh_token") != "pretend-refresh" {
+					t.Error("refresh did not use the bound credential")
+				}
+				_, _ = w.Write([]byte(`{"access_token":"refreshed-access","token_type":"Bearer","expires_in":3600}`))
+				return
 			}
 			digest := sha256.Sum256([]byte(r.Form.Get("code_verifier")))
 			expected := challenge.Load()
@@ -109,11 +134,14 @@ func TestGoogleMockAuthorizationPublicationAndSavedResult(t *testing.T) {
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || r.URL.Query().Get("dataSource") != "accounts/123/dataSources/456" {
 				t.Errorf("bad insert %v %s", err, r.URL)
 			}
+			key := body.ContentLanguage + "~" + body.FeedLabel + "~" + body.OfferID
+			submittedOffers.Store(key, true)
+			// The Merchant SDK uses a URL-safe base64 identifier where required.
+			submittedOffers.Store(base64.RawURLEncoding.EncodeToString([]byte(key)), true)
 			if loseResponse.Load() {
 				w.WriteHeader(http.StatusServiceUnavailable)
 				return
 			}
-			key := body.ContentLanguage + "~" + body.FeedLabel + "~" + body.OfferID
 			_ = json.NewEncoder(w).Encode(map[string]string{"name": "accounts/123/productInputs/" + key, "product": "accounts/123/products/" + key})
 		case strings.HasPrefix(r.URL.Path, "/products/v1/accounts/123/products/"):
 			if replaceImageDuringPreflight.Swap(false) {
@@ -123,11 +151,12 @@ func TestGoogleMockAuthorizationPublicationAndSavedResult(t *testing.T) {
 				w.WriteHeader(http.StatusServiceUnavailable)
 				return
 			}
-			if !processed.Load() || insertions.Load() == 0 {
+			remote := strings.TrimPrefix(r.URL.Path, "/products/v1/")
+			productKey := strings.TrimPrefix(remote, "accounts/123/products/")
+			if _, submitted := submittedOffers.Load(productKey); !processed.Load() || !submitted {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			remote := strings.TrimPrefix(r.URL.Path, "/products/v1/")
 			_ = json.NewEncoder(w).Encode(map[string]any{"name": remote, "dataSource": "accounts/123/dataSources/456",
 				"productStatus": map[string]any{"destinationStatuses": []map[string]any{{"reportingContext": "FREE_LISTINGS", "approvedCountries": []string{"US"}}}}})
 		default:
@@ -146,7 +175,8 @@ func TestGoogleMockAuthorizationPublicationAndSavedResult(t *testing.T) {
 	require.NoError(t, err)
 	protection, err := googleadapter.NewCredentialProtection("test-key", make([]byte, 32))
 	require.NoError(t, err)
-	connections, err := storeapp.NewGoogleConnections(storeRepo, storeapp.GoogleApplicationRegistration{Application: app, OAuth: oauth, Accounts: accountClient, Protection: protection})
+	registration := storeapp.GoogleApplicationRegistration{Application: app, OAuth: oauth, Accounts: accountClient, Protection: protection}
+	connections, err := storeapp.NewGoogleConnections(storeRepo, registration)
 	require.NoError(t, err)
 	now := time.Now().UTC()
 	// The isolated listing fixture already has a Store service entitlement.
@@ -181,8 +211,10 @@ func TestGoogleMockAuthorizationPublicationAndSavedResult(t *testing.T) {
 			Assets: []asset.ApprovedAsset{{ID: "approved-main", URL: "https://seller.example.org/desk.jpg", Role: asset.RoleMain}}},
 	}, Stores: connections, Plans: planRepo, Kernel: kernel}
 	if os.Getenv("GOOGLE_WORKBENCH_BROWSER") == "1" {
-		runGoogleWorkbenchBrowser(t, ctx, storeDB, scope, storeRepo, connections, service, store.ID(), source.ID, &processed)
+		refuseRefresh.Store(true)
+		runGoogleWorkbenchBrowser(t, ctx, storeDB, scope, storeRepo, connections, service, store.ID(), source.ID, &processed, &refreshes, &merchantRequests)
 		require.Equal(t, int32(1), insertions.Load())
+		require.Equal(t, int32(3), refreshes.Load(), "temporary refusal, original confirmation and original record lookup")
 		return
 	}
 	begin, err := connections.Begin(ctx, scope.OrganizationID, store.ID(), store.Version())
@@ -231,9 +263,32 @@ func TestGoogleMockAuthorizationPublicationAndSavedResult(t *testing.T) {
 	plan, err := service.Prepare(ctx, uuid.NewString(), input)
 	require.NoError(t, err)
 	require.Equal(t, int32(0), insertions.Load(), "preview must not send")
+	require.NoError(t, expireGoogleGrant(storeDB, store.ID()))
+	require.NoError(t, func() error {
+		_, err := connections.PublicationBinding(ctx, scope.OrganizationID, store.ID())
+		return err
+	}(), "an expired bound store remains available for local preparation")
+	require.Zero(t, refreshes.Load(), "local preparation must not refresh")
+	var captured submission.AcquireExecutionCommand
+	service.Kernel = googleCaptureExecution{GooglePublicationKernel: kernel, command: &captured}
 	published, err := service.Confirm(ctx, source.ID, plan.ID)
 	require.NoError(t, err)
 	require.Equal(t, submission.ExecutionSucceeded, published.Items[0].Status)
+	require.Equal(t, int32(1), refreshes.Load())
+	service.Kernel = kernel
+	expectedPayload, err := json.Marshal([]any{plan.Version, plan.ProductHash, plan.InventoryHash,
+		storeapp.GooglePublicationBinding{Target: plan.Target, Generation: plan.Generation}, plan.Offers[0]})
+	require.NoError(t, err)
+	require.JSONEq(t, string(expectedPayload), string(captured.Payload))
+	intent := collection.StableID(scope.OrganizationID, "google-product-insert", plan.ID, plan.Offers[0].ID)
+	require.Equal(t, intent, captured.IntentKey)
+	executionScope := submission.ExecutionScope{OrganizationID: scope.OrganizationID}
+	publishedAttempt, err := kernel.ReadIntent(ctx, executionScope, intent)
+	require.NoError(t, err)
+	originalPlan, err := planRepo.Read(ctx, scope, plan.ID)
+	require.NoError(t, err)
+	require.True(t, originalPlan.SameConfirmation(plan))
+	require.Equal(t, plan.CreatedAt, originalPlan.CreatedAt)
 	_, err = service.Confirm(ctx, source.ID, plan.ID)
 	require.NoError(t, err)
 	require.Equal(t, int32(1), insertions.Load(), "replay must preserve the original write")
@@ -251,24 +306,145 @@ func TestGoogleMockAuthorizationPublicationAndSavedResult(t *testing.T) {
 	require.NotNil(t, observed.Items[0].Observation)
 	require.Equal(t, []string{"US"}, observed.Items[0].Observation.FreeListings.Approved)
 	require.Equal(t, plan.Offers[0].ID, observed.Items[0].OfferID)
-	processed.Store(false)
 	input.Variants[0].VariantID = "backup"
 	lost, err := service.Prepare(ctx, uuid.NewString(), input)
 	require.NoError(t, err)
+	require.NoError(t, expireGoogleGrant(storeDB, store.ID()))
+	secondRepo, err := storecenter.NewMemberScopedStoreRepository(storeDB.Session(&gorm.Session{NewDB: true}), googleTestAccess{scope})
+	require.NoError(t, err)
+	waiting := make(chan struct{})
+	secondConnections, err := storeapp.NewGoogleConnections(&googleCredentialWaitProbe{GoogleConnectionStore: secondRepo, entered: waiting}, registration)
+	require.NoError(t, err)
+	secondEffects, err := persistence.NewOfficialEffectsRepository(productDB.Session(&gorm.Session{NewDB: true}))
+	require.NoError(t, err)
+	secondKernel, err := submission.NewExecutionKernel(secondEffects)
+	require.NoError(t, err)
+	secondService := *service
+	secondService.Stores, secondService.Kernel = secondConnections, secondKernel
+	replayWaiting := make(chan struct{})
+	replayConnections, err := storeapp.NewGoogleConnections(&googleCredentialWaitProbe{GoogleConnectionStore: secondRepo, entered: replayWaiting}, registration)
+	require.NoError(t, err)
+	replayService := secondService
+	replayService.Stores = replayConnections
+	entered, release := make(chan struct{}), make(chan struct{})
+	rotate := func(w http.ResponseWriter, r *http.Request) {
+		requireBoundRefreshToken(t, r, "pretend-refresh")
+		close(entered)
+		select {
+		case <-release:
+		case <-r.Context().Done():
+			return
+		}
+		_, _ = w.Write([]byte(`{"access_token":"rotated-access","refresh_token":"rotated-refresh","token_type":"Bearer","expires_in":3600}`))
+	}
+	refreshHook.Store(&rotate)
+	type publicationReply struct {
+		result listingapp.GooglePublicationResult
+		err    error
+	}
+	confirmReply, resultReply, replayReply := make(chan publicationReply, 1), make(chan publicationReply, 1), make(chan publicationReply, 1)
 	loseResponse.Store(true)
+	go func() {
+		result, err := service.Confirm(ctx, source.ID, lost.ID)
+		confirmReply <- publicationReply{result, err}
+	}()
+	awaitGoogleTestSignal(t, entered)
+	go func() {
+		result, err := secondService.Result(ctx, source.ID, plan.ID)
+		resultReply <- publicationReply{result, err}
+	}()
+	go func() {
+		result, err := replayService.Confirm(ctx, source.ID, lost.ID)
+		replayReply <- publicationReply{result, err}
+	}()
+	awaitGoogleTestSignal(t, waiting)
+	awaitGoogleTestSignal(t, replayWaiting)
+	close(release)
+	confirmed, queried, replayed := <-confirmReply, <-resultReply, <-replayReply
+	require.NoError(t, confirmed.err)
+	require.NoError(t, replayed.err)
+	require.Contains(t, []submission.ExecutionStatus{confirmed.result.Items[0].Status, replayed.result.Items[0].Status}, submission.ExecutionOutcomeUnknown)
+	require.NoError(t, queried.err)
+	require.NotNil(t, queried.result.Items[0].Observation)
+	require.Equal(t, int32(2), refreshes.Load(), "two service instances share one exchange for this revision")
+	require.Equal(t, int32(2), insertions.Load(), "one accepted operation and one response lost")
+
+	require.NoError(t, expireGoogleGrant(storeDB, store.ID()))
+	providerCount := merchantRequests.Load()
 	unknown, err := service.Confirm(ctx, source.ID, lost.ID)
 	require.NoError(t, err)
 	require.Equal(t, submission.ExecutionOutcomeUnknown, unknown.Items[0].Status)
-	unknown, err = service.Confirm(ctx, source.ID, lost.ID)
-	require.NoError(t, err)
-	require.Equal(t, submission.ExecutionOutcomeUnknown, unknown.Items[0].Status)
-	require.Equal(t, int32(2), insertions.Load(), "loss and retry of one response must not cause another write")
-	processed.Store(true)
+	require.Equal(t, providerCount, merchantRequests.Load(), "replay must only return the original result")
+	require.Equal(t, int32(2), refreshes.Load(), "replay must not refresh")
+	verifyRotation := func(w http.ResponseWriter, r *http.Request) {
+		requireBoundRefreshToken(t, r, "rotated-refresh")
+		_, _ = w.Write([]byte(`{"access_token":"lookup-access","token_type":"Bearer","expires_in":3600}`))
+	}
+	refreshHook.Store(&verifyRotation)
 	unknown, err = service.Result(ctx, source.ID, lost.ID)
 	require.NoError(t, err)
 	require.NotNil(t, unknown.Items[0].Observation)
+	require.Equal(t, "accounts/123/dataSources/456", unknown.Items[0].Observation.DataSource)
 	require.Equal(t, submission.ExecutionOutcomeUnknown, unknown.Items[0].Status, "a product observation is not linked write evidence")
+	require.Equal(t, int32(2), insertions.Load())
+	require.Equal(t, int32(3), refreshes.Load())
+	afterLookup, err := kernel.ReadIntent(ctx, executionScope, intent)
+	require.NoError(t, err)
+	require.Equal(t, publishedAttempt, afterLookup, "lookup and renewal must preserve the original attempt and payload digest")
+	binding, err := connections.PublicationBinding(ctx, scope.OrganizationID, store.ID())
+	require.NoError(t, err)
+	require.Equal(t, storeapp.GooglePublicationBinding{Target: plan.Target, Generation: plan.Generation}, binding)
 
+	// Exercise the recovery boundaries against the same isolated Store database
+	// and simulation. The fixture restores a new grant through real reauthorization.
+	refreshFixture := googleRefreshFixture{ctx: ctx, db: storeDB, scope: scope, storeID: store.ID(),
+		repo: storeRepo, application: registration, hook: &refreshHook, calls: &refreshes, challenge: &challenge,
+		initialPlan: duplicate, originalPlan: plan, listing: service}
+	refreshFixture.testRecovery(t)
+}
+
+type googleCaptureExecution struct {
+	listingapp.GooglePublicationKernel
+	command *submission.AcquireExecutionCommand
+}
+
+func (k googleCaptureExecution) PrepareGoogleExecution(ctx context.Context, cmd submission.AcquireExecutionCommand) (submission.PreparedAcquisition, error) {
+	*k.command = cmd
+	return k.GooglePublicationKernel.PrepareGoogleExecution(ctx, cmd)
+}
+
+type googleCredentialWaitProbe struct {
+	storeapp.GoogleConnectionStore
+	entered chan struct{}
+	once    sync.Once
+}
+
+func (g *googleCredentialWaitProbe) GoogleCredential(ctx context.Context, request storecenter.GoogleCredentialRequest, claimID string) (storecenter.GoogleCredentialState, error) {
+	state, err := g.GoogleConnectionStore.GoogleCredential(ctx, request, claimID)
+	if err == nil && claimID != "" && state.ClaimID != claimID && state.Phase == storecenter.GoogleRefreshPossible {
+		g.once.Do(func() { close(g.entered) })
+	}
+	return state, err
+}
+
+func requireBoundRefreshToken(t *testing.T, request *http.Request, token string) {
+	t.Helper()
+	if request.Form.Get("refresh_token") != token {
+		t.Error("OAuth exchange did not use the expected bound token")
+	}
+}
+
+func awaitGoogleTestSignal(t *testing.T, signal <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-signal:
+	case <-time.After(5 * time.Second):
+		t.Fatal("fixture did not reach the expected refresh step")
+	}
+}
+
+func expireGoogleGrant(db *gorm.DB, storeID string) error {
+	return db.Exec("UPDATE workbench_store_google_oauth_grants SET access_expires_at = clock_timestamp() - interval '1 second' WHERE store_id = ?", storeID).Error
 }
 
 func googleFlowDatabases(t *testing.T, ctx context.Context) (*gorm.DB, *gorm.DB) {
@@ -351,7 +527,7 @@ func (a googleAssets) GetApprovedInventory(context.Context, asset.InventoryScope
 func runGoogleWorkbenchBrowser(
 	t *testing.T, ctx context.Context, db *gorm.DB, scope collection.Scope,
 	repo storecenter.Repository, connections *storeapp.GoogleConnections,
-	publication *listingapp.GooglePublication, storeID, sourceID string, processed *atomic.Bool,
+	publication *listingapp.GooglePublication, storeID, sourceID string, processed *atomic.Bool, refreshes, merchantRequests *atomic.Int32,
 ) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -364,6 +540,27 @@ func runGoogleWorkbenchBrowser(
 		identity := authidentity.AuthenticatedIdentity{TenantID: scope.OrganizationID, EffectiveOrganizationID: scope.OrganizationID,
 			UserID: scope.ActorID, EffectiveMemberID: scope.MemberID, TokenExpiresAt: time.Now().Add(time.Minute)}
 		c.Request = c.Request.WithContext(authidentity.WithAuthenticatedIdentity(c.Request.Context(), identity))
+	})
+	var reads atomic.Int32
+	router.Use(func(c *gin.Context) {
+		path := c.Request.URL.Path
+		if path == listinghttp.GoogleListingPath+"/result" && reads.Add(1) == 1 {
+			if err := expireGoogleGrant(db, storeID); err != nil {
+				t.Errorf("expire fixture before reading original record: %v", err)
+			}
+		}
+		refreshBefore, merchantBefore := refreshes.Load(), merchantRequests.Load()
+		c.Next()
+		if strings.HasSuffix(path, "/connection/google/bind") && c.Writer.Status() == http.StatusOK {
+			if err := expireGoogleGrant(db, storeID); err != nil {
+				t.Errorf("expire fixture after binding: %v", err)
+			}
+		}
+		if path == "/api/v1/workbench/stores" || strings.HasPrefix(path, listinghttp.GoogleListingPath+"/options/") || path == listinghttp.GoogleListingPath+"/prepare" {
+			if refreshBefore != refreshes.Load() || merchantBefore != merchantRequests.Load() {
+				t.Error("local listing and preview must make no provider request")
+			}
+		}
 	})
 	audit, err := storecenter.NewGormAuditRepository(db)
 	require.NoError(t, err)

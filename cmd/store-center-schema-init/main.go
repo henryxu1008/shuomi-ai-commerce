@@ -406,7 +406,7 @@ func installGoogleMerchant(path, confirmed string) error {
 	if err := storecenter.InstallGoogleMerchantSchemaTx(ctx, tx); err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, "GRANT SELECT,INSERT,UPDATE ON public.workbench_store_google_oauth_attempts,public.workbench_store_google_oauth_grants TO store_center_runtime"); err != nil {
+	if _, err := tx.ExecContext(ctx, "GRANT SELECT,INSERT,UPDATE ON public.workbench_store_google_oauth_attempts,public.workbench_store_google_oauth_grants,public.workbench_store_google_oauth_refresh TO store_center_runtime"); err != nil {
 		return err
 	}
 	return tx.Commit()
