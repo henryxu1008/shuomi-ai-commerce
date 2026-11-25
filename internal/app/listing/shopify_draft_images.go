@@ -4,7 +4,6 @@ import (
 	"context"
 	"slices"
 
-	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
 	wire "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/shopify"
 	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shopify"
@@ -24,7 +23,7 @@ func (s *UploadService) stageShopifyDraftImages(ctx context.Context, scope colle
 	read := s.dependencies.ShopifyGeneratedImages
 	stager, canStage := writer.(shopifyDraftImageStager)
 	for i, image := range draft.Images {
-		if _, err := httpimage.ValidatePublicHTTPSURL(image.URL); err == nil {
+		if wire.ValidPublicDraftImageURL(image.URL) {
 			continue
 		}
 		if read == nil || !canStage {

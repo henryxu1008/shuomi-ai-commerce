@@ -111,7 +111,7 @@ func (d Draft) input() (draftInput, error) {
 		Metafields: []metafield{sourceMetafieldValue(d.SourceKey)}}
 	approvedImages := make([]string, 0, len(d.Images))
 	for _, image := range d.Images {
-		if !validImageURL(image.URL) || image.Alt != "" && !validText(image.Alt, 255) || slices.Contains(approvedImages, image.URL) {
+		if !ValidPublicDraftImageURL(image.URL) || image.Alt != "" && !validText(image.Alt, 255) || slices.Contains(approvedImages, image.URL) {
 			return draftInput{}, ErrInvalidRequest
 		}
 		approvedImages = append(approvedImages, image.URL)
@@ -196,7 +196,8 @@ func validText(value string, maxRunes int) bool {
 		strings.TrimSpace(value) == value && strings.IndexFunc(value, unicode.IsControl) < 0
 }
 
-func validImageURL(value string) bool {
+// ValidPublicDraftImageURL checks if Shopify can be given the original HTTPS reference.
+func ValidPublicDraftImageURL(value string) bool {
 	if len(value) > 2048 || strings.ContainsAny(value, "\\ \x00\r\n\t") {
 		return false
 	}

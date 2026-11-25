@@ -73,6 +73,7 @@ func TestStagedUploadSendsOnlySignedFormAndImage(t *testing.T) {
 		require.Equal(t, "file", file.FormName())
 		require.Equal(t, "image-1.png", file.FileName())
 		require.Equal(t, stagedMimeType, file.Header.Get("Content-Type"))
+		require.Equal(t, `form-data; name="file"; filename="image-1.png"`, file.Header.Get("Content-Disposition"))
 		data, err := io.ReadAll(file)
 		require.NoError(t, err)
 		require.Equal(t, contents, data)

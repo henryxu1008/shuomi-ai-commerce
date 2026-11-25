@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
@@ -66,7 +65,7 @@ func (w *DraftWrite) StageImages(ctx context.Context, contents [][]byte) ([]stri
 		if len(content) > MaxStagedDraftImageBytes || !bytes.HasPrefix(content, []byte("\x89PNG\r\n\x1a\n")) {
 			return nil, ErrInvalidRequest
 		}
-		inputs[i] = stagedImageInput{Filename: fmt.Sprintf("%s-%d.png", prefix, i+1), MIMEType: stagedMimeType, Method: "POST", Resource: "PRODUCT_IMAGE"}
+		inputs[i] = stagedImageInput{Filename: fmt.Sprintf("%s-%d.png", prefix, i+1), MIMEType: stagedMimeType, Method: "POST", Resource: "IMAGE"}
 	}
 	var data struct {
 		Result *struct {
@@ -76,13 +75,13 @@ func (w *DraftWrite) StageImages(ctx context.Context, contents [][]byte) ([]stri
 	}
 	if w.client.query(ctx, w.installation.Domain, w.token, stagedUploadsQuery, map[string][]stagedImageInput{"input": inputs}, &data) != nil ||
 		data.Result == nil || data.Result.UserErrors == nil || len(data.Result.UserErrors) != 0 || len(data.Result.Targets) != len(contents) {
-		return nil, errAdminResponse
+		return nil, fmt.Errorf("prepare Shopify staged images: %w", errAdminResponse)
 	}
 
 	resources := make([]string, len(contents))
 	for i, target := range data.Result.Targets {
 		if !target.valid(inputs[i].Filename) {
-			return nil, errAdminResponse
+			return nil, fmt.Errorf("validate Shopify staged image target %d: %w", i+1, errAdminResponse)
 		}
 		resources[i] = target.ResourceURL
 	}
@@ -149,7 +148,7 @@ func (t stagedImageTarget) upload(ctx context.Context, client *http.Client, file
 		}
 	}
 	header := make(textproto.MIMEHeader)
-	header.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{"name": "file", "filename": filename}))
+	header.Set("Content-Disposition", multipart.FileContentDisposition("file", filename))
 	header.Set("Content-Type", stagedMimeType)
 	file, err := form.CreatePart(header)
 	if err != nil {
@@ -166,13 +165,13 @@ func (t stagedImageTarget) upload(ctx context.Context, client *http.Client, file
 	request.Header.Set("Content-Type", form.FormDataContentType())
 	response, err := client.Do(request)
 	if err != nil {
-		return errAdminResponse
+		return fmt.Errorf("send Shopify staged image: %w", err)
 	}
 	defer response.Body.Close()
 	switch response.StatusCode {
 	case http.StatusOK, http.StatusCreated, http.StatusNoContent:
 		return nil
 	default:
-		return errAdminResponse
+		return fmt.Errorf("send Shopify staged image returned status %d: %w", response.StatusCode, errAdminResponse)
 	}
 }
