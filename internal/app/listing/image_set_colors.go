@@ -19,6 +19,9 @@ func listingImageColorOptions(snapshot catalog.PublishedSnapshot, assets []image
 	for _, attribute := range snapshot.Snapshot.Variants[0].Attributes {
 		if option, ok := listingColorOption(attribute.Name, snapshot.Snapshot.Variants, byURL); ok {
 			out = append(out, option)
+			if len(out) == imageagent.MaxImageColorOptions {
+				break
+			}
 		}
 	}
 	return out
@@ -59,7 +62,7 @@ func listingColorOption(name string, variants []catalog.Variant, byURL map[strin
 			imageOwner[id] = value
 		}
 	}
-	if len(option.Groups) < 2 || len(option.Groups) > 3 {
+	if !option.Valid() {
 		return option, false
 	}
 	for i := range option.Groups {
