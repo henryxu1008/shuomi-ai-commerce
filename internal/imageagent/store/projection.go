@@ -119,6 +119,16 @@ func (r *memoryRepository) CommitProjection(_ context.Context, input imageagent.
 	if err := validateProjectionMutation(current, input); err != nil {
 		return imageagent.RunProjection{}, err
 	}
+	if input.RunMutation != nil && input.RunMutation.ImageAdmission != nil {
+		if reworkKey := imageagent.ConfirmedColorImageReworkKey(current.Plan); reworkKey != "" {
+			for _, run := range r.projections {
+				if run.Run.TenantID == input.Scope.TenantID && run.Run.ImageAdmission != nil &&
+					imageagent.ConfirmedColorImageReworkKey(run.Plan) == reworkKey {
+					return imageagent.RunProjection{}, imageagent.ErrColorImageReworkConfirmed
+				}
+			}
+		}
+	}
 	cursor := nextCursor(r.events[key])
 	if cursor <= current.ProjectionVersion {
 		return imageagent.RunProjection{}, imageagent.ErrRevisionConflict
@@ -733,9 +743,15 @@ func (r *gormRepository) applyGormProjectionMutation(ctx context.Context, tx *go
 				return imageagent.ErrRevisionConflict
 			}
 			values["admission_json"] = admissionJSON
+			if reworkKey := imageagent.ConfirmedColorImageReworkKey(input.Snapshot.Plan); reworkKey != "" {
+				values["color_rework_key"] = reworkKey
+			}
 		}
 		updates := scopedRunWhere(tx.Model(&runRecord{}), input.Scope).Where("version = ?", input.ExpectedRunVersion).Updates(values)
 		if updates.Error != nil {
+			if values["color_rework_key"] != nil && isColorReworkUniqueConflict(updates.Error) {
+				return imageagent.ErrColorImageReworkConfirmed
+			}
 			return updates.Error
 		}
 		if updates.RowsAffected != 1 {

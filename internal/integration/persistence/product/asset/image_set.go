@@ -2,11 +2,58 @@ package assetpersistence
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+func (r *repository) ColorReworkSaveNotCommitted(ctx context.Context, scope productasset.InventoryScope, source productasset.SourceSelectionRequest, actionID string, expected productasset.ImageInventoryHead) (bool, error) {
+	if productasset.ValidateInventoryScope(scope) != nil || scope.TargetPlatform != "product" ||
+		scope.SourceSnapshotVersion == 0 || source.EffectiveCatalogVersion != scope.SourceSnapshotVersion ||
+		source.TargetPlatform != scope.TargetPlatform || !expected.Valid() ||
+		expected.ActionID == "" || expected.ActionID == actionID {
+		return false, productasset.ErrInvalidApproval
+	}
+	notCommitted := false
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		reader := *r
+		reader.db = tx
+		_, err := reader.ReadApprovalCommit(ctx, scope.TenantID, actionID)
+		if err == nil {
+			return nil
+		}
+		if !errors.Is(err, productasset.ErrApprovedAssetsNotReady) {
+			return err
+		}
+		baseline, err := reader.ReadApprovalCommit(ctx, scope.TenantID, expected.ActionID)
+		if err != nil {
+			return err
+		}
+		hash, err := approvalPayloadHash(baseline)
+		if err != nil {
+			return err
+		}
+		if hash != expected.PayloadHash || baseline.ProductKey != scope.ProductKey || baseline.TargetPlatform != scope.TargetPlatform ||
+			baseline.SourceSnapshotVersion != scope.SourceSnapshotVersion || baseline.ImageSet == nil || baseline.ImageSet.Source != source {
+			return productasset.ErrApprovalConflict
+		}
+		// Head and both receipts are read from one snapshot. The original
+		// transaction publishes its head and receipt atomically. Replaying an
+		// immutable receipt never makes its action the head again.
+		current, err := reader.ReadImageSetInventory(ctx, productasset.InventoryScope{
+			TenantID: scope.TenantID, ProductKey: scope.ProductKey, TargetPlatform: scope.TargetPlatform,
+		})
+		if err != nil {
+			return err
+		}
+		notCommitted = current.Head.Valid() && current.Head.ActionID != "" &&
+			current.Head.ActionID != expected.ActionID && current.Head.ActionID != actionID
+		return nil
+	}, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
+	return notCommitted && err == nil, err
+}
 
 // The successful action receipt is resolved before this function. Its head CAS
 // and complete asset set are committed in the same existing Asset transaction.

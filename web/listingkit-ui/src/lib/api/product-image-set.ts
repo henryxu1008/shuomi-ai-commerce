@@ -4,7 +4,7 @@ import {isAcquisitionUUID} from "../contracts/product-acquisition";
 import {imageSetMethods,imageSetRequestSchema,imageSetSuccessStatus,imageSetResponseMatches,type ImageSetRoute} from "../contracts/product-image-set";
 
 export type ImageSetScope={userId:string;organizationId:string;kind:"acquisition"|"supply";contextId:string};
-export class ImageSetError extends Error { constructor(public code:string,public status=500,public capacityRetry=false){super(code)} }
+export class ImageSetError extends Error { constructor(public code:string,public status=500,public capacityRetry=false,public winnerRunId?:string){super(code)} }
 function imageSetBase(scope:ImageSetScope){
  if(!isAcquisitionUUID(scope.contextId)||!scope.userId||!scope.organizationId)throw new ImageSetError("INVALID_IMAGE_REQUEST",400);
  return scope.kind==="acquisition"?`/api/workbench/sourcing/1688/acquisitions/${scope.contextId}/images`:`/api/workbench/supply-preparations/sources/${scope.contextId}/images`;
@@ -37,10 +37,11 @@ export async function imageSetRequest<T>(scope:ImageSetScope,action:ImageSetRout
   const response=await fetch(path,{method,headers,body:body?.success?JSON.stringify(body.data):undefined,credentials:"same-origin",cache:"no-store",redirect:"error",signal:controller.signal});
   const payload=await readBoundedStrictJSON(response,2*1024*1024,controller.signal);
   if(!response.ok){
-   const error=z.object({code:z.string().optional(),error:z.object({code:z.string()}).optional()}).safeParse(payload);
+   const error=z.object({code:z.string().optional(),runId:z.string().optional(),error:z.object({code:z.string()}).optional()}).safeParse(payload);
    const code=error.success?(error.data.code??error.data.error?.code??"IMAGE_UNAVAILABLE"):"IMAGE_UNAVAILABLE";
    const capacityRetry=error.success&&code==="IMAGE_UNAVAILABLE"&&response.status===503&&response.headers.get("Retry-After")==="1";
-   throw new ImageSetError(code,response.status,capacityRetry);
+   const winnerRunId=code==="COLOR_IMAGE_REWORK_CONFIRMED"&&action==="confirm"&&error.success&&isAcquisitionUUID(error.data.runId??"")?error.data.runId:undefined;
+   throw new ImageSetError(code,response.status,capacityRetry,winnerRunId);
   }
   const parsed=schema.safeParse(payload);
   if(response.status!==imageSetSuccessStatus(action)||!parsed.success)throw new ImageSetError(mutation?"OUTCOME_UNKNOWN":"INVALID_UPSTREAM_RESPONSE",mutation?503:502);

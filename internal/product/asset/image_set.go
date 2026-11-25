@@ -23,6 +23,12 @@ type ImageSetInventoryReader interface {
 	ReadImageSetInventory(context.Context, InventoryScope) (ImageSetInventory, error)
 }
 
+// ColorReworkSaveReader may prove an exact original action cannot commit.
+// A missing receipt on its own never proves this.
+type ColorReworkSaveReader interface {
+	ColorReworkSaveNotCommitted(context.Context, InventoryScope, SourceSelectionRequest, string, ImageInventoryHead) (bool, error)
+}
+
 type ImagePresentation struct {
 	Color     string `json:"color,omitempty"`
 	Group     string `json:"group"`

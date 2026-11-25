@@ -225,6 +225,75 @@ it("quotes the selected template images for every color and shows each frozen or
  expect(fetch.mock.calls.some(([url])=>String(url).endsWith("/confirm"))).toBe(false);
 });
 
+it("freezes the white structural image requirement and previews a one-position replacement after refresh",async()=>{
+ const listingSource={...source,ContextKind:"supply"};
+ const childId="44444444-4444-4444-8444-444444444444";
+ const route={BindingID:sha,RevisionID:digest},head={action_id:templateId,payload_hash:sha};
+ const groups=["黑色","灰色","白色"].map((color,index)=>({color,originalId:`original-${index}`}));
+ const originals=groups.map(({originalId:ID})=>({ID,DisplayURL:`https://images.test/${ID}.png`,Width:1024,Height:1024}));
+ const base=projection("completed",operation);
+ const slots=groups.flatMap(({color,originalId})=>Array.from({length:4},(_,index)=>({
+  ...base.slots[0]!,slotId:crypto.randomUUID(),
+  recipe:{...base.slots[0]!.recipe,Purpose:index===2?"structure":"product_identity",
+   Placement:{Color:color,Group:"carousel",Order:index+1},References:[{AssetID:originalId}],
+   Quote:{Points:"0",BillingMode:"usage_only",Model:"gpt-image-2.6"}},
+ })));
+ const assets=slots.map((slot,index)=>({id:`approved-${index}`,role:"gallery",url:`https://images.test/approved-${index}.png`,
+  run_id:runId,plan_revision:1,slot_id:slot.slotId,presentation:{group:"carousel",order:slot.recipe.Placement.Order,color:slot.recipe.Placement.Color}}));
+ const parent={...base,unitVersion:providerImageUsageUnit,points:"0",settledPoints:"0",images:12,regenerationAvailable:false,colorReworkAvailable:true,
+  plan:{...base.plan,Route:route,Source:listingSource,ColorImages:{option:"颜色",groups}},slots,originals};
+ const target=slots[10]!,note="展示白色外套结构，画面不出现人物";
+ const child={...parent,runId:childId,images:1,status:"awaiting_plan_approval",generationAdmitted:false,confirmationActionId:"",
+  resultDigest:"",candidateSelectionAvailable:false,colorReworkAvailable:false,
+  plan:{...parent.plan,Regeneration:{RunID:runId,ColorRework:{SlotID:target.slotId,ReplacedAssetID:assets[10]!.id,Count:12,Head:head}}},
+  slots:[{...target,status:"pending",attempt:0,recipe:{...target.recipe,Composition:note},candidates:[],closure:null}],
+  originals:[originals[2]!],
+ };
+ let confirmed=false;
+ const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((input,init)=>{
+  const path=new URL(String(input),"https://app.test").pathname;
+  if(path.endsWith("/model-options"))return Promise.resolve(Response.json({contextKind:"supply",contextId:operation,
+   options:[{unitVersion:providerImageUsageUnit,model:"gpt-image-2.6",quality:"auto",resolution:"1024x1024",points:"0",route,channelName:"企业 GRSai"}]}));
+  if(path.endsWith("/images/sources"))return Promise.resolve(Response.json({contextKind:"supply",contextId:operation,source:listingSource,manualReplacementAvailable:false,
+   originals:originals.map(o=>({id:o.ID,displayUrl:o.DisplayURL,width:o.Width,height:o.Height})),evidence:{}}));
+  if(path.endsWith("/inventory"))return Promise.resolve(Response.json({target:{head,approval_action_id:templateId,assets},generic:null}));
+  if(path.endsWith("/regenerate"))return Promise.resolve(Response.json(child,{status:201}));
+  if(path.endsWith("/confirm")){confirmed=true;return Promise.resolve(Response.json({runId:childId,status:"accepted"},{status:202}))}
+  if(path.endsWith(`/runs/${childId}`))return Promise.resolve(Response.json(confirmed?{...child,status:"awaiting_final_approval",generationAdmitted:true,
+   resultDigest:sha,approvalAvailable:true,candidateSelectionAvailable:true,slots:[{...child.slots[0],status:"accepted",attempt:1,candidates:[{assetId:"replacement",url:"https://images.test/new.png",width:1024,height:1024}]}]}:child));
+  if(path.endsWith(`/runs/${runId}`))return Promise.resolve(Response.json(parent));
+  if(path.endsWith("/preview"))return Promise.resolve(Response.json({digest,head,assets}));
+  return real(input,init);
+ });
+ const view=render(<ProductImageSetPanel kind="supply" contextId={operation} colorGroupsAvailable initialRunId={runId}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"重新生成这张：白色 · 产品结构确认图"}));
+ fireEvent.change(screen.getByLabelText("构图要求（可选）"),{target:{value:note}});
+ const prepare=screen.getByRole("button",{name:"准备这张图片"});
+ await waitFor(()=>expect(prepare).toBeEnabled());fireEvent.click(prepare);
+ await screen.findByText(`构图要求：${note}`);
+ expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("/confirm"))).toHaveLength(0);
+ const request=fetch.mock.calls.find(([url])=>String(url).endsWith("/regenerate"))!;
+ expect(JSON.parse(String(request[1]?.body))).toMatchObject({colorRework:{slotId:target.slotId,head,composition:note}});
+ expect(JSON.parse(String(request[1]?.body)).colorImages).toBeUndefined();
+ view.unmount();
+ render(<ProductImageSetPanel kind="supply" contextId={operation} colorGroupsAvailable initialRunId={childId}/>);
+ expect(await screen.findByText(`构图要求：${note}`)).toBeVisible();
+ expect(await screen.findByText(/最多向 GRSai 提交 1 次/)).toBeVisible();
+ const confirm=screen.getByRole("button",{name:"确认生成 1 张图片"});
+ await waitFor(()=>expect(confirm).toBeEnabled());fireEvent.click(confirm);
+ fireEvent.click(await screen.findByRole("button",{name:"选择采用新图"}));
+ const preview=await screen.findByRole("button",{name:"预览完整选择"});
+ await waitFor(()=>expect(preview).toBeEnabled());fireEvent.click(preview);
+ await screen.findByRole("button",{name:"人工批准并保存素材"});
+ const sent=fetch.mock.calls.find(([url])=>String(url).endsWith("/preview"))!;
+ const choices=JSON.parse(String(sent[1]?.body)).choices;
+ expect(choices).toHaveLength(12);
+ expect(choices[10]).toMatchObject({kind:"generated",run_id:childId,slot_id:target.slotId,asset_id:"replacement"});
+ expect(choices.filter((choice:{kind:string})=>choice.kind==="approved").map((choice:{asset_id:string})=>choice.asset_id)).toEqual(assets.filter((_,i)=>i!==10).map(a=>a.id));
+ expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("/confirm"))).toHaveLength(1);
+});
+
 it.each(["prepare","regenerate"])("preserves restored %s bytes when the original replay gets a definite review rejection",async action=>{
  const key=`product-image-set:actor:org:acquisition:${operation}:intent`;
  const raw=JSON.stringify({action,...action==="regenerate"?{runId}:{},requestKey:templateId,body:{expectedModeRevision:"0",target:{Platform:"product"},skill:{skillId:operation,version:2,digest:sha},text:{mode:"none"}}},null,2);
