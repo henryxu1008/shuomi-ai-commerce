@@ -8,11 +8,12 @@ import {readSupplyPublicationStatus, shopifySupplyRules, supplyInventory, type S
 import {inventorySchema, shopifyTargetInputSchema, type ShopifySupplyTarget, type SupplyPublication, type SupplySourceDetail} from "@/lib/contracts/supply-chain";
 import {SupplyAPIError} from "@/lib/api/supply-error";
 import type {z} from "zod";
+import {ProductImageSetPanel} from "../acquisition/product-image-set-panel";
 import type {ListingCommandState} from "./use-listing-command";
 
 type ApprovedImage = z.infer<typeof inventorySchema>["assets"][number];
 
-export function ShopifyDraftEditor({scope, source, storeId, storeName, existing, command, disabled}: {
+export function ShopifyDraftEditor({scope, source, storeId, storeName, existing, command, disabled, imagesAvailable = false}: {
  scope: SupplyScope;
  source: SupplySourceDetail;
  storeId: string;
@@ -20,12 +21,14 @@ export function ShopifyDraftEditor({scope, source, storeId, storeName, existing,
  existing?: ShopifySupplyTarget;
  command: ListingCommandState;
  disabled: boolean;
+ imagesAvailable?: boolean;
 }) {
  const original = source.source.source;
  const variants = source.product.variants?.length ? source.product.variants : [{sku: "", attributes: []}];
  const [shopifyRules, setShopifyRules] = useState<{storeId: string; sourceId: string; currency: string; priorRevision?: number}>();
  const [prices, setPrices] = useState(existing?.input.shopify.prices ?? variants.map(() => ""));
  const [images, setImages] = useState<ApprovedImage[]>();
+ const [imageRefresh, setImageRefresh] = useState(0);
  const [selectedImages, setSelectedImages] = useState(existing?.input.shopify.imageIds ?? []);
  const [variantImages, setVariantImages] = useState(existing?.input.shopify.variantImageIds ?? variants.map(() => ""));
  const [currencyError, setCurrencyError] = useState(false);
@@ -45,23 +48,34 @@ export function ShopifyDraftEditor({scope, source, storeId, storeName, existing,
   }).catch(() => {
    if (!controller.signal.aborted) setCurrencyError(true);
   });
+  return () => controller.abort();
+ }, [scope, sourceId, storeId, revision, original.version]);
+ useEffect(() => {
+  const controller = new AbortController();
   void supplyInventory(scope, {
    itemId: sourceId, originalPublicationId: original.publicationId, originalSnapshotVersion: original.version,
    effectiveCatalogVersion: original.version, targetPlatform: "product",
   }, controller.signal).then(value => {
-   if (!controller.signal.aborted) setImages(value.assets.filter(image => image.role !== "design" && image.url.startsWith("https://")));
+   if (!controller.signal.aborted) {
+    setImages(value.assets.filter(image => image.role !== "design" && image.url.startsWith("https://")));
+    setImageError(false);
+   }
   }).catch(() => {
    if (!controller.signal.aborted) setImageError(true);
   });
   return () => controller.abort();
- }, [scope, sourceId, storeId, revision, original.version, original.publicationId]);
+ }, [scope, sourceId, original.version, original.publicationId, imageRefresh]);
  const imageIds = selectedImages.filter(id => images?.some(image => image.id === id));
  const variantImageIds = variants.map((_, index) => imageIds.includes(variantImages[index]) ? variantImages[index] : "");
  const input = shopifyTargetInputSchema.safeParse({
   sourceId, storeId, expectedRevision: existing?.revision ?? currentRules?.priorRevision ?? 0, effectiveVersion: original.version, shopify: {currency, prices, imageIds, ...(variantImageIds.some(Boolean) ? {variantImageIds} : {})},
  });
  const canSave = !!source.product.title?.trim() && input.success && !disabled && (images !== undefined || imageError && selectedImages.length === 0);
- return <form className="space-y-4" onSubmit={event => {
+ return <div className="space-y-5">
+ {imagesAvailable ? <ProductImageSetPanel kind="supply" contextId={sourceId}
+  translationItemId={source.source.source.kind === "own" ? source.source.collectionItemId : undefined}
+  onSaved={() => setImageRefresh(value => value + 1)} /> : null}
+ <form className="space-y-4" onSubmit={event => {
   event.preventDefault();
   if (canSave && input.success) void command.execute("save-target", input.data);
  }}>
@@ -117,7 +131,8 @@ export function ShopifyDraftEditor({scope, source, storeId, storeName, existing,
    })}
   </fieldset> : null}
   <Button type="submit" disabled={!canSave}>保存待上传资料</Button>
- </form>;
+ </form>
+ </div>;
 }
 
 const statusLabels = {DRAFT: "草稿", ACTIVE: "已启用", ARCHIVED: "已归档", UNLISTED: "未列出"};
