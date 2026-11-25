@@ -184,6 +184,27 @@ func (s *ImageSetService) prepare(ctx context.Context, input ImageSetCommand, mu
 			return ApprovalCommit{}, err
 		}
 	}
+	commit, prepareErr := s.prepareNewSelection(ctx, source, input, requestDigest)
+	// Keep the use gate authoritative for new actions even when the pure
+	// preparation detects stale inventory or invalid candidate data.
+	if guard, ok := s.candidates.(ImageSelectionUseGuard); ok {
+		release, err := guard.AcquireImageSetSelection(fenceContext, source, input)
+		if err != nil {
+			return ApprovalCommit{}, err
+		}
+		if release == nil {
+			return ApprovalCommit{}, ErrRepositoryUnavailable
+		}
+		if keepFence == nil || prepareErr != nil {
+			release()
+		} else {
+			keepFence(release)
+		}
+	}
+	return commit, prepareErr
+}
+
+func (s *ImageSetService) prepareNewSelection(ctx context.Context, source SourceSelection, input ImageSetCommand, requestDigest string) (ApprovalCommit, error) {
 	inventory, err := s.inventories.ReadImageSetInventory(ctx, InventoryScope{TenantID: source.TenantID, ProductKey: source.ProductKey, TargetPlatform: source.TargetPlatform, SourceSnapshotVersion: source.EffectiveCatalogVersion})
 	if err != nil {
 		return ApprovalCommit{}, err
@@ -261,20 +282,6 @@ func (s *ImageSetService) prepare(ctx context.Context, input ImageSetCommand, mu
 	commit.ImageSet.Digest = ImageSetSelectionDigest(commit)
 	if err := ValidateApprovalCommit(commit); err != nil {
 		return ApprovalCommit{}, err
-	}
-	if guard, ok := s.candidates.(ImageSelectionUseGuard); ok {
-		release, err := guard.AcquireImageSetSelection(fenceContext, source, input)
-		if err != nil {
-			return ApprovalCommit{}, err
-		}
-		if release == nil {
-			return ApprovalCommit{}, ErrRepositoryUnavailable
-		}
-		if keepFence == nil {
-			release()
-		} else {
-			keepFence(release)
-		}
 	}
 	return commit, nil
 }
