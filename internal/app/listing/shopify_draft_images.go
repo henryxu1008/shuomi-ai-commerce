@@ -51,6 +51,7 @@ func (s *UploadService) stageShopifyDraftImages(ctx context.Context, scope colle
 	if err != nil || len(resources) != len(positions) {
 		return false, record.ErrNotReady
 	}
+	draft.Images = slices.Clone(draft.Images)
 	for i, position := range positions {
 		draft.Images[position].URL = resources[i]
 	}

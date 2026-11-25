@@ -1109,7 +1109,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	if supplied.listing != nil {
 		listingDependencies := *supplied.listing
-		if supplied.officialStoreApplications.ShopifyConfigured() && !supplied.officialStoreApplications.ShopifyLifecycleConfigured() &&
+		if supplied.officialStoreApplications.ShopifyConfigured() && !storeCapabilities.ShopifyLifecycle &&
 			supplied.fullImages != nil && supplied.fullImages.WorkerConfig != nil && cfg.ImageAgent.Generation.Enabled {
 			apiArtifacts := cfg.ImageAgent.ArtifactStore
 			workerArtifacts := supplied.fullImages.WorkerConfig.ImageAgent.ArtifactStore

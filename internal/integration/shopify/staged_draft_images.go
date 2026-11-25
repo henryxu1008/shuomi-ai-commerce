@@ -115,7 +115,8 @@ func stagedResource(value string) (*url.URL, bool) {
 
 func (t stagedImageTarget) valid(filename string) bool {
 	resource, ok := stagedResource(t.ResourceURL)
-	if !ok || t.URL != stagedPostURL || path.Base(resource.Path) != filename || len(t.Parameters) < 7 || len(t.Parameters) > 9 {
+	if !ok || (t.URL != stagedPostURL && t.URL != "https://"+stagedHost) ||
+		path.Base(resource.Path) != filename || len(t.Parameters) < 7 || len(t.Parameters) > 9 {
 		return false
 	}
 	seen := make(map[string]string, len(t.Parameters))
