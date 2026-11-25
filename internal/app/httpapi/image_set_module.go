@@ -513,6 +513,10 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 			_, err = a.service.ConfirmImagePlan(ctx, imageagent.ConfirmImagePlanInput{RunID: runID, ActionID: body.ActionID, ExpectedRevision: body.PlanRevision, PlanDigest: body.PlanDigest, QuoteDigest: body.QuoteDigest})
 		}
 	case "preview", "approve":
+		if groups := p.Plan.Set.ColorImages; groups != nil && !groups.Matches(liveSource.ColorOptions) {
+			err = imageagent.ErrRevisionConflict
+			break
+		}
 		var body fullImageSelectionBody
 		if err = readFullImageJSON(c.Request, &body); err != nil {
 			break
@@ -668,36 +672,14 @@ func fullImageSelection(p imageagent.RunProjection, body fullImageSelectionBody)
 		return asset.ImageSetCommand{}, imageagent.ErrCommandBlocked
 	}
 	source, target := p.Plan.Set.Source, p.Plan.Set.Target
-	if p.Plan.Set.ColorImages != nil && !validColorImageChoices(p, body.Choices) {
+	command := asset.ImageSetCommand{ApprovingResult: asset.ImageSetResultBinding{RunID: p.Run.ID, PlanRevision: p.Plan.Revision, ResultDigest: p.ResultDigest}, ActionID: body.ActionID, Source: asset.SourceSelectionRequest{ContextKind: string(source.ContextKind), ItemID: source.OperationID, OriginalPublicationID: source.OriginalPublicationID, OriginalSnapshotVersion: source.OriginalVersion, EffectiveCatalogVersion: source.EffectiveVersion, ApplyReceiptID: source.ApplyReceiptID, TargetPlatform: target.Platform}, ExpectedHead: body.ExpectedHead, Choices: body.Choices, SelectionDigest: body.SelectionDigest}
+	if !imageagent.ValidColorImageChoices(p.Run.ID, p.Plan, command) {
 		return asset.ImageSetCommand{}, imageagent.ErrCommandBlocked
 	}
-	command := asset.ImageSetCommand{ApprovingResult: asset.ImageSetResultBinding{RunID: p.Run.ID, PlanRevision: p.Plan.Revision, ResultDigest: p.ResultDigest}, ActionID: body.ActionID, Source: asset.SourceSelectionRequest{ContextKind: string(source.ContextKind), ItemID: source.OperationID, OriginalPublicationID: source.OriginalPublicationID, OriginalSnapshotVersion: source.OriginalVersion, EffectiveCatalogVersion: source.EffectiveVersion, ApplyReceiptID: source.ApplyReceiptID, TargetPlatform: target.Platform}, ExpectedHead: body.ExpectedHead, Choices: body.Choices, SelectionDigest: body.SelectionDigest}
 	if target.Platform != "product" {
 		command.Target = &asset.ImageSetTarget{RecordID: target.RecordID, StoreID: target.StoreID, Site: target.Site, ApplicationID: target.ApplicationID, ApplicationMode: target.ApplicationMode, CategoryID: target.CategoryID, ProductTypeID: target.ProductTypeID, AttributesDigest: target.AttributesDigest, VariantsDigest: target.VariantsDigest}
 	}
 	return command, nil
-}
-
-func validColorImageChoices(p imageagent.RunProjection, choices []asset.ImageSetChoice) bool {
-	if len(choices) != len(p.Plan.Slots) {
-		return false
-	}
-	positions := make(map[string]asset.ImagePresentation, len(p.Plan.Slots))
-	for _, slot := range p.Plan.Slots {
-		if slot.Recipe == nil {
-			return false
-		}
-		position := slot.Recipe.Placement
-		positions[slot.ID] = asset.ImagePresentation{Group: position.Group, Order: position.Order, Color: position.Color}
-	}
-	for _, choice := range choices {
-		expected, ok := positions[choice.SlotID]
-		if !ok || choice.Kind != "generated" || choice.RunID != p.Run.ID || choice.Presentation != expected {
-			return false
-		}
-		delete(positions, choice.SlotID)
-	}
-	return true
 }
 
 func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunProjection) (gin.H, error) {

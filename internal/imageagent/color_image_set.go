@@ -75,14 +75,20 @@ func (s ColorImageSelection) OriginalFor(color string) string {
 	return ""
 }
 
-func validateColorImageSlots(plan Plan) bool {
+func validateColorImageSlots(plan Plan, singleSlotExecution bool) bool {
 	group := plan.Set.ColorImages
 	if group == nil {
 		return true
 	}
 	if !group.Valid() || !plan.Set.Source.OwnProduct || plan.Set.Target.Platform != "product" ||
-		plan.Set.Regeneration != nil || plan.Set.Text.Mode != "none" || len(plan.Slots) != 3*len(group.Groups) ||
-		len(plan.SourceAssetIDs) != len(group.Groups) {
+		plan.Set.Regeneration != nil || plan.Set.Text.Mode != "none" {
+		return false
+	}
+	if singleSlotExecution {
+		if len(plan.Slots) != 1 || len(plan.SourceAssetIDs) != 1 {
+			return false
+		}
+	} else if len(plan.Slots) != 3*len(group.Groups) || !slices.Equal(group.SourceIDs(), plan.SourceAssetIDs) {
 		return false
 	}
 	for _, slot := range plan.Slots {

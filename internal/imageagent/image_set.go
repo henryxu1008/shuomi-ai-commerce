@@ -182,6 +182,10 @@ func SlotRoleForImagePurpose(purpose string) SlotRole {
 }
 
 func ValidateImageSetPlan(plan Plan) error {
+	return validateImageSetPlan(plan, false)
+}
+
+func validateImageSetPlan(plan Plan, singleSlotExecution bool) error {
 	if plan.Set != nil && plan.Set.Route != nil {
 		r := plan.Set.Route
 		if !r.Valid() || len(plan.Slots) == 0 {
@@ -318,7 +322,7 @@ func ValidateImageSetPlan(plan Plan) error {
 			}
 		}
 	}
-	if !validateColorImageSlots(plan) {
+	if !validateColorImageSlots(plan, singleSlotExecution) {
 		return ErrValidation
 	}
 	points, err := ImageSetPoints(plan)

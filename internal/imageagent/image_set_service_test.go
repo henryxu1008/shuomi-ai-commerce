@@ -746,4 +746,14 @@ func TestOwnedColorImageSetFreezesNineTasksAndAdmission(t *testing.T) {
 	require.Len(t, workflows.starts, 1)
 	require.Equal(t, 9, confirmed.Run.Budget.MaxModelCalls)
 	require.NoError(t, imageagent.ValidateImageSetAdmission(confirmed.Run, confirmed.Plan))
+	for _, slot := range confirmed.Plan.Slots {
+		execution, err := imageagent.ImageSetSlotExecutionInput(confirmed, slot.ID, 1)
+		require.NoError(t, err)
+		require.NoError(t, imageagent.ValidateImageSetExecution(execution))
+		digest, err := imageagent.ImageSlotGenerationInputDigest(execution)
+		require.NoError(t, err)
+		require.Len(t, digest, 64)
+		execution.Slot.Recipe.Placement.Color = "Unselected"
+		require.Error(t, imageagent.ValidateImageSetExecution(execution))
+	}
 }

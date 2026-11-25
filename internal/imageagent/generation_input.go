@@ -29,7 +29,7 @@ func ValidateImageSetExecution(input SlotExecutionInput) error {
 	if err != nil {
 		return err
 	}
-	return ValidateImageSetPlan(plan)
+	return validateImageSetPlan(plan, true)
 }
 
 func ImageSlotGenerationInputDigest(input SlotExecutionInput) (string, error) {

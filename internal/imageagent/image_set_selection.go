@@ -3,9 +3,10 @@ package imageagent
 import (
 	"context"
 	"encoding/json"
+	"reflect"
+
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
-	"reflect"
 )
 
 const ImageSetApprovalPublicationStarted = "approval.publish_started"
@@ -66,6 +67,9 @@ func ValidateImageSetSelectionIntent(runID string, plan Plan, resultDigest, acti
 	if plan.Set == nil || selection == nil || selection.ApprovingResult != (productasset.ImageSetResultBinding{RunID: runID, PlanRevision: plan.Revision, ResultDigest: resultDigest}) || selection.ActionID != actionID || !agentconfig.UUID(actionID) || !agentconfig.ImageDigest(selection.SelectionDigest) || !selection.ExpectedHead.Valid() || len(selection.Choices) < 1 || len(selection.Choices) > 40 {
 		return ErrCommandBlocked
 	}
+	if !ValidColorImageChoices(runID, plan, *selection) {
+		return ErrCommandBlocked
+	}
 	source := plan.Set.Source
 	selected := selection.Source
 	if selected.ContextKind != string(source.ContextKind) || selected.ItemID != source.OperationID || selected.OriginalPublicationID != source.OriginalPublicationID || selected.OriginalSnapshotVersion != source.OriginalVersion || selected.EffectiveCatalogVersion != source.EffectiveVersion || selected.ApplyReceiptID != source.ApplyReceiptID || selected.TargetPlatform != plan.Set.Target.Platform {
@@ -88,4 +92,29 @@ func ValidateImageSetSelectionIntent(runID string, plan Plan, resultDigest, acti
 		return ErrValidation
 	}
 	return nil
+}
+
+func ValidColorImageChoices(runID string, plan Plan, selection productasset.ImageSetCommand) bool {
+	if plan.Set.ColorImages == nil {
+		return true
+	}
+	if selection.PolicyAdoption != nil || len(selection.Choices) != len(plan.Slots) {
+		return false
+	}
+	positions := make(map[string]productasset.ImagePresentation, len(plan.Slots))
+	for _, slot := range plan.Slots {
+		if slot.Recipe == nil {
+			return false
+		}
+		position := slot.Recipe.Placement
+		positions[slot.ID] = productasset.ImagePresentation{Group: position.Group, Order: position.Order, Color: position.Color}
+	}
+	for _, choice := range selection.Choices {
+		expected, ok := positions[choice.SlotID]
+		if !ok || choice.Kind != "generated" || choice.RunID != runID || choice.Presentation != expected {
+			return false
+		}
+		delete(positions, choice.SlotID)
+	}
+	return true
 }
