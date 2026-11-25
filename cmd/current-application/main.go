@@ -27,8 +27,10 @@ import (
 
 	aistore "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/store"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi"
+	imageapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/imageagent"
 	appruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	imageworker "github.com/henryxu1008/shuomi-ai-commerce/internal/app/worker/imageagent"
 	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
@@ -57,6 +59,18 @@ func execute() error {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		return json.NewEncoder(os.Stdout).Encode(currentapplication.InspectModules(ctx, cfg, nil))
+	}
+	openRuntimeDB := platformdatabase.OpenExistingWritableContext
+	var previewImages imageapp.GeneratedMaterialByteReader
+	if cfg.ShopifyPreviewOnly() {
+		openRuntimeDB = platformdatabase.OpenExistingReadOnlyContext
+		artifactConfig := &coreconfig.Config{}
+		artifactConfig.ImageAgent.ArtifactStore = *cfg.SupplyChain.ShopifyPreviewArtifacts
+		reader, err := imageworker.NewImageSetMaterialReader(artifactConfig)
+		if err != nil {
+			return fmt.Errorf("open Shopify preview image reader: %w", err)
+		}
+		previewImages = reader.Read
 	}
 	logger := logrus.New()
 	logger.SetFormatter(&logrus.JSONFormatter{})
@@ -110,24 +124,24 @@ func execute() error {
 			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
 		},
 		OpenStoreCenter: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
-			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
+			return openRuntimeDB(ctx, databaseConfig(cfg))
 		},
 		OpenLocalTrial: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
 			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
 		},
 
 		OpenSourceAccount: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
-			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
+			return openRuntimeDB(ctx, databaseConfig(cfg))
 		},
 
 		OpenCommercialOwner: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
-			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
+			return openRuntimeDB(ctx, databaseConfig(cfg))
 		},
 		OpenMoneyOwner: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
 			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
 		},
 		OpenProductAcquisition: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
-			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
+			return openRuntimeDB(ctx, databaseConfig(cfg))
 		},
 		OpenImageAgent: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
 			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
@@ -141,7 +155,7 @@ func execute() error {
 			return current, func() error { current.Close(); return nil }, nil
 		},
 		OpenApprovedAssets: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
-			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
+			return openRuntimeDB(ctx, databaseConfig(cfg))
 		},
 		DialProductWorkflow:           dialCurrentWorkflow,
 		DialStoreObservationsWorkflow: dialCurrentWorkflow,
@@ -176,7 +190,7 @@ func execute() error {
 			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
 		},
 		OpenMembership: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
-			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
+			return openRuntimeDB(ctx, databaseConfig(cfg))
 		},
 		NewApplicationWithFeatures: func(ctx context.Context, source *gorm.DB, features currentapplication.ApplicationFeatures, cfg *coreconfig.Config, logger *logrus.Logger) (*http.Server, error) {
 			options := make([]httpapi.CurrentApplicationOption, 0, 6)
@@ -355,7 +369,9 @@ func execute() error {
 			if t := features.ControlledLocalDraft; t != nil {
 				options = append(options, httpapi.WithControlledLocalDraft(httpapi.ControlledLocalDraftDependencies{Policy: t.Policy(), AssetDB: features.ApprovedAssetDB}))
 			}
-			if features.ListingWorkflow != nil {
+			if previewImages != nil {
+				options = append(options, httpapi.WithShopifyDraftPreview(features.ApprovedAssetDB, previewImages))
+			} else if features.ListingWorkflow != nil {
 				options = append(options, httpapi.WithListing(httpapi.ListingDependencies{AssetDB: features.ApprovedAssetDB, Starter: listingoperation.TemporalOperationStarter{Client: features.ListingWorkflow}, NewWorker: listingoperation.WorkerFactory(features.ListingWorkflow), Worker: features.ListingWorker}))
 			}
 			if features.MarketStorage != nil {

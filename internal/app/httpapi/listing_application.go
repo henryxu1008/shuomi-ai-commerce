@@ -42,10 +42,15 @@ type ListingDependencies struct {
 	NewWorker              listingapp.OperationWorkerFactory
 	Worker                 *listingapp.OperationWorker
 	shopifyGeneratedImages imageapp.GeneratedMaterialByteReader
+	shopifyPreviewOnly     bool
 }
 
 func WithListing(d ListingDependencies) CurrentApplicationOption {
 	return func(o *currentApplicationOptions) { o.listings++; o.listing = &d }
+}
+
+func WithShopifyDraftPreview(assets *gorm.DB, images imageapp.GeneratedMaterialByteReader) CurrentApplicationOption {
+	return WithListing(ListingDependencies{AssetDB: assets, shopifyGeneratedImages: images, shopifyPreviewOnly: true})
 }
 
 type listingModule struct {
@@ -65,7 +70,14 @@ func (s listingModule) Register(r *kernelmodule.Registry) error {
 func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d ListingDependencies, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, apps *storeapp.OfficialApplicationRegistry, cfg *config.Config, productAgent *productAgentApplication, capabilities storecenter.RuntimeCapabilities, marketPOD ...bool) (listingModule, error) {
 	var empty listingModule
 	resolver, ok := deps.organizationResolver.(*workbenchcontext.Resolver)
-	if !ok || resolver == nil || permissions == nil || d.AssetDB == nil || d.Starter == nil || d.NewWorker == nil || d.Worker == nil || apps == nil || productDB == nil || storeDB == nil || cfg == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "" {
+	if !ok || resolver == nil || permissions == nil || d.AssetDB == nil || apps == nil || productDB == nil || storeDB == nil || cfg == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "" {
+		return empty, preparation.ErrUnavailable
+	}
+	if d.shopifyPreviewOnly {
+		if !apps.ShopifyConfigured() || capabilities.ShopifyLifecycle || capabilities.ShopifyStartedInstallation || d.shopifyGeneratedImages == nil {
+			return empty, preparation.ErrUnavailable
+		}
+	} else if d.Starter == nil || d.NewWorker == nil || d.Worker == nil {
 		return empty, preparation.ErrUnavailable
 	}
 	if err := assetstore.VerifySourceRuntimePermissions(ctx, d.AssetDB); err != nil {
@@ -161,12 +173,7 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 		return empty, err
 	}
 	stageProjection := core.app.StageProjection
-	uploader, err := listingapp.NewUploadService(listingapp.UploadDependencies{ShopifyGeneratedImages: d.shopifyGeneratedImages, Sources: sources, Products: effective, Assets: assets, Rules: rules, TemuRules: temuRules, TemuImages: imageProbe, TikTokRules: tiktokRules, TikTokImages: imageProbe, WalmartRules: walmartRules, WalmartImages: imageProbe, ShopifyStores: listingapp.OfficialShopifyExecutionStore{Access: access}, TikTokStores: listingapp.OfficialTikTokExecutionStore{Access: access}, WalmartStores: listingapp.OfficialWalmartExecutionStore{Access: access}, WalmartReadStores: walmartStores, Records: records, Authorization: executionAuth, Stores: listingapp.OfficialExecutionStore{Access: access}, TemuStores: listingapp.OfficialTemuExecutionStore{Access: access}, Images: imageProbe, Kernel: kernel, Intents: official, Receipts: official, ReviewGate: stageProjection.RequireUploadReady})
-	if err != nil {
-		return empty, err
-	}
 	app := &listingapp.Application{Preparations: preparations, Sources: sources, Operations: operations, Execution: listingapp.OperationApplication{Service: operations, Repository: operationsRepo, Starter: d.Starter}, Targets: targets, Records: records, Products: effective, Rules: rules, TemuRules: temuRules, TikTokRules: tiktokRules, TikTokCatalog: tiktokRules, TikTokStatusStores: listingapp.OfficialTikTokRuleStore{Access: access}, WalmartRules: walmartRules, WalmartCatalog: walmartRules, WalmartStatusStores: walmartStores, WalmartResults: official, Assets: assets, Approvals: approvals, Authorization: auth, PublicationReceipts: official, PublicationStores: listingapp.OfficialRuleStore{Access: access}, TargetMerchants: listingapp.OfficialTargetMerchantStore{Access: access}}
-	app.ShopifyStatus = &listingapp.ShopifyStatusService{Store: access, Attempts: effects, Kernel: kernel, Intents: official, Resolutions: official, Records: records}
 	if apps.ShopifyConfigured() && d.shopifyGeneratedImages != nil {
 		inventoryRepo, e := assetstore.NewRepository(d.AssetDB)
 		if e != nil {
@@ -179,6 +186,16 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 		app.ShopifyMedia = &listingapp.ShopifyMediaPreviewService{Store: access, Inventory: inventory, ReadImage: d.shopifyGeneratedImages}
 	}
 	app.ValidateDraftRead = formalDraftRead
+	app.StageProjection = stageProjection
+	binder := productReviewCapabilityBinder{now: time.Now}
+	if d.shopifyPreviewOnly {
+		return listingModule{app: app, routes: listinghttp.ListingRoutes(app, binder.Bind), executionAuthorization: executionAuth}, nil
+	}
+	uploader, err := listingapp.NewUploadService(listingapp.UploadDependencies{ShopifyGeneratedImages: d.shopifyGeneratedImages, Sources: sources, Products: effective, Assets: assets, Rules: rules, TemuRules: temuRules, TemuImages: imageProbe, TikTokRules: tiktokRules, TikTokImages: imageProbe, WalmartRules: walmartRules, WalmartImages: imageProbe, ShopifyStores: listingapp.OfficialShopifyExecutionStore{Access: access}, TikTokStores: listingapp.OfficialTikTokExecutionStore{Access: access}, WalmartStores: listingapp.OfficialWalmartExecutionStore{Access: access}, WalmartReadStores: walmartStores, Records: records, Authorization: executionAuth, Stores: listingapp.OfficialExecutionStore{Access: access}, TemuStores: listingapp.OfficialTemuExecutionStore{Access: access}, Images: imageProbe, Kernel: kernel, Intents: official, Receipts: official, ReviewGate: stageProjection.RequireUploadReady})
+	if err != nil {
+		return empty, err
+	}
+	app.ShopifyStatus = &listingapp.ShopifyStatusService{Store: access, Attempts: effects, Kernel: kernel, Intents: official, Resolutions: official, Records: records}
 	app.WalmartFeedSource = official
 	app.WalmartFeedMerchant = func(ctx context.Context, scope collection.Scope, id string) (storecenter.ProductMerchantBinding, error) {
 		return access.ReadSavedWalmartFeedBinding(ctx, storecenter.ProductExecutionSubject{
@@ -211,7 +228,6 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 		}, err
 	}
 	var optimizer listingapp.OperationOptimizer
-	app.StageProjection = stageProjection
 	app.CockpitStoreAccess = func(ctx context.Context, scope collection.Scope, ids []string) error {
 		fresh, err := freshWorkbenchIdentity(ctx, resolver, permissions, []string{scope.OrganizationID}, authz.PermissionWorkbenchStoreRead)
 		if errors.Is(err, review.ErrForbidden) {
@@ -283,7 +299,6 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 	if err != nil {
 		return empty, err
 	}
-	binder := productReviewCapabilityBinder{now: time.Now}
 	routes := listinghttp.ListingRoutes(app, binder.Bind)
 	googleStore, err := storecenter.NewMemberScopedStoreRepository(storeDB, googleListingStoreAccess{
 		live:   &productReviewLiveOrganizationAccess{resolver: resolver, now: time.Now},
@@ -305,6 +320,29 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 		routes = append(routes, listinghttp.GoogleRoutes(publication, binder.Bind)...)
 	}
 	return listingModule{app: app, worker: currentWorker, routes: routes, executionAuthorization: executionAuth}, nil
+}
+
+func shopifyDraftPreviewRoutes(routes []httproute.Descriptor) []httproute.Descriptor {
+	const base = listinghttp.ListingBasePath
+	var reads []httproute.Descriptor
+	for _, route := range routes {
+		switch route.Method {
+		case http.MethodGet:
+			switch route.Path {
+			case "/api/v1/workbench/context", "/api/v1/workbench/stores",
+				base, base + "/:preparation_id", base + "/:preparation_id/sources",
+				base + "/sources/:source_id", base + "/:preparation_id/stages",
+				base + "/:preparation_id/operations", base + "/sources/:source_id/targets/:store_id",
+				base + "/sources/:source_id/publications/:store_id":
+				reads = append(reads, route)
+			}
+		case http.MethodPost:
+			if route.Path == base+"/shopify-draft-media-preview" {
+				reads = append(reads, route)
+			}
+		}
+	}
+	return reads
 }
 
 // Google credential operations must recheck Store read access against current

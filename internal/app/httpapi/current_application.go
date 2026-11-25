@@ -1696,6 +1696,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if workbench.handler != nil {
 		workbench.handler.SetStorageCapacityAvailable(cfg.StorageCapacity)
 	}
+	if supplied.listing != nil && supplied.listing.shopifyPreviewOnly {
+		return buildCurrentApplicationHTTPServer(shopifyDraftPreviewRoutes(bundle.routes), *workbench.authDependencies), nil
+	}
 	server := buildCurrentApplicationHTTPServer(bundle.routes, *workbench.authDependencies)
 	if storeCapabilities.ShopifyStartedInstallation {
 		expiry, ok := storeCatalogModule.(interface{ ExpireStartedShopifyInstallations(context.Context) error })

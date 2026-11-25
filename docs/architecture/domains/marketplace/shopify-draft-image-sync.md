@@ -57,3 +57,11 @@ Listing 的官方执行 owner 在同一产品数据库内保存一次明确确�
 合成实现复用一份执行尝试与一份 Shopify 排空证据。当前合成端口用完整的图片图库、原图摘要与规格关系核对结果。图库缺页、图片处理未完成、追加请求候选与确认计划不一致，或外部已经修改拟配图规格时均保留待核实。暂存只有在旧阶段完整退场、图库追加未获发送许可的条件下才可再进行，当前同一确认最多提供三轮暂存。现有工作台与真实 Shopify 写入入口未接入这条合成路径。
 
 官方依据：[追加商品媒体](https://shopify.dev/docs/api/admin-graphql/2026-10/mutations/productUpdate)、[变体媒体关联](https://shopify.dev/docs/api/admin-graphql/2026-10/mutations/productVariantsBulkUpdate)、[媒体管理顺序](https://shopify.dev/docs/apps/build/product-merchandising/products-and-collections/manage-media)、[productSet 集合语义](https://shopify.dev/docs/api/admin-graphql/2026-10/mutations/productSet)。
+
+### 独立只读试用入口
+
+2026-11-25 用户授权在 #1640 补足独立只读试用入口。沿用上文只读预览的 Product、Asset、Store Center 与 Shopify 事实和授权。新版在另一个仅本机可达的端口上运行，保留现用实例。试用使用原草稿、现有已采用图片和现行用户身份。
+
+- 试用进程显式配置现有生成素材读取器所需的隔离工件位置和读取凭据。应用装配直接注入读取端口，从相同已采用资产、摘要和对象版本检查读取原图。继续由当前 Store 与 Listing 校验企业、成员、开发店应用及授权代次。
+- 独立进程只装配账户上下文、现有 Store 读取和工作台商品核对所需的读取能力。只挂载工作台核对用的固定 GET 路由和单个只读 Shopify 预览 POST。无生图、刊登、库存或 Shopify 安装恢复 worker，无 Temporal 队列接入。留存实例保持原有配置。现有正常运行路径和合成写入切片沿用原合同。
+- 配置明确拒绝同时启用执行能力和其他不相关模块。试用数据库复用当前只读连接方式。无新业务表、保存状态、重试、额度或平台变更。只读取已保存的刊登回执，排除可能补记结果的上传状态核实路由。验证原进程正常运行、只读路由正反例，并从工作台原商品所属阶段进入核对原草稿的 12 张图和六个变体。独立增量评审结论为 IMPLEMENTATION_READY。

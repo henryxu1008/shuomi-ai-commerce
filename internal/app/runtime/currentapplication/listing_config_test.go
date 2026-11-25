@@ -52,6 +52,45 @@ func TestSupplyManifestAdmitsShopifyWithoutUnrelatedStoreApps(t *testing.T) {
 	require.NoError(t, c.validateStoreCenter())
 }
 
+func TestShopifyPreviewManifestHasNoExecutionConfiguration(t *testing.T) {
+	c := supplyRuntimeConfig(t)
+	root := t.TempDir()
+	c.StoreCenter.OfficialApplications = nil
+	c.StoreCenter.Shopify = &ShopifyConfig{
+		ApplicationGID: "gid://shopify/App/123", ClientID: "fixture-app",
+		InstallURL: "https://apps.shopify.com/fixture-app", CallbackURL: "https://localhost/api/shopify/callback",
+		ClientSecret: filepath.Join(root, "client"), PairingKey: filepath.Join(root, "pairing"),
+		SigningKey: filepath.Join(root, "signing"), PairingKeyID: "pairing-1", SigningKeyID: "signing-1",
+	}
+	c.SupplyChain.TemporalAddress = ""
+	c.SupplyChain.TemporalNamespace = ""
+	data, err := json.Marshal(c)
+	require.NoError(t, err)
+	var manifest map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(data, &manifest))
+	var supply map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(manifest["supplyChain"], &supply))
+	supply["shopifyPreviewArtifacts"] = json.RawMessage(`{"enabled":true,"provider":"s3","publicBase":"https://localhost:19444/image-agent-assets/preview","isolatedTrialGeneratedURLs":true,"s3":{"region":"us-east-1","endpoint":"http://127.0.0.1:9104","bucket":"preview","accessKeyID":"fixture","secretAccessKey":"fixture","usePathStyle":true,"artifactMode":"aws"}}`)
+	manifest["supplyChain"], err = json.Marshal(supply)
+	require.NoError(t, err)
+	data, err = json.Marshal(manifest)
+	require.NoError(t, err)
+	preview, err := DecodeConfigDocument(data)
+	require.NoError(t, err)
+	require.NoError(t, preview.validate())
+	for _, mutate := range []func(*Config){
+		func(c *Config) { c.SupplyChain.TemporalAddress = "127.0.0.1:7233" },
+		func(c *Config) { c.ImageAgent = &ImageAgentConfig{} },
+		func(c *Config) { c.StoreCenter.Shopify.StartedInstallation = true },
+		func(c *Config) { c.Listen.Host = "0.0.0.0" },
+	} {
+		preview, err := DecodeConfigDocument(data)
+		require.NoError(t, err)
+		mutate(preview)
+		require.Error(t, preview.validateListing())
+	}
+}
+
 func TestSupplyRuntimePassesCanonicalPoolsAndClosesWorkflowOnConstructionFailure(t *testing.T) {
 	c := supplyRuntimeConfig(t)
 	c.Identity.IssuerURL = "https://localhost:18080"

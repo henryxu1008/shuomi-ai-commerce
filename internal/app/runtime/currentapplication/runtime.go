@@ -331,7 +331,8 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 	if cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "" && (dependencies.OpenApprovedAssets == nil || cfg.ImageAgent.Generation.Enabled && (dependencies.OpenImageSetWorker == nil || dependencies.DialImageSetWorkflow == nil)) {
 		return errors.New("full image set worker lifecycle unavailable")
 	}
-	if cfg.SupplyChain != nil && (dependencies.OpenApprovedAssets == nil || dependencies.DialProductWorkflow == nil || dependencies.NewApplicationWithFeatures == nil) {
+	if cfg.SupplyChain != nil && (dependencies.OpenApprovedAssets == nil || dependencies.NewApplicationWithFeatures == nil ||
+		!cfg.ShopifyPreviewOnly() && dependencies.DialProductWorkflow == nil) {
 		return errors.New("supply chain runtime dependencies unavailable")
 	}
 	if (cfg.SourceMaterials != nil || cfg.SheinOfflineRecords != nil || cfg.ControlledLocalDraft != nil) && (dependencies.OpenApprovedAssets == nil || dependencies.NewApplicationWithFeatures == nil) {
@@ -658,7 +659,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			imageAssetDB = pool
 		}
 	}
-	if s := cfg.SupplyChain; s != nil {
+	if s := cfg.SupplyChain; s != nil && !cfg.ShopifyPreviewOnly() {
 		var closeWorkflow func() error
 		listingWorkflow, closeWorkflow, err = dependencies.DialProductWorkflow(startupContext, s.TemporalAddress, s.TemporalNamespace)
 		if err != nil || listingWorkflow == nil || closeWorkflow == nil {
@@ -1242,7 +1243,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			return errors.New("start POD worker failed")
 		}
 	}
-	if cfg.SupplyChain != nil {
+	if cfg.SupplyChain != nil && !cfg.ShopifyPreviewOnly() {
 		if listingWorker == nil {
 			_ = listener.Close()
 			return errors.New("supply worker was not assembled")
