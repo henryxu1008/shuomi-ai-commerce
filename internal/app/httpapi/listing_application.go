@@ -27,6 +27,7 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	storehttp "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/httpapi"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"net/http"
 	"time"
@@ -345,6 +346,28 @@ func shopifyDraftPreviewRoutes(routes []httproute.Descriptor) []httproute.Descri
 		}
 	}
 	return reads
+}
+
+// shopifyMediaTrialRoutes is the fixed-fixture boundary for the isolated
+// development-store media trial. It deliberately does not inherit normal
+// Listing, Store lifecycle, or recovery routes.
+func shopifyMediaTrialRoutes(routes []httproute.Descriptor) []httproute.Descriptor {
+	const base = listinghttp.ListingBasePath
+	allowed := map[string]bool{
+		http.MethodGet + " /api/v1/workbench/context":                 true,
+		http.MethodGet + " /api/v1/workbench/stores/:store_id":        true,
+		http.MethodPost + " " + base + "/shopify-draft-media-preview": true,
+		http.MethodPost + " " + base + "/shopify-draft-media-confirm": true,
+		http.MethodPost + " " + storehttp.ShopifyUninstalledPath:      true,
+		http.MethodPost + " " + storehttp.ShopifyShopRedactPath:       true,
+	}
+	result := make([]httproute.Descriptor, 0, len(allowed))
+	for _, route := range routes {
+		if allowed[route.Method+" "+route.Path] {
+			result = append(result, route)
+		}
+	}
+	return result
 }
 
 // Google credential operations must recheck Store read access against current

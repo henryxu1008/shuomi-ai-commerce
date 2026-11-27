@@ -58,3 +58,22 @@ func TestShopifyPairingRoutesExcludeServiceAndListingWrites(t *testing.T) {
 		httproute.Descriptor{Method: http.MethodGet, Path: listinghttp.ListingBasePath})
 	require.Equal(t, staged, shopifyPairingTrialRoutes(all))
 }
+
+func TestShopifyMediaTrialRoutesExposeOnlyFixedMediaAndNotices(t *testing.T) {
+	const base = listinghttp.ListingBasePath
+	allowed := []httproute.Descriptor{
+		{Method: http.MethodGet, Path: "/api/v1/workbench/context"},
+		{Method: http.MethodGet, Path: "/api/v1/workbench/stores/:store_id"},
+		{Method: http.MethodPost, Path: base + "/shopify-draft-media-preview"},
+		{Method: http.MethodPost, Path: base + "/shopify-draft-media-confirm"},
+		{Method: http.MethodPost, Path: storehttp.ShopifyUninstalledPath},
+		{Method: http.MethodPost, Path: storehttp.ShopifyShopRedactPath},
+	}
+	all := append(append([]httproute.Descriptor{}, allowed...),
+		httproute.Descriptor{Method: http.MethodPost, Path: "/api/v1/workbench/stores/:store_id/activate"},
+		httproute.Descriptor{Method: http.MethodPost, Path: "/api/v1/platform/shopify/installation"},
+		httproute.Descriptor{Method: http.MethodPost, Path: base + "/upload-plans"},
+		httproute.Descriptor{Method: http.MethodGet, Path: base + "/sources/:source_id/publications/:store_id"},
+		httproute.Descriptor{Method: http.MethodDelete, Path: "/api/v1/workbench/stores/:store_id"})
+	require.Equal(t, allowed, shopifyMediaTrialRoutes(all))
+}
