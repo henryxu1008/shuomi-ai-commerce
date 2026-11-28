@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"time"
 
 	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
 	wire "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/shopify"
@@ -29,6 +30,92 @@ type ShopifyConfig struct {
 	SigningKeyID           string `json:"signingKeyId"`
 	StartedInstallation    bool   `json:"startedInstallation"`
 	LifecycleNotifications bool   `json:"lifecycleNotifications"`
+}
+
+// ShopifyMediaTrialConfig admits one fixed, loopback-only development-store
+// media synchronization trial. Every database owner is independently named.
+type ShopifyMediaTrialConfig struct {
+	ProductInitializer DatabaseConfig `json:"productInitializer"`
+	ProductServing     DatabaseConfig `json:"productServing"`
+	AssetDatabase      DatabaseConfig `json:"assetDatabase"`
+	OrganizationID     string         `json:"organizationId"`
+	ActorID            string         `json:"actorId"`
+	MemberID           string         `json:"memberId"`
+	SourceID           string         `json:"sourceId"`
+	ProductKey         string         `json:"productKey"`
+	SourceVersion      int64          `json:"sourceVersion"`
+	ApprovedDigest     string         `json:"approvedDigest"`
+	StoreID            string         `json:"storeId"`
+	ShopKey            string         `json:"shopKey"`
+	Generation         int64          `json:"generation"`
+	ApplicationGID     string         `json:"applicationGid"`
+	ShopGID            string         `json:"shopGid"`
+	InstallationGID    string         `json:"installationGid"`
+	Domain             string         `json:"domain"`
+	DraftProductGID    string         `json:"draftProductGid"`
+	GalleryDigest      string         `json:"galleryDigest"`
+	AppendDigest       string         `json:"appendDigest"`
+	ServiceStartsAt    time.Time      `json:"serviceStartsAt"`
+	ServiceExpiresAt   time.Time      `json:"serviceExpiresAt"`
+}
+
+func (cfg *Config) validateShopifyMediaTrial() error {
+	if cfg.ShopifyMediaTrial == nil {
+		return nil
+	}
+	const message = "Shopify media trial requires a fixed loopback fixture and independent least-privilege owners"
+	trial := cfg.ShopifyMediaTrial
+	store := cfg.StoreCenter
+	if cfg.ShopifyPairingTrial || store == nil || !store.Enabled || store.Shopify == nil ||
+		!net.ParseIP(cfg.Listen.Host).IsLoopback() || cfg.Identity.TenantDirectoryToken == "" ||
+		trial.SourceVersion < 1 || trial.Generation < 1 || !trial.ServiceExpiresAt.After(trial.ServiceStartsAt) ||
+		trial.ServiceExpiresAt.Sub(trial.ServiceStartsAt) > 24*time.Hour ||
+		trial.DraftProductGID == "gid://shopify/Product/10419372589218" {
+		return errors.New(message)
+	}
+	for _, db := range []DatabaseConfig{trial.ProductInitializer, trial.ProductServing, trial.AssetDatabase, store.Database} {
+		if err := db.validate("shopifyMediaTrial.database"); err != nil || !net.ParseIP(db.Host).IsLoopback() {
+			return errors.New(message)
+		}
+	}
+	if !sameDatabaseTarget(trial.ProductInitializer, trial.ProductServing) ||
+		trial.ProductInitializer.User == trial.ProductServing.User || trial.ProductServing.User != "listing_runtime" ||
+		trial.ProductInitializer.Database == trial.AssetDatabase.Database || trial.ProductServing.Database == store.Database.Database ||
+		trial.ProductInitializer.Database == store.Database.Database || trial.AssetDatabase.Database == store.Database.Database ||
+		trial.AssetDatabase.Database == trial.ProductServing.Database || trial.ProductServing.MaxConnections > 8 ||
+		trial.AssetDatabase.User != "supply_asset_runtime" ||
+		trial.ProductInitializer.User != "listing_owner" || !validTrialDigest(trial.ApprovedDigest) ||
+		!validTrialDigest(trial.GalleryDigest) || !validTrialDigest(trial.AppendDigest) ||
+		!strings.HasPrefix(trial.ApplicationGID, "gid://shopify/App/") ||
+		!strings.HasPrefix(trial.ShopGID, "gid://shopify/Shop/") ||
+		!strings.HasPrefix(trial.InstallationGID, "gid://shopify/AppInstallation/") ||
+		!strings.HasPrefix(trial.DraftProductGID, "gid://shopify/Product/") ||
+		!strings.HasSuffix(trial.Domain, ".myshopify.com") ||
+		store.Shopify.ApplicationGID != trial.ApplicationGID || store.Shopify.LifecycleNotifications != true ||
+		!boundedValue(trial.OrganizationID, 128) || !boundedValue(trial.ActorID, 128) ||
+		!boundedValue(trial.MemberID, 128) || !boundedValue(trial.SourceID, 128) ||
+		!boundedValue(trial.ProductKey, 256) || !boundedValue(trial.StoreID, 128) || !boundedValue(trial.ShopKey, 128) {
+		return errors.New(message)
+	}
+	allowed := Config{SchemaVersion: cfg.SchemaVersion, Listen: cfg.Listen, Identity: cfg.Identity,
+		SourceAccountDatabase: cfg.SourceAccountDatabase, CommercialOwnerDatabase: cfg.CommercialOwnerDatabase,
+		StoreCenter: store, ShopifyMediaTrial: trial}
+	if !reflect.DeepEqual(*cfg, allowed) {
+		return errors.New(message)
+	}
+	return nil
+}
+
+func validTrialDigest(value string) bool {
+	if len(value) != 64 {
+		return false
+	}
+	for _, r := range value {
+		if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 func (cfg *Config) validateShopifyPairingTrial() error {

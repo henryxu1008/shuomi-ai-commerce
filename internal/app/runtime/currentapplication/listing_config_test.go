@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestSupplyManifestRejectsIncompleteOwnerAssembly(t *testing.T) {
@@ -113,6 +114,58 @@ func TestShopifyPairingTrialManifestExcludesNonPairingCapabilities(t *testing.T)
 	store.Shopify.LifecycleNotifications = false
 	store.Shopify.CallbackURL = "https://localhost:19444/api/shopify/callback"
 	require.Error(t, cfg.validateShopifyPairingTrial())
+}
+
+func TestShopifyMediaTrialManifestPinsFixtureAndRejectsUnsafeComposition(t *testing.T) {
+	root := t.TempDir()
+	base := supplyRuntimeConfig(t)
+	store := StoreCenterConfig{Enabled: true, Database: DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "store_center_runtime", Password: "fixture", Database: "media_store", MaxConnections: 2}, Shopify: &ShopifyConfig{
+		ApplicationGID: "gid://shopify/App/451916529665", ClientID: "fixture-app",
+		InstallURL: "https://admin.shopify.com/store/test/apps/fixture-app", CallbackURL: "https://127.0.0.1:36528/api/shopify/callback",
+		ClientSecret: filepath.Join(root, "secret"), PairingKey: filepath.Join(root, "pairing"), SigningKey: filepath.Join(root, "signing"),
+		PairingKeyID: "pairing-1", SigningKeyID: "signing-1", LifecycleNotifications: true,
+	}}
+	productInit := DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "listing_owner", Password: "fixture", Database: "media_product", MaxConnections: 2}
+	trial := &ShopifyMediaTrialConfig{
+		ProductInitializer: productInit,
+		ProductServing:     DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "listing_runtime", Password: "fixture", Database: "media_product", MaxConnections: 4},
+		AssetDatabase:      DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "supply_asset_runtime", Password: "fixture", Database: "media_assets", MaxConnections: 4},
+		OrganizationID:     "org-test", ActorID: "actor-test", MemberID: "member-test", SourceID: "source-test", ProductKey: "own-test", SourceVersion: 1,
+		ApprovedDigest: strings.Repeat("a", 64), StoreID: "store-test", ShopKey: "shop-key-test", Generation: 1,
+		ApplicationGID: store.Shopify.ApplicationGID, ShopGID: "gid://shopify/Shop/85113995426", InstallationGID: "gid://shopify/AppInstallation/783089041570",
+		Domain: "shuomi-upload-test-1613.myshopify.com", DraftProductGID: "gid://shopify/Product/123456",
+		GalleryDigest: strings.Repeat("b", 64), AppendDigest: strings.Repeat("c", 64),
+		ServiceStartsAt: time.Now().UTC(), ServiceExpiresAt: time.Now().UTC().Add(time.Hour),
+	}
+	cfg := Config{SchemaVersion: base.SchemaVersion, Listen: ListenConfig{Host: "127.0.0.1", Port: 36529}, Identity: base.Identity,
+		SourceAccountDatabase: base.SourceAccountDatabase, CommercialOwnerDatabase: base.CommercialOwnerDatabase,
+		StoreCenter: &store, ShopifyMediaTrial: trial}
+	require.NoError(t, cfg.validateShopifyMediaTrial())
+
+	for name, mutate := range map[string]func(*Config){
+		"normal modules excluded": func(c *Config) { c.SupplyChain = base.SupplyChain },
+		"pairing mode excluded":   func(c *Config) { c.ShopifyPairingTrial = true },
+		"source copy rejected":    func(c *Config) { c.ShopifyMediaTrial.SourceID = "" },
+		"original coat rejected":  func(c *Config) { c.ShopifyMediaTrial.DraftProductGID = "gid://shopify/Product/10419372589218" },
+		"database collision":      func(c *Config) { c.ShopifyMediaTrial.AssetDatabase.Database = c.StoreCenter.Database.Database },
+		"expired fixture":         func(c *Config) { c.ShopifyMediaTrial.ServiceExpiresAt = c.ShopifyMediaTrial.ServiceStartsAt },
+		"long fixture": func(c *Config) {
+			c.ShopifyMediaTrial.ServiceExpiresAt = c.ShopifyMediaTrial.ServiceStartsAt.Add(25 * time.Hour)
+		},
+		"bad digest": func(c *Config) { c.ShopifyMediaTrial.GalleryDigest = "not-a-digest" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			copy := cfg
+			trialCopy := *trial
+			copy.ShopifyMediaTrial = &trialCopy
+			storeCopy := *cfg.StoreCenter
+			shopifyCopy := *cfg.StoreCenter.Shopify
+			storeCopy.Shopify = &shopifyCopy
+			copy.StoreCenter = &storeCopy
+			mutate(&copy)
+			require.Error(t, copy.validateShopifyMediaTrial())
+		})
+	}
 }
 
 func TestSupplyRuntimePassesCanonicalPoolsAndClosesWorkflowOnConstructionFailure(t *testing.T) {
