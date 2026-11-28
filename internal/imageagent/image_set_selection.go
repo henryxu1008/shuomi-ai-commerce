@@ -10,6 +10,7 @@ import (
 )
 
 const ImageSetApprovalPublicationStarted = "approval.publish_started"
+const ColorImageReworkApprovalNotSaved = "approval.not_saved"
 
 func (s *Service) ApproveImageSet(ctx context.Context, runID string, revision int64, resultDigest, actionID string, selection productasset.ImageSetCommand) error {
 	identity, err := s.commandIdentity(ctx, runID, revision, actionID)
@@ -95,6 +96,38 @@ func ValidateImageSetSelectionIntent(runID string, plan Plan, resultDigest, acti
 }
 
 func ValidColorImageChoices(runID string, plan Plan, selection productasset.ImageSetCommand) bool {
+	if rework := plan.Set.ColorImageRework(); rework != nil {
+		if selection.PolicyAdoption != nil || selection.ReplacedColorAssetID != rework.ReplacedAssetID ||
+			selection.ExpectedHead != rework.Head || len(selection.Choices) != rework.Count ||
+			len(plan.Slots) != 1 || plan.Slots[0].Recipe == nil {
+			return false
+		}
+		generated := 0
+		position := imageSetPresentation(plan.Slots[0].Recipe.Placement)
+		for _, choice := range selection.Choices {
+			if choice.GenericHead != nil || choice.OfficialPlacement != nil {
+				return false
+			}
+			switch choice.Kind {
+			case "generated":
+				generated++
+				if choice.RunID != runID || choice.PlanRevision != plan.Revision || choice.SlotID != rework.SlotID ||
+					choice.ResultDigest != selection.ApprovingResult.ResultDigest || choice.Presentation != position {
+					return false
+				}
+			case "approved":
+				if choice.ApprovalActionID != rework.Head.ActionID || choice.AssetID == rework.ReplacedAssetID {
+					return false
+				}
+			default:
+				return false
+			}
+		}
+		return generated == 1
+	}
+	if selection.ReplacedColorAssetID != "" {
+		return false
+	}
 	if plan.Set.ColorImages == nil {
 		return true
 	}

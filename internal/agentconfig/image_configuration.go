@@ -42,6 +42,9 @@ type ImageStartCommand struct {
 	SourceDigest, InputDigest                              string
 	Template                                               *TemplateRef
 	HardLimits                                             ImageRunLimits
+	// InputDigest already binds the selected method. The repository uses this
+	// exact ref for admission, outside the existing snapshot fingerprint.
+	ImageSkillRef *agent.SkillVersionRef `json:"-"`
 }
 
 type ImageConfigurationSnapshot struct {

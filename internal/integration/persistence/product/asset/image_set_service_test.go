@@ -119,7 +119,84 @@ func (r *setCandidateReader) ReadImageSetCandidate(_ context.Context, source pro
 	if r.differentResult && choice.SlotID == "second" {
 		digest = strings.Repeat("b", 64)
 	}
-	return productasset.ImageSetCandidate{Asset: productasset.ApprovedAsset{ID: choice.AssetID, RunID: choice.RunID, PlanRevision: choice.PlanRevision, SlotID: choice.SlotID, Attempt: choice.Attempt, Role: productasset.RoleGallery, URL: "https://images.example.org/" + choice.AssetID + ".png", SourceAssetID: "source-1", Width: 1024, Height: 1024, Operations: []string{"render_source_edit"}, GenerationEvidence: &productasset.GenerationEvidence{IntentID: hash, Fingerprint: hash, SettlementProofDigest: hash, ArtifactHash: hash}}, Result: productasset.ImageSetResultBinding{RunID: choice.RunID, PlanRevision: choice.PlanRevision, ResultDigest: digest}}, nil
+	candidate := productasset.ImageSetCandidate{Asset: productasset.ApprovedAsset{ID: choice.AssetID, RunID: choice.RunID, PlanRevision: choice.PlanRevision, SlotID: choice.SlotID, Attempt: choice.Attempt, Role: productasset.RoleGallery, URL: "https://images.example.org/" + choice.AssetID + ".png", SourceAssetID: "source-1", Width: 1024, Height: 1024, Operations: []string{"render_source_edit"}, GenerationEvidence: &productasset.GenerationEvidence{IntentID: hash, Fingerprint: hash, SettlementProofDigest: hash, ArtifactHash: hash}}, Result: productasset.ImageSetResultBinding{RunID: choice.RunID, PlanRevision: choice.PlanRevision, ResultDigest: digest}}
+	if choice.Presentation.Color != "" {
+		candidate.Asset.Presentation = &choice.Presentation
+	}
+	return candidate, nil
+}
+
+func TestColorImageReworkOnlyReplacesOneOfTwelveApprovedPositions(t *testing.T) {
+	sources, input := setSelectionFixture()
+	service, repo := setSelectionService(t, sources, &setCandidateReader{})
+	ctx := context.Background()
+	input.Choices = nil
+	for _, color := range []string{"Black", "Gray", "White"} {
+		for order := 1; order <= 4; order++ {
+			id := fmt.Sprintf("%s-%d", color, order)
+			input.Choices = append(input.Choices, productasset.ImageSetChoice{
+				Kind: "generated", RunID: input.ApprovingResult.RunID, PlanRevision: 1, Attempt: 1, SlotID: id,
+				ResultDigest: input.ApprovingResult.ResultDigest, AssetID: id + "-generated",
+				Presentation: productasset.ImagePresentation{Color: color, Order: order, Group: "detail"},
+			})
+		}
+	}
+	preview, err := service.Preview(ctx, input)
+	require.NoError(t, err)
+	input.SelectionDigest = preview.Digest
+	_, err = service.Select(ctx, input)
+	require.NoError(t, err)
+	inventories := repo.(productasset.ImageSetInventoryReader)
+	scope := productasset.InventoryScope{TenantID: "org", ProductKey: "product", TargetPlatform: "product", SourceSnapshotVersion: 1}
+	before, err := inventories.ReadImageSetInventory(ctx, scope)
+	require.NoError(t, err)
+	require.Len(t, before.Assets, 12)
+	const target = 10
+	rework := productasset.ImageSetCommand{ActionID: "single-rework", Source: input.Source, ExpectedHead: before.Head,
+		ApprovingResult:      productasset.ImageSetResultBinding{RunID: "new-single-run", PlanRevision: 1, ResultDigest: input.ApprovingResult.ResultDigest},
+		ReplacedColorAssetID: before.Assets[target].ID}
+	for i, img := range before.Assets {
+		choice := productasset.ImageSetChoice{Kind: "approved", ApprovalActionID: input.ActionID, AssetID: img.ID, Presentation: *img.Presentation}
+		if i == target {
+			choice = productasset.ImageSetChoice{Kind: "generated", RunID: rework.ApprovingResult.RunID, PlanRevision: 1,
+				Attempt: 1, SlotID: img.SlotID, AssetID: "replacement-candidate", ResultDigest: input.ApprovingResult.ResultDigest, Presentation: *img.Presentation}
+		}
+		rework.Choices = append(rework.Choices, choice)
+	}
+	wrong := rework
+	wrong.Choices = append([]productasset.ImageSetChoice(nil), rework.Choices...)
+	wrong.Choices[0], wrong.Choices[1] = wrong.Choices[1], wrong.Choices[0]
+	_, err = service.Preview(ctx, wrong)
+	require.ErrorIs(t, err, productasset.ErrApprovalConflict)
+	preview, err = service.Preview(ctx, rework)
+	require.NoError(t, err)
+	beforeSaving, err := inventories.ReadImageSetInventory(ctx, scope)
+	require.NoError(t, err)
+	require.Equal(t, before, beforeSaving, "rejection or returning after preview leaves every formal image intact")
+	rework.SelectionDigest = preview.Digest
+	saved, err := service.Select(ctx, rework)
+	require.NoError(t, err)
+	require.Len(t, saved.AssetIDs, 12)
+	after, err := inventories.ReadImageSetInventory(ctx, scope)
+	require.NoError(t, err)
+	require.Len(t, after.Assets, 12)
+	for i, img := range after.Assets {
+		old := before.Assets[i]
+		require.Equal(t, old.Presentation, img.Presentation)
+		if i == target {
+			require.Equal(t, rework.ApprovingResult.RunID, img.RunID)
+			require.NotEqual(t, old.URL, img.URL)
+			continue
+		}
+		require.Equal(t, old.RunID, img.RunID)
+		require.Equal(t, old.SlotID, img.SlotID)
+		require.Equal(t, old.URL, img.URL)
+		require.Equal(t, old.GenerationEvidence, img.GenerationEvidence)
+		require.Equal(t, &productasset.SelectionReceipt{ActionID: input.ActionID, AssetID: old.ID}, img.SelectionReceipt)
+	}
+	original, err := repo.(productasset.ApprovalCommitReader).ReadApprovalCommit(ctx, scope.TenantID, input.ActionID)
+	require.NoError(t, err)
+	require.Equal(t, before.Assets, original.Assets)
 }
 
 func setSelectionFixture() (*setSourceReader, productasset.ImageSetCommand) {

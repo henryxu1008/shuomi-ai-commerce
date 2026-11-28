@@ -8,12 +8,14 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 )
 
 // The transport supplies identities only. URLs, dimensions, prompt, quote and
@@ -21,10 +23,11 @@ import (
 var ErrImageRouteChanged = errors.New("selected image route version is unavailable")
 
 type PrepareImageSetInput struct {
-	ColorImages                                               *ColorImageSelection   `json:",omitempty"`
-	Route                                                     *ImageRouteSelection   `json:",omitempty"`
-	Text                                                      *ImageTextSelection    `json:",omitempty"`
-	Method                                                    *agent.SkillVersionRef `json:",omitempty"`
+	ColorImages                                               *ColorImageSelection     `json:",omitempty"`
+	ColorRework                                               *ColorImageReworkRequest `json:",omitempty"`
+	Route                                                     *ImageRouteSelection     `json:",omitempty"`
+	Text                                                      *ImageTextSelection      `json:",omitempty"`
+	Method                                                    *agent.SkillVersionRef   `json:",omitempty"`
 	ExpectedModeRevision                                      string
 	ContextKind                                               ImageSourceContextKind `json:"-"`
 	RequestID, ContextID                                      string
@@ -88,12 +91,15 @@ type ImageGenerationOptionsReader interface {
 }
 
 type ImageSetDependencies struct {
-	ConfirmedCopy ImageTextReviewReader
-	Configuration agentconfig.ImageConfigurationRepository
-	Contexts      ImageSetContextReader
-	Quotes        ImageSetQuoteReader
-	HardLimits    agentconfig.ImageRunLimits
-	Now           func() time.Time
+	ConfigurationCapacity ImageConfigurationCapacity
+	ConfirmedCopy         ImageTextReviewReader
+	Configuration         agentconfig.ImageConfigurationRepository
+	Contexts              ImageSetContextReader
+	Quotes                ImageSetQuoteReader
+	ColorReworkInventory  productasset.ImageSetInventoryReader
+	ColorReworkApprovals  productasset.ApprovalCommitReader
+	HardLimits            agentconfig.ImageRunLimits
+	Now                   func() time.Time
 }
 
 func WithImageSetDependencies(d ImageSetDependencies) ServiceOption {
@@ -150,6 +156,16 @@ func validPrepareImageSetInput(input PrepareImageSetInput) bool {
 	}
 	if !input.ContextKind.Valid() {
 		return false
+	}
+	if r := input.ColorRework; r != nil {
+		return input.ContextKind == ImageSourceListing && input.Target == (ImageTargetSelection{Platform: "product"}) &&
+			agentconfig.UUID(input.RequestID) && canonicalImageValue(input.ContextID) && agentconfig.UUID(input.RegenerateFromRunID) &&
+			agentconfig.UUID(r.SlotID) && agentconfig.UUID(r.Head.ActionID) && r.Head.Valid() && validImageComposition(r.Composition) &&
+			input.Text != nil && input.Text.Mode == "none" && input.Template != nil && input.Route != nil &&
+			input.EffectiveCatalogVersion > 0 && input.EffectiveCatalogVersion <= 1<<63-1 &&
+			(input.ApplyReceiptID == "" || agentconfig.UUID(input.ApplyReceiptID)) &&
+			input.ColorImages == nil && len(input.SelectedTaskIDs)+len(input.OfficialPlacements)+
+			len(input.SharedOriginalIDs)+len(input.CarouselOriginalIDs)+len(input.DetailOriginalIDs) == 0
 	}
 	if len(input.SelectedTaskIDs) > MaxPlanSlots || input.RegenerateFromRunID != "" && (!agentconfig.UUID(input.RegenerateFromRunID) || len(input.SelectedTaskIDs) == 0) {
 		return false
@@ -224,6 +240,11 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 	if !s.organizationScope || s.imageSets == nil || !validPrepareImageSetInput(input) {
 		return PreparedImageSet{}, ErrValidation
 	}
+	if input.ColorRework != nil {
+		rework := *input.ColorRework
+		rework.Composition = strings.TrimSpace(rework.Composition)
+		input.ColorRework = &rework
+	}
 	identity.BusinessTaskID = input.ContextID
 	runID := imageSetRunID(identity, input)
 	scope := RunScope{TenantID: identity.TenantID, OwnerUserID: identity.UserID, RunID: runID}
@@ -238,7 +259,7 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 		if current.Plan.Set == nil || current.Plan.Set.InputDigest != inputDigest || current.Run.IdempotencyKey != input.RequestID {
 			return PreparedImageSet{}, ErrRevisionConflict
 		}
-		if _, err = s.identityForRun(identity, current.Run); err != nil {
+		if identity, err = s.identityForRun(identity, current.Run); err != nil {
 			return PreparedImageSet{}, err
 		}
 		if err = s.imageSets.Contexts.RevalidateImageSet(ctx, identity, current); err != nil {
@@ -250,6 +271,20 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 	}
 	if !s.tenantStartAllowed(ctx, identity.TenantID) {
 		return PreparedImageSet{}, ErrCommandBlocked
+	}
+	var rework colorImageReworkPreparation
+	if input.ColorRework != nil {
+		rework, err = s.prepareColorImageRework(ctx, identity, &input)
+		if err != nil {
+			return PreparedImageSet{}, err
+		}
+		parentSnapshot, err := s.imageSets.Configuration.LoadImageConfiguration(ctx, agent.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}, rework.parent.Plan.Set.Configuration)
+		if err != nil {
+			return PreparedImageSet{}, err
+		}
+		if parentSnapshot.Ref() != rework.parent.Plan.Set.Configuration || parentSnapshot.Template != *input.Template {
+			return PreparedImageSet{}, ErrRevisionConflict
+		}
 	}
 	resolved, err := s.imageSets.Contexts.ResolveImageSet(ctx, identity, input)
 	if err != nil {
@@ -273,7 +308,7 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 		if err != nil {
 			return PreparedImageSet{}, err
 		}
-		defer release()
+		release()
 		methodText = text
 	}
 	if resolved.Source.ContextKind != input.ContextKind || resolved.Source.OperationID != input.ContextID || resolved.Source.CatalogHash != resolved.Catalog.Manifest.Hash || resolved.Target.Platform != input.Target.Platform || resolved.Target.StoreID != input.Target.StoreID || resolved.Target.Site != input.Target.Site || resolved.Target.CategoryID != input.Target.CategoryID || resolved.Target.RecordID != input.Target.RecordID {
@@ -301,7 +336,7 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 		resolved.Source.OwnProduct = true
 	}
 	var regeneration *ImageSetRegeneration
-	if input.RegenerateFromRunID != "" {
+	if input.RegenerateFromRunID != "" && input.ColorRework == nil {
 		if regeneration, err = s.validateImageSetRegeneration(ctx, identity, input, resolved); err != nil {
 			return PreparedImageSet{}, err
 		}
@@ -327,7 +362,9 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 		ordered = append(ordered, ref)
 	}
 	sourceDigest := ImageSourceObservationsDigest(resolved.Source, ordered)
-	snapshot, err := s.imageSets.Configuration.PrepareImageConfiguration(ctx, agentconfig.ImageStartCommand{ExpectedModeRevision: input.ExpectedModeRevision, Scope: agent.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}, MemberID: identity.MemberID, RequestKey: input.RequestID, ContextID: input.ContextID, RunID: runID, TargetPlatform: input.Target.Platform, SourceDigest: sourceDigest, InputDigest: inputDigest, Template: input.Template, HardLimits: s.imageSets.HardLimits})
+	configCtx, cancelConfig := context.WithTimeout(ctx, time.Second)
+	snapshot, err := s.imageSets.Configuration.PrepareImageConfiguration(configCtx, agentconfig.ImageStartCommand{ExpectedModeRevision: input.ExpectedModeRevision, Scope: agent.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}, MemberID: identity.MemberID, RequestKey: input.RequestID, ContextID: input.ContextID, RunID: runID, TargetPlatform: input.Target.Platform, SourceDigest: sourceDigest, InputDigest: inputDigest, Template: input.Template, HardLimits: s.imageSets.HardLimits, ImageSkillRef: input.Method})
+	cancelConfig()
 	if err != nil {
 		return PreparedImageSet{}, err
 	}
@@ -338,11 +375,18 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 	if err != nil {
 		return PreparedImageSet{}, err
 	}
-	plan, err := buildImageSetPlan(input, resolved, snapshot, quote, selected, byID, identity.UserID, method, textBinding)
+	var plan Plan
+	if input.ColorRework != nil {
+		plan, err = rework.build(input, resolved, snapshot, quote, method, textBinding)
+	} else {
+		plan, err = buildImageSetPlan(input, resolved, snapshot, quote, selected, byID, identity.UserID, method, textBinding)
+	}
 	if err != nil {
 		return PreparedImageSet{}, err
 	}
-	plan.Set.Regeneration = regeneration
+	if regeneration != nil {
+		plan.Set.Regeneration = regeneration
+	}
 	matchedTextTasks := map[string]bool{}
 	for i := range plan.Slots {
 		slot := &plan.Slots[i]
@@ -371,6 +415,14 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 	if err = ValidateImageSetPlan(plan); err != nil {
 		return PreparedImageSet{}, err
 	}
+	if input.ColorRework != nil {
+		if err = ValidateInitialSubmittedPlan(plan); err != nil {
+			return PreparedImageSet{}, err
+		}
+		if err = ValidatePlanAgainstCatalog(plan, resolved.Catalog); err != nil {
+			return PreparedImageSet{}, err
+		}
+	}
 	encodedPlan, encodeErr := json.Marshal(plan)
 	if encodeErr != nil || len(encodedPlan) > 2<<20 {
 		return PreparedImageSet{}, ErrValidation
@@ -388,7 +440,7 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 }
 
 func selectedImageOriginals(input PrepareImageSetInput) []string {
-	if input.ColorImages != nil {
+	if input.ColorImages != nil && input.ColorRework == nil {
 		ids := input.ColorImages.SourceIDs()
 		sort.Strings(ids)
 		return ids
@@ -611,9 +663,30 @@ func (s *Service) ConfirmImagePlan(ctx context.Context, input ConfirmImagePlanIn
 	if current.Run.Status != RunStatusAwaitingPlanApproval {
 		return RunProjection{}, ErrCommandBlocked
 	}
+	if rework := current.Plan.Set.ColorImageRework(); rework != nil {
+		if _, err = s.readColorImageReworkBaseline(ctx, identity.TenantID, current.Plan.Set.Source, rework.Head); err != nil {
+			return RunProjection{}, err
+		}
+	}
 	limits := imageSetLimits(current.Plan, int64(current.Run.Budget.MaxElapsed/time.Second))
 	command := agentconfig.ImageRunAdmissionCommand{Scope: agent.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}, Snapshot: current.Plan.Set.Configuration, MemberID: identity.MemberID, RunID: input.RunID, ConfirmActionID: input.ActionID, SourceDigest: ImageSetSourceDigest(current.Plan.Set.Source, current.Plan), InputDigest: current.Plan.Set.InputDigest, PlanDigest: input.PlanDigest, QuoteDigest: input.QuoteDigest, Limits: limits}
-	receipt, err := s.imageSets.Configuration.ReadImageRunAdmission(ctx, command.Scope, command.Snapshot)
+	connections := int64(1)
+	if current.Plan.Set.Method != nil {
+		connections = 2
+	}
+	releaseCapacity, err := s.imageSets.ConfigurationCapacity.Acquire(ctx, connections)
+	if err != nil {
+		return current, err
+	}
+	defer releaseCapacity()
+	releaseMethod := func() {}
+	defer func() { releaseMethod() }()
+	readAdmission := func() (agentconfig.ImageRunAdmissionReceipt, error) {
+		readCtx, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+		return s.imageSets.Configuration.ReadImageRunAdmission(readCtx, command.Scope, command.Snapshot)
+	}
+	receipt, err := readAdmission()
 	if errors.Is(err, agentconfig.ErrNotFound) {
 		// Source access gates NEW admission. Restoring an original receipt must
 		// reach its workflow so dispatch checks can close revoked sources.
@@ -632,7 +705,7 @@ func (s *Service) ConfirmImagePlan(ctx context.Context, input ConfirmImagePlanIn
 		if methodErr != nil {
 			return RunProjection{}, methodErr
 		}
-		defer release()
+		releaseMethod = release
 		// Only a new admission consumes the current quote. A durable original
 		// receipt remains authoritative after ImageDB persistence/ACK loss.
 		quote, err := s.imageSets.Quotes.ReadImageGenerationQuote(ctx, identity, current.Plan.Set.Route)
@@ -644,10 +717,12 @@ func (s *Service) ConfirmImagePlan(ctx context.Context, input ConfirmImagePlanIn
 				return RunProjection{}, ErrRevisionConflict
 			}
 		}
-		receipt, err = s.imageSets.Configuration.AdmitImageRun(ctx, command, s.imageSets.HardLimits)
+		configCtx, cancelConfig := context.WithTimeout(ctx, time.Second)
+		receipt, err = s.imageSets.Configuration.AdmitImageRun(configCtx, command, s.imageSets.HardLimits)
+		cancelConfig()
 		if err != nil {
 			originalErr := err
-			receipt, err = s.imageSets.Configuration.ReadImageRunAdmission(ctx, command.Scope, command.Snapshot)
+			receipt, err = readAdmission()
 			if err != nil {
 				return current, originalErr
 			}
@@ -665,6 +740,12 @@ func (s *Service) ConfirmImagePlan(ctx context.Context, input ConfirmImagePlanIn
 		return current, err
 	}
 	confirmed, err := s.repository.CommitProjection(ctx, ProjectionCommit{Scope: scope, CommitID: "confirm:" + input.ActionID, ExpectedProjectionVersion: current.ProjectionVersion, ExpectedRunVersion: current.Run.Version, Snapshot: next, RunMutation: &RunMutation{ImageAdmission: &receipt, Status: next.Run.Status, CurrentNode: next.Run.CurrentNode, ActivePlanRevision: input.ExpectedRevision}, EventType: "run.confirmed", EventPayload: json.RawMessage(`{}`)})
+	releaseMethod()
+	releaseMethod = func() {}
+	releaseCapacity()
+	if errors.Is(err, ErrColorImageReworkConfirmed) {
+		return s.confirmedColorImageRework(ctx, identity, current)
+	}
 	if err != nil {
 		return current, err
 	}

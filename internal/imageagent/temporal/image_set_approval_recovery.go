@@ -49,10 +49,30 @@ func (a *Activities) readCommittedImageSetApproval(ctx context.Context, current 
 	if productasset.ValidateApprovalCommit(commit) != nil || commit.ImageSet == nil || commit.TenantID != current.Run.TenantID ||
 		commit.ActionID != pending.ActionID || commit.ProductKey != source.ProductID || commit.TargetPlatform != target.Platform ||
 		commit.SourceSnapshotVersion != source.EffectiveVersion || commit.ImageSet.Source != expectedSource ||
-		!reflect.DeepEqual(commit.ImageSet.Target, expectedTarget) || commit.ImageSet.Digest != pending.SelectionDigest {
+		!reflect.DeepEqual(commit.ImageSet.Target, expectedTarget) || commit.ImageSet.Digest != pending.SelectionDigest ||
+		pending.RequestDigest != "" && commit.ImageSet.RequestDigest != pending.RequestDigest {
 		return productasset.ApprovalCommit{}, false, imageagent.ErrRevisionConflict
 	}
 	return commit, true, nil
+}
+
+func (a *Activities) colorReworkSaveNotCommitted(ctx context.Context, current imageagent.RunProjection) (bool, error) {
+	pending := current.PendingCommand
+	rework := current.Plan.Set.ColorImageRework()
+	reader, ok := a.imageSetApprovals.(productasset.ColorReworkSaveReader)
+	if !ok || rework == nil || pending == nil || pending.Kind != "approve_results" ||
+		pending.Phase != imageagent.ImageSetApprovalPublicationStarted || pending.RequestDigest == "" ||
+		pending.ResultDigest != current.ResultDigest || pending.PlanRevision != current.Plan.Revision ||
+		current.Run.Status != imageagent.RunStatusAwaitingFinalApproval || imageagent.ValidateImageSetAdmission(current.Run, current.Plan) != nil {
+		return false, nil
+	}
+	source := current.Plan.Set.Source
+	request := productasset.SourceSelectionRequest{ContextKind: string(source.ContextKind), ItemID: source.OperationID,
+		OriginalPublicationID: source.OriginalPublicationID, OriginalSnapshotVersion: source.OriginalVersion,
+		EffectiveCatalogVersion: source.EffectiveVersion, ApplyReceiptID: source.ApplyReceiptID, TargetPlatform: "product"}
+	scope := productasset.InventoryScope{TenantID: current.Run.TenantID, ProductKey: source.ProductID,
+		TargetPlatform: "product", SourceSnapshotVersion: source.EffectiveVersion}
+	return reader.ColorReworkSaveNotCommitted(ctx, scope, request, pending.ActionID, rework.Head)
 }
 
 func imageSetPublicationPhase(phase string) bool {
@@ -144,7 +164,7 @@ func (a *Activities) restoreImageSetCompletionIdentity(ctx context.Context, inpu
 }
 
 func (a *Activities) restoreImageSetPendingRecoveryIdentity(ctx context.Context, input PersistPendingCommandActivityInput) (context.Context, *imageagent.RunProjection, error) {
-	if a.imageSetApprovals == nil && a.artworkPublisher == nil || a.executionAuthorizer == nil || input.Receipt == nil || input.Receipt.Kind != "approve_results" || !imageSetPublicationPhase(input.Receipt.Phase) {
+	if a.imageSetApprovals == nil && a.artworkPublisher == nil || a.executionAuthorizer == nil || input.Receipt == nil || input.Receipt.Kind != "approve_results" || !imageSetPublicationPhase(input.Receipt.Phase) && input.Receipt.Phase != imageagent.ColorImageReworkApprovalNotSaved {
 		return a.liveRunProjectionIdentity(ctx, input.RunID, input.Identity)
 	}
 	current, err := a.loadOrganizationExecution(ctx, input.RunID, input.Identity)
@@ -152,10 +172,29 @@ func (a *Activities) restoreImageSetPendingRecoveryIdentity(ctx context.Context,
 		return nil, nil, err
 	}
 	before, after := current.PendingCommand, input.Receipt
+	if after.Phase == imageagent.ColorImageReworkApprovalNotSaved {
+		if current.Plan.Set.ColorImageRework() == nil || before == nil || before.Kind != after.Kind ||
+			before.ActionID != after.ActionID || before.PlanRevision != after.PlanRevision || before.ResultDigest != after.ResultDigest ||
+			before.RequestDigest == "" || before.RequestDigest != after.RequestDigest || before.SelectionDigest != after.SelectionDigest ||
+			after.Status != "failed" || after.FailureCode != "inventory_head_changed" || after.Attempt < before.Attempt ||
+			!reflect.DeepEqual(current.CommandIngress, input.CommandIngress) {
+			return nil, nil, imageagent.ErrRevisionConflict
+		}
+		if !reflect.DeepEqual(before, after) {
+			proved, err := a.colorReworkSaveNotCommitted(ctx, current)
+			if err != nil {
+				return nil, nil, err
+			}
+			if !proved {
+				return nil, nil, imageagent.ErrCommandBlocked
+			}
+		}
+		return withOrganizationActivityIdentity(ctx, current.Run, input.Identity.TraceID), &current, nil
+	}
 	if before != nil && before.Kind == "approve_results" && before.Phase == string(updatePhaseApprovalPublish) &&
 		after.Phase == imageagent.ImageSetApprovalPublicationStarted && after.ActionID == before.ActionID &&
 		after.PlanRevision == before.PlanRevision && after.SelectionDigest == before.SelectionDigest &&
-		after.ResultDigest == before.ResultDigest && after.SlotID == before.SlotID && after.Attempt >= before.Attempt &&
+		after.ResultDigest == before.ResultDigest && after.RequestDigest == before.RequestDigest && after.SlotID == before.SlotID && after.Attempt >= before.Attempt &&
 		after.Status == "pending" && reflect.DeepEqual(current.CommandIngress, input.CommandIngress) {
 		// This is the first durable publication marker. Asset has not been
 		// called yet; live IAM, rather than receipt recovery, authorizes it.

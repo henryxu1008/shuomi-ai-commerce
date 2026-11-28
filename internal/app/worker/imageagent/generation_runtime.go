@@ -18,6 +18,7 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
 	resourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/imagex"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 )
 
@@ -50,12 +51,14 @@ func buildOrganizationGenerationWithCurrent(cfg config.ImageAgentGenerationConfi
 		return nil, nil, imageagent.ErrValidation
 	}
 	executionAuthorizer := imageagent.ExecutionAuthorizer(imageSetGenerationAuthorizer{repository: repository, live: authorizer})
+	var colorReworkInventory productasset.ImageSetInventoryReader
 	if len(sourceContexts) == 1 {
 		guard, ok := sourceContexts[0].(imageagent.ImageSetSourceGuard)
 		if !ok {
 			return nil, nil, imageagent.ErrCommandBlocked
 		}
 		executionAuthorizer = imageSetGenerationAuthorizer{repository: repository, live: authorizer, sources: guard}
+		colorReworkInventory, _ = sourceContexts[0].(productasset.ImageSetInventoryReader)
 	}
 	resources, err := resourceadapter.NewGormImageGenerationRepository(commercial, resourceadapter.TransactionConfig{}, facts, generationResourceAuthorizer{repository, executionAuthorizer})
 	if err != nil {
@@ -86,7 +89,7 @@ func buildOrganizationGenerationWithCurrent(cfg config.ImageAgentGenerationConfi
 		componentLogger = logrus.NewEntry(logger).WithField("component", "image-agent-generation")
 	}
 	factory := generationProviderFactory{current: current, credentials: organizationCredentialAdmission{resolver: credentials}, price: cfg, profile: profile, logger: componentLogger, facts: facts, artifacts: artifacts}
-	executor, err := imageagent.NewGenerationExecution(imageagent.GenerationExecutionDependencies{Facts: facts, Resources: resources, Authorizer: executionAuthorizer, MaxSourceBytes: productimage.MaxInlineArtifactBytes,
+	executor, err := imageagent.NewGenerationExecution(imageagent.GenerationExecutionDependencies{Facts: facts, Resources: resources, Authorizer: executionAuthorizer, MaxSourceBytes: productimage.MaxInlineArtifactBytes, ColorReworkInventory: colorReworkInventory,
 		PrepareProvider: factory.prepare, RevalidateProvider: factory.revalidate,
 		ReadProviderOutput: generationOutputRecovery(nil, logger),
 		ReadMemberLimit: func(ctx context.Context, org, member string) (imageagent.GenerationMemberLimit, error) {

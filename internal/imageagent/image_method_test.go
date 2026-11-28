@@ -184,11 +184,33 @@ func TestNewImageConfirmationHoldsMethodFenceAndOriginalReceiptRecoveryDoesNotRe
 				}
 				return &methodFenceCommit{Repository: r, m: m, t: t}
 			}
-			s, _, _, cfg, _, _, ctx, input := imageSetServiceFixtureWithRepository(t, wrap, imageagent.WithImageMethodContext(m))
+			s, repo, workflows, cfg, sources, quotes, ctx, input := imageSetServiceFixtureWithRepository(t, wrap, imageagent.WithImageMethodContext(m))
 			ref := imageMethodRef()
 			input.Method = &ref
 			prepared, err := s.PrepareImageSet(ctx, input)
 			require.NoError(t, err)
+			busy := true
+			held := false
+			capacity := imageagent.ImageConfigurationCapacity(func(_ context.Context, connections int64) (func(), error) {
+				require.EqualValues(t, 2, connections)
+				require.False(t, held)
+				if busy {
+					return nil, imageagent.ErrImageConfigurationBusy
+				}
+				held = true
+				return func() { held = false }, nil
+			})
+			s, err = imageagent.NewService(repo, workflows, staticCatalogResolver{catalog: sources.preparation.Catalog},
+				imageagent.WithOrganizationScope(), imageagent.WithImageMethodContext(m),
+				imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{ConfigurationCapacity: capacity, Configuration: cfg, Contexts: sources, Quotes: quotes, HardLimits: cfg.snapshot.HardLimits}))
+			require.NoError(t, err)
+			callsBeforeAdmission := m.calls
+			_, err = s.ConfirmImagePlan(ctx, confirmSetInput(prepared))
+			require.ErrorIs(t, err, imageagent.ErrImageConfigurationBusy)
+			require.Zero(t, cfg.admissionReads)
+			require.Equal(t, callsBeforeAdmission, m.calls)
+			require.Empty(t, workflows.starts)
+			busy = false
 			_, err = s.ConfirmImagePlan(ctx, confirmSetInput(prepared))
 			if lostCAS {
 				require.Error(t, err)
@@ -196,9 +218,11 @@ func TestNewImageConfirmationHoldsMethodFenceAndOriginalReceiptRecoveryDoesNotRe
 				require.NoError(t, err)
 			}
 			require.False(t, m.held)
+			require.False(t, held)
 			require.Equal(t, 1, cfg.admissions)
 			calls := m.calls
 			m.unavailable = true
+			busy = !lostCAS // An ImageDB receipt can still reach its original workflow.
 			_, err = s.ConfirmImagePlan(ctx, confirmSetInput(prepared))
 			require.NoError(t, err)
 			require.Equal(t, calls, m.calls)

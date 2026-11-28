@@ -10,10 +10,15 @@ func (a *Activities) PrepareImageSetPolicyAdoption(ctx context.Context, identity
 	if a.imageSetPolicyAdopter == nil {
 		return nil, imageagent.ErrCommandBlocked
 	}
+	releaseCapacity, err := a.configurationCapacity.Acquire(ctx, 1)
+	if err != nil {
+		return nil, err
+	}
+	defer releaseCapacity()
 	if _, err := a.loadOrganizationExecution(ctx, identity.RunID, identity); err != nil {
 		return nil, err
 	}
-	ctx, err := a.restoreExecutionIdentity(ctx, identity.RunID, identity)
+	ctx, err = a.restoreExecutionIdentity(ctx, identity.RunID, identity)
 	if err != nil {
 		return nil, err
 	}

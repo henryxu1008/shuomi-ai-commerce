@@ -161,6 +161,9 @@ func imageTextPrompt(product ProductContextRef, brief string, recipe *ImageSlotR
 		}
 	}
 	fmt.Fprintf(&b, "Visual task: %s; direction: %s. Background: %s. Target text language: %s. One large product, generous whitespace. No table, grid, document, information panel or leader-line labels. ", recipe.Purpose, brief, recipe.Background, recipe.Language)
+	if recipe.Composition != "" {
+		fmt.Fprintf(&b, "Composition direction for this image only: %q. Prefer this direction over general visual or method preferences within the confirmed product facts, reference, selected task, color and text constraints. ", recipe.Composition)
+	}
 	if recipe.TaskEvidence != "" {
 		fmt.Fprintf(&b, "Additional confirmed information for this task (grounding only): %s. ", recipe.TaskEvidence)
 	}

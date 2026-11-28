@@ -27,6 +27,7 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
+	skillcap "github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"math"
 	"net/http"
@@ -45,6 +46,7 @@ type imageRunHistory interface {
 }
 
 type fullImageApplication struct {
+	capacity          imageagent.ImageConfigurationCapacity
 	history           imageRunHistory
 	executionDisabled bool
 	skills            *skillstore.Store
@@ -168,6 +170,10 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if err != nil {
 		return nil, empty, err
 	}
+	configuration = configuration.WithImageSkillCheck(func(ctx context.Context, tx *gorm.DB, cmd agentconfig.ImageStartCommand) error {
+		principal := skillcap.Principal{OrganizationID: cmd.Scope.OrganizationID, UserID: cmd.Scope.ActorID, MemberID: cmd.MemberID, UseOrganization: true}
+		return skills.CheckImageUseInTransaction(ctx, tx, principal, *cmd.ImageSkillRef)
+	})
 	sourceAuth := imageapp.ScopedImageAuthorizer{Live: sourceLive}
 	receipts, err := newImageSetAcquisitionReceipts(startup, productDB, imageapp.ImagePublicationScopeAuthorizer{Live: sourceLive})
 	if err != nil {
@@ -250,6 +256,11 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		}
 		return &fullImageApplication{history: history, executionDisabled: true, skills: skills, artwork: artwork, readSources: readSources, contexts: contexts, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, generationFacts: generationFacts, rules: rules, manualAvailable: manual != nil}, empty, nil
 	}
+	configPool, err := configurationDB.DB()
+	if err != nil {
+		return nil, empty, err
+	}
+	capacity, maxActivities := imageapp.NewConfigurationCapacity(configPool.Stats().MaxOpenConnections)
 	workerRepository := imagestore.NewOrganizationRepository(workerDB)
 	quotes, err := imageworker.NewImageGenerationQuoteReader(current.ImageAgent.Generation, currentPolicies)
 	if err != nil {
@@ -289,6 +300,9 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if err != nil {
 		return nil, empty, err
 	}
+	selections.WithPreviewCapacity(func(ctx context.Context) (func(), error) {
+		return capacity.Acquire(ctx, 1)
+	})
 	workerSelections, err := newSelections(workerRepository)
 	if err != nil {
 		return nil, empty, err
@@ -307,8 +321,8 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		}
 		artworkConfiguration = artworkAdmissionConfiguration{ArtworkConfigurationRepository: configuration, authorize: live.AuthorizeExecution}
 	}
-	modeContexts := modeBoundImageContexts{ImageSetContextReader: contexts, source: contexts, configuration: configuration, artworkConfiguration: artworkConfiguration}
-	options := []imageagent.ServiceOption{imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(gate), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{ConfirmedCopy: confirmedCopy, Configuration: configuration, Contexts: modeContexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 32, Points: 32 * current.ImageAgent.Generation.MaximumMicropoints, ElapsedSeconds: 3600}})}
+	modeContexts := modeBoundImageContexts{ImageSetContextReader: contexts, ImageSetInventoryReader: inventories, source: contexts, configuration: configuration, artworkConfiguration: artworkConfiguration}
+	options := []imageagent.ServiceOption{imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(gate), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{ConfigurationCapacity: capacity, ConfirmedCopy: confirmedCopy, Configuration: configuration, Contexts: modeContexts, Quotes: quotes, ColorReworkInventory: inventories, ColorReworkApprovals: approvals, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 32, Points: 32 * current.ImageAgent.Generation.MaximumMicropoints, ElapsedSeconds: 3600}})}
 	options = append(options, imageagent.WithImageMethodContext(methods))
 	if artworkConfiguration != nil {
 		options = append(options, imageagent.WithArtworkDependencies(imageagent.ArtworkDependencies{Configuration: artworkConfiguration, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{UnitVersion: "ai-micropoint-v1", Images: 1, Points: current.ImageAgent.Generation.MaximumMicropoints, ElapsedSeconds: 3600}}))
@@ -322,10 +336,12 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		return nil, empty, err
 	}
 	dependencies.ImageSetPolicyAdopter = imageSetPolicyAdopter{repository: workerRepository, configuration: configuration, selections: workerSelections, inventories: inventories}
+	dependencies.ConfigurationCapacity = capacity
+	dependencies.MaxConcurrentActivities = maxActivities
 	if artwork != nil {
 		dependencies.ArtworkPublisher = artwork
 	}
-	return &fullImageApplication{history: history, skills: skills, artwork: artwork, service: service, readSources: readSources, contexts: contexts, quotes: quotes, selections: selections, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, generationFacts: generationFacts, gate: gate, rules: rules, manualAvailable: manual != nil}, dependencies, nil
+	return &fullImageApplication{history: history, capacity: capacity, skills: skills, artwork: artwork, service: service, readSources: readSources, contexts: contexts, quotes: quotes, selections: selections, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, generationFacts: generationFacts, gate: gate, rules: rules, manualAvailable: manual != nil}, dependencies, nil
 }
 
 type imagePreparationProductReader struct {

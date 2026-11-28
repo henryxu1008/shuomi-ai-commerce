@@ -37,14 +37,15 @@ type ManualImageReader interface {
 }
 
 type ImageSetCommand struct {
-	PolicyAdoption  *ImageSetPolicyProvenance `json:"policy_adoption,omitempty"`
-	ApprovingResult ImageSetResultBinding     `json:"approving_result"`
-	ActionID        string                    `json:"action_id"`
-	Source          SourceSelectionRequest    `json:"source"`
-	Target          *ImageSetTarget           `json:"target,omitempty"`
-	ExpectedHead    ImageInventoryHead        `json:"expected_head"`
-	Choices         []ImageSetChoice          `json:"choices"`
-	SelectionDigest string                    `json:"selection_digest"`
+	PolicyAdoption       *ImageSetPolicyProvenance `json:"policy_adoption,omitempty"`
+	ApprovingResult      ImageSetResultBinding     `json:"approving_result"`
+	ActionID             string                    `json:"action_id"`
+	Source               SourceSelectionRequest    `json:"source"`
+	Target               *ImageSetTarget           `json:"target,omitempty"`
+	ExpectedHead         ImageInventoryHead        `json:"expected_head"`
+	Choices              []ImageSetChoice          `json:"choices"`
+	SelectionDigest      string                    `json:"selection_digest"`
+	ReplacedColorAssetID string                    `json:"replaced_color_asset_id,omitempty"`
 }
 
 type ImageSetCandidate struct {
@@ -78,6 +79,7 @@ type ImageSetPreview struct {
 
 type ImageSetService struct {
 	executionPolicy ImageSetMutationAdmission
+	previewCapacity func(context.Context) (func(), error)
 	manual          ManualImageReader
 	sources         SourceSelectionReader
 	repository      Repository
@@ -97,6 +99,12 @@ func NewImageSetService(sources SourceSelectionReader, repository Repository, in
 func (s *ImageSetService) WithManualImages(reader ManualImageReader) *ImageSetService {
 	s.manual = reader
 	return s
+}
+
+// WithPreviewCapacity admits a new preview after the existing receipt lookup.
+// A caller that already reserved capacity should not install a second gate.
+func (s *ImageSetService) WithPreviewCapacity(acquire func(context.Context) (func(), error)) {
+	s.previewCapacity = acquire
 }
 
 func (s *ImageSetService) Preview(ctx context.Context, input ImageSetCommand) (ImageSetPreview, error) {
@@ -165,11 +173,21 @@ func (s *ImageSetService) prepare(ctx context.Context, input ImageSetCommand, mu
 	if !input.PolicyAdoption.Valid() {
 		return ApprovalCommit{}, ErrInvalidApproval
 	}
+	if !mutate && s.previewCapacity != nil {
+		release, err := s.previewCapacity(ctx)
+		if err != nil {
+			return ApprovalCommit{}, err
+		}
+		defer release()
+	}
 	if mutate && s.executionPolicy != nil {
 		if err := s.executionPolicy(ctx, source, input); err != nil {
 			return ApprovalCommit{}, err
 		}
 	}
+	commit, prepareErr := s.prepareNewSelection(ctx, source, input, requestDigest)
+	// Keep the use gate authoritative for new actions even when the pure
+	// preparation detects stale inventory or invalid candidate data.
 	if guard, ok := s.candidates.(ImageSelectionUseGuard); ok {
 		release, err := guard.AcquireImageSetSelection(fenceContext, source, input)
 		if err != nil {
@@ -178,17 +196,24 @@ func (s *ImageSetService) prepare(ctx context.Context, input ImageSetCommand, mu
 		if release == nil {
 			return ApprovalCommit{}, ErrRepositoryUnavailable
 		}
-		if keepFence == nil {
-			defer release()
+		if keepFence == nil || prepareErr != nil {
+			release()
 		} else {
 			keepFence(release)
 		}
 	}
+	return commit, prepareErr
+}
+
+func (s *ImageSetService) prepareNewSelection(ctx context.Context, source SourceSelection, input ImageSetCommand, requestDigest string) (ApprovalCommit, error) {
 	inventory, err := s.inventories.ReadImageSetInventory(ctx, InventoryScope{TenantID: source.TenantID, ProductKey: source.ProductKey, TargetPlatform: source.TargetPlatform, SourceSnapshotVersion: source.EffectiveCatalogVersion})
 	if err != nil {
 		return ApprovalCommit{}, err
 	}
 	if inventory.Head != input.ExpectedHead {
+		return ApprovalCommit{}, ErrApprovalConflict
+	}
+	if input.ReplacedColorAssetID != "" && !validColorReworkSelection(input, inventory) {
 		return ApprovalCommit{}, ErrApprovalConflict
 	}
 	commit := ApprovalCommit{TenantID: source.TenantID, ProductKey: source.ProductKey, TargetPlatform: source.TargetPlatform, ActionID: input.ActionID, SourceSnapshotVersion: source.EffectiveCatalogVersion, ImageSet: &ImageSetSelection{Schema: ImageSetSelectionSchema, Source: input.Source, ExpectedHead: input.ExpectedHead, RequestDigest: requestDigest}}
@@ -263,6 +288,33 @@ func (s *ImageSetService) prepare(ctx context.Context, input ImageSetCommand, mu
 		return ApprovalCommit{}, err
 	}
 	return commit, nil
+}
+
+func validColorReworkSelection(input ImageSetCommand, inventory ImageSetInventory) bool {
+	if input.Source.TargetPlatform != "product" || input.Target != nil || input.PolicyAdoption != nil ||
+		inventory.ApprovalActionID == "" || inventory.ApprovalActionID != input.ExpectedHead.ActionID ||
+		len(input.Choices) != len(inventory.Assets) {
+		return false
+	}
+	replaced := false
+	for i, previous := range inventory.Assets {
+		choice := input.Choices[i]
+		if previous.Presentation == nil || choice.Presentation != *previous.Presentation ||
+			choice.Presentation.Color == "" || choice.GenericHead != nil || choice.OfficialPlacement != nil {
+			return false
+		}
+		if previous.ID == input.ReplacedColorAssetID {
+			if replaced || choice.Kind != "generated" || choice.RunID != input.ApprovingResult.RunID ||
+				choice.PlanRevision != input.ApprovingResult.PlanRevision || choice.ResultDigest != input.ApprovingResult.ResultDigest ||
+				choice.SlotID != previous.SlotID {
+				return false
+			}
+			replaced = true
+		} else if choice.Kind != "approved" || choice.ApprovalActionID != inventory.ApprovalActionID || choice.AssetID != previous.ID {
+			return false
+		}
+	}
+	return replaced
 }
 
 func (s *ImageSetService) resolveChoice(ctx context.Context, source SourceSelection, inventory ImageSetInventory, approving ImageSetResultBinding, choice ImageSetChoice) (ApprovedAsset, ImageSetResultBinding, error) {

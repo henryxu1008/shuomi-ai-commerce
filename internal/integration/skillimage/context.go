@@ -55,3 +55,36 @@ func (c *Context) AcquireImageMethod(ctx context.Context, id imageagent.Executio
 	}
 	return brief, release, nil
 }
+
+func (c *Context) AcquireImageMethods(ctx context.Context, uses []imageagent.ImageMethodUse) (func(), error) {
+	store, ok := c.store.(interface {
+		AcquireImageUses(context.Context, d.Principal, []agent.SkillVersionRef) (func(), error)
+	})
+	if !ok || len(uses) == 0 || len(uses) > 40 {
+		return nil, imageagent.ErrCommandBlocked
+	}
+	origin := uses[0].Identity
+	principal := d.Principal{UserID: origin.UserID, OrganizationID: origin.TenantID, MemberID: origin.MemberID, UseOrganization: true}
+	seen := make(map[agent.SkillVersionRef]bool, len(uses))
+	authorized := make(map[imageagent.ExecutionIdentity]bool, len(uses))
+	var refs []agent.SkillVersionRef
+	for _, use := range uses {
+		id := use.Identity
+		if !use.Binding.Valid() || imageagent.ValidateOrganizationExecution(id, id.RunID) != nil ||
+			id.MemberID == "" || id.TenantID != origin.TenantID || id.UserID != origin.UserID || id.MemberID != origin.MemberID {
+			return nil, imageagent.ErrIdentityRequired
+		}
+		if !authorized[id] {
+			if err := c.authorizer.AuthorizeExecution(ctx, id); err != nil {
+				return nil, err
+			}
+			authorized[id] = true
+		}
+		ref := use.Binding.Skill
+		if !seen[ref] {
+			refs = append(refs, ref)
+			seen[ref] = true
+		}
+	}
+	return store.AcquireImageUses(ctx, principal, refs)
+}

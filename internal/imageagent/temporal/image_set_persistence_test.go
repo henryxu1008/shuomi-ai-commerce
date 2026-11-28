@@ -34,7 +34,7 @@ func imageSetPersistenceFixture(t *testing.T) (*Activities, imageagent.Repositor
 	return imageSetPersistenceFixtureWithSource(t, nil, false, imageagent.GenerationProviderMetadata{})
 }
 
-func imageSetPersistenceFixtureWithSource(t *testing.T, ownedSource []byte, includeDetail bool, metadata imageagent.GenerationProviderMetadata) (*Activities, imageagent.Repository, ExecuteSlotV3ActivityInput) {
+func imageSetPersistenceFixtureWithSource(t *testing.T, ownedSource []byte, includeDetail bool, metadata imageagent.GenerationProviderMetadata, change ...func(*imageagent.Plan)) (*Activities, imageagent.Repository, ExecuteSlotV3ActivityInput) {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "image.db")), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
@@ -76,6 +76,10 @@ func imageSetPersistenceFixtureWithSource(t *testing.T, ownedSource []byte, incl
 		plan.Set.MaxPoints = 0
 		limits.UnitVersion, limits.Points = agentconfig.ProviderImageUsageUnit, 0
 	}
+	for _, apply := range change {
+		apply(&plan)
+	}
+	slot = plan.Slots[0]
 	plan.Set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(plan)
 	require.NoError(t, err)
 	run.Budget = imageagent.ImageSetBudget(limits)
@@ -106,6 +110,14 @@ func ownedImageMetadata() imageagent.GenerationProviderMetadata {
 type isolatedOwnedImageTasks struct {
 	start  func(string, []byte) (string, error)
 	lookup func(string) (imageagent.ProviderUsageImageResult, error)
+}
+
+type isolatedReworkInventory struct {
+	head asset.ImageInventoryHead
+}
+
+func (f *isolatedReworkInventory) ReadImageSetInventory(_ context.Context, scope asset.InventoryScope) (asset.ImageSetInventory, error) {
+	return asset.ImageSetInventory{Scope: scope, Head: f.head, ApprovalActionID: f.head.ActionID}, nil
 }
 
 type isolatedApprovalProjection imageagent.RunProjection
@@ -172,6 +184,25 @@ func TestOwnedGRSaiAuthorizedActivityKeepsOriginalTaskAndUsageProof(t *testing.T
 	testOwnedImageAuthorizedActivity(t, ownedImageMetadata())
 }
 
+func TestColorImageReworkDispatchesOnlyTheFrozenWhiteCompositionAndRecoversOriginal(t *testing.T) {
+	const composition = "Show the white coat without a model."
+	testOwnedImageAuthorizedActivity(t, ownedImageMetadata(), func(plan *imageagent.Plan) {
+		hash := strings.Repeat("a", 64)
+		slot := &plan.Slots[0]
+		slot.Recipe.Placement.Color = "White"
+		slot.Recipe.Composition = composition
+		slot.Recipe.Prompt = strings.Replace(slot.Recipe.Prompt, "Visual task:", "Selected color: White. The single reference and this color apply to this image. Visual task:", 1)
+		slot.Recipe.Prompt = strings.Replace(slot.Recipe.Prompt, "No visible text:", `Composition direction for this image only: "Show the white coat without a model.". Prefer this direction over general visual or method preferences within the confirmed product facts, reference, selected task, color and text constraints. No visible text:`, 1)
+		plan.Set.ColorImages = &imageagent.ColorImageSelection{Option: "Shade", Groups: []imageagent.ColorImageOriginal{
+			{Color: "Black", OriginalID: "source-black"}, {Color: "Gray", OriginalID: "source-gray"}, {Color: "White", OriginalID: "source-1"},
+		}}
+		plan.Set.Regeneration = &imageagent.ImageSetRegeneration{RunID: "92a5ba95-44cc-4562-adb3-1225e515ed8c", ClosedEffectsDigest: hash, ResultDigest: hash,
+			ColorRework: &imageagent.ColorImageReworkBinding{SlotID: slot.ID, ParentRevision: 1, Attempt: 1, ArtifactHash: hash, Count: 12,
+				CandidateID: "white-structure-candidate", ReplacedAssetID: "white-structure-approved",
+				Head: asset.ImageInventoryHead{ActionID: "e4f4d189-2f0c-48d1-980e-3c57375fc644", PayloadHash: hash}}}
+	})
+}
+
 func TestOwnedToAPIsAuthorizedActivityKeepsOriginalTaskAndUsageProof(t *testing.T) {
 	metadata := ownedImageMetadata()
 	metadata.Provider = aicapability.ToAPIsProductImageProvider
@@ -180,9 +211,13 @@ func TestOwnedToAPIsAuthorizedActivityKeepsOriginalTaskAndUsageProof(t *testing.
 	testOwnedImageAuthorizedActivity(t, metadata)
 }
 
-func testOwnedImageAuthorizedActivity(t *testing.T, metadata imageagent.GenerationProviderMetadata) {
+func testOwnedImageAuthorizedActivity(t *testing.T, metadata imageagent.GenerationProviderMetadata, change ...func(*imageagent.Plan)) {
 	t.Helper()
-	for _, name := range []string{"first_lookup_success", "lookup_timeout_then_recover_original", "detail_succeeds_while_main_needs_recovery", "detail_succeeds_main_later_fails", "invalid_result"} {
+	names := []string{"first_lookup_success", "lookup_timeout_then_recover_original", "detail_succeeds_while_main_needs_recovery", "detail_succeeds_main_later_fails", "invalid_result"}
+	if len(change) != 0 {
+		names = append(names[:2], "head_changed_before_dispatch")
+	}
+	for _, name := range names {
 		t.Run(name, func(t *testing.T) {
 			mainFails := name == "detail_succeeds_main_later_fails"
 			includeDetail := name == "detail_succeeds_while_main_needs_recovery" || mainFails
@@ -191,7 +226,7 @@ func testOwnedImageAuthorizedActivity(t *testing.T, metadata imageagent.Generati
 			ctx := context.Background()
 			var photo bytes.Buffer
 			require.NoError(t, png.Encode(&photo, image.NewNRGBA(image.Rect(0, 0, 1024, 1024))))
-			a, repo, input := imageSetPersistenceFixtureWithSource(t, photo.Bytes(), includeDetail, metadata)
+			a, repo, input := imageSetPersistenceFixtureWithSource(t, photo.Bytes(), includeDetail, metadata, change...)
 			input.BudgetAuthorization = true
 			runScope := slotEffectReservationV3(slotExecutionInputV3(input)).Identity.RunScope
 			initial, err := repo.GetProjection(ctx, runScope)
@@ -199,6 +234,10 @@ func testOwnedImageAuthorizedActivity(t *testing.T, metadata imageagent.Generati
 			policy, err := initial.Run.Budget.Policy()
 			require.NoError(t, err)
 			input.BudgetPolicy = policy
+			var inventory *isolatedReworkInventory
+			if rework := input.ImageSet.ColorImageRework(); rework != nil {
+				inventory = &isolatedReworkInventory{head: rework.Head}
+			}
 			execution := slotExecutionInputV3(input)
 			facts := repo.(imageagent.GenerationFactRepository)
 			id := slotEffectReservationV3(execution).Identity
@@ -223,6 +262,15 @@ func testOwnedImageAuthorizedActivity(t *testing.T, metadata imageagent.Generati
 					}
 					submits++
 					require.Equal(t, input.Slot.Recipe.Prompt, prompt)
+					if len(change) != 0 {
+						require.Len(t, execution.Slot.Recipe.References, 1)
+						require.Equal(t, "source-1", execution.Slot.Recipe.References[0].AssetID)
+						require.Contains(t, prompt, "Selected color: White")
+						require.Equal(t, 1, strings.Count(prompt, execution.Slot.Recipe.Composition))
+						// The original task remains recoverable after the product's
+						// official inventory advances following the paid dispatch.
+						inventory.head.ActionID = "52920dfa-e9e7-44fa-96cb-8e581180b817"
+					}
 					return task, nil
 				},
 				lookup: func(taskID string) (imageagent.ProviderUsageImageResult, error) {
@@ -266,7 +314,7 @@ func testOwnedImageAuthorizedActivity(t *testing.T, metadata imageagent.Generati
 						Operations: []string{"render_source_edit"}, ProviderReceiptID: taskID}}}, nil
 			}
 			generation, err := imageagent.NewGenerationExecution(imageagent.GenerationExecutionDependencies{
-				Facts: facts, Resources: struct{ imageagent.GenerationResources }{}, Authorizer: allowGenerationExecution{},
+				Facts: facts, Resources: struct{ imageagent.GenerationResources }{}, Authorizer: allowGenerationExecution{}, ColorReworkInventory: inventory,
 				ReadMemberLimit: func(context.Context, string, string) (imageagent.GenerationMemberLimit, error) {
 					t.Fatal("enterprise-owned images must not read platform member point limits")
 					return imageagent.GenerationMemberLimit{}, nil
@@ -301,6 +349,16 @@ func testOwnedImageAuthorizedActivity(t *testing.T, metadata imageagent.Generati
 			}}
 			a.stagedSlotExecutor = isolatedOwnedImageExecutor{generation, recorder}
 			a.generationOutputRecovery = generation.ReadGenerationOutput
+			if name == "head_changed_before_dispatch" {
+				inventory.head.ActionID = "52920dfa-e9e7-44fa-96cb-8e581180b817"
+				_, err = a.ExecuteSlotV3(ctx, input)
+				require.Error(t, err)
+				require.Zero(t, submits)
+				fact, err := facts.ReadGenerationFact(ctx, id)
+				require.NoError(t, err)
+				require.Equal(t, imageagent.GenerationNoEffect, fact.State)
+				return
+			}
 			published, err := a.ExecuteSlotV3(ctx, input)
 			if recoverOriginal {
 				require.Error(t, err)
@@ -328,6 +386,18 @@ func testOwnedImageAuthorizedActivity(t *testing.T, metadata imageagent.Generati
 				recoveryInput := EffectRecoveryWorkflowInput{RunID: input.RunID,
 					Identity: input.Identity, PlanRevision: 1, Attempt: 1, Slot: input.Slot, ImageSet: input.ImageSet,
 					AssetCatalog: input.AssetCatalog, TargetPlatform: "product", ActionID: "original-task-check"}
+				if name == "lookup_timeout_then_recover_original" {
+					a.configurationCapacity = func(context.Context, int64) (func(), error) {
+						return nil, imageagent.ErrImageConfigurationBusy
+					}
+					_, busyErr := a.RecoverEffectV3(ctx, recoveryInput)
+					require.ErrorIs(t, busyErr, imageagent.ErrImageConfigurationBusy, "temporary contention must reach the activity retry policy")
+					unchanged, readErr := facts.ReadGenerationFact(ctx, id)
+					require.NoError(t, readErr)
+					require.Equal(t, fact, unchanged)
+					require.Equal(t, 1, lookups)
+					a.configurationCapacity = nil
+				}
 				if mainFails {
 					_, err := a.PersistImageSetSlotResult(ctx, PersistSlotResultV3ActivityInput{RunID: input.RunID,
 						Identity: input.Identity, PlanRevision: 1, AttemptKey: input.IdempotencyKey,

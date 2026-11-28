@@ -76,7 +76,8 @@ func CloneImageRoute(r *ImageRouteSelection) *ImageRouteSelection {
 
 type ImageSetRegeneration struct {
 	RunID, ClosedEffectsDigest string
-	ResultDigest               string `json:",omitempty"`
+	ResultDigest               string                   `json:",omitempty"`
+	ColorRework                *ColorImageReworkBinding `json:",omitempty"`
 }
 
 type ImagePlacement struct {
@@ -116,6 +117,7 @@ type ImageSlotRecipe struct {
 	PromptVersion, Prompt         string
 	EvidenceDigest                string   `json:",omitempty"`
 	TaskEvidence                  string   `json:",omitempty"`
+	Composition                   string   `json:",omitempty"`
 	VisibleText                   []string `json:",omitempty"`
 	References                    []ImageSourceObservation
 	Quote                         ImageGenerationQuote
@@ -253,7 +255,7 @@ func validateImageSetPlan(plan Plan, singleSlotExecution bool) error {
 		if r.Quote.UsesProviderUsage() != s.Source.OwnProduct {
 			return ErrValidation
 		}
-		if s.ColorImages == nil && r.Placement.Color != "" {
+		if s.ColorImages == nil && r.Placement.Color != "" || r.Composition != "" && (s.ColorImageRework() == nil || !validImageComposition(r.Composition)) {
 			return ErrValidation
 		}
 		if r.Quote.UsesProviderUsage() && (s.Route == nil || s.Source.ContextKind != ImageSourceListing || s.Target.Platform != "product" ||
@@ -355,15 +357,20 @@ func ImageSetQuoteDigest(plan Plan) (string, error) {
 		return "", ErrValidation
 	}
 	type quotedSlot struct {
-		SlotID string
-		Quote  ImageGenerationQuote
+		SlotID            string
+		Quote             ImageGenerationQuote
+		CompositionDigest string `json:",omitempty"`
 	}
 	quotes := make([]quotedSlot, 0, len(plan.Slots))
 	for _, slot := range plan.Slots {
 		if slot.Recipe == nil || !slot.Recipe.Quote.Valid() {
 			return "", ErrValidation
 		}
-		quotes = append(quotes, quotedSlot{slot.ID, slot.Recipe.Quote})
+		quoted := quotedSlot{SlotID: slot.ID, Quote: slot.Recipe.Quote}
+		if slot.Recipe.Composition != "" {
+			quoted.CompositionDigest = generationHash(slot.Recipe.Composition)
+		}
+		quotes = append(quotes, quoted)
 	}
 	if plan.Set != nil && plan.Set.Route != nil {
 		return resultDigestSHA256(struct {
@@ -419,6 +426,10 @@ func CloneImageSetPlan(set *ImageSetPlan) *ImageSetPlan {
 	}
 	if set.Regeneration != nil {
 		value := *set.Regeneration
+		if value.ColorRework != nil {
+			binding := *value.ColorRework
+			value.ColorRework = &binding
+		}
 		clone.Regeneration = &value
 	}
 	return &clone

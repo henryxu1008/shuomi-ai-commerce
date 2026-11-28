@@ -112,10 +112,22 @@ func (s ColorImageSelection) OriginalFor(color string) string {
 func validateColorImageSlots(plan Plan, singleSlotExecution bool) bool {
 	group := plan.Set.ColorImages
 	if group == nil {
-		return true
+		return plan.Set.ColorImageRework() == nil
 	}
-	if !group.Valid() || !plan.Set.Source.OwnProduct || plan.Set.Target.Platform != "product" ||
-		plan.Set.Regeneration != nil || plan.Set.Text.Mode != "none" {
+	if !group.Valid() || !plan.Set.Source.OwnProduct || plan.Set.Target.Platform != "product" || plan.Set.Text.Mode != "none" {
+		return false
+	}
+	if rework := plan.Set.ColorImageRework(); rework != nil {
+		if !rework.valid() || !imageSetReworkResultBound(plan.Set) || len(plan.Slots) != 1 || len(plan.SourceAssetIDs) != 1 {
+			return false
+		}
+		slot := plan.Slots[0]
+		p := slot.Recipe.Placement
+		return slot.ID == rework.SlotID && slot.Recipe.Quote.Provider == "grsai" && p.VariantID == "" &&
+			len(slot.SourceAssetIDs) == 1 && slot.SourceAssetIDs[0] == plan.SourceAssetIDs[0] &&
+			group.OriginalFor(p.Color) == slot.SourceAssetIDs[0]
+	}
+	if plan.Set.Regeneration != nil {
 		return false
 	}
 	if singleSlotExecution {

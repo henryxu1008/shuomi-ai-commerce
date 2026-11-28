@@ -9,10 +9,12 @@ import (
 	configstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agentconfig"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"reflect"
+	"time"
 )
 
 type modeBoundImageContexts struct {
 	imageagent.ImageSetContextReader
+	asset.ImageSetInventoryReader
 	source               imageagent.ImageSetSourceGuard
 	configuration        *configstore.Store
 	artworkConfiguration agentconfig.ArtworkConfigurationRepository
@@ -76,6 +78,8 @@ func checkImageGenerationMode(ctx context.Context, configuration *configstore.St
 }
 
 func loadImageExecutionMode(ctx context.Context, configuration *configstore.Store, identity imageagent.ExecutionIdentity, p imageagent.RunProjection) (agentconfig.ModeSnapshot, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
 	var empty agentconfig.ModeSnapshot
 	if configuration == nil || p.Plan.Set == nil || !p.Plan.Set.ModeSnapshotRef.Valid() || p.Run.ID != identity.RunID || p.Run.TenantID != identity.TenantID || p.Run.UserID != identity.UserID || p.Run.MemberID != identity.MemberID {
 		return empty, imageagent.ErrCommandBlocked

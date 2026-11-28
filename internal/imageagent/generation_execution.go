@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 )
 
 // These ports belong only to the current single-source generation owner.
@@ -34,18 +35,19 @@ type PreparedGenerationProvider struct {
 	ProviderUsage ProviderUsageImageTasks
 }
 type GenerationExecutionDependencies struct {
-	Methods            ImageMethodContext
-	StorageCapacity    storagecapacity.Writer
-	MaxStorageBytes    int64
-	Facts              GenerationFactRepository
-	Resources          GenerationResources
-	Authorizer         ExecutionAuthorizer
-	ReadMemberLimit    func(context.Context, string, string) (GenerationMemberLimit, error)
-	ReadSourceBytes    func(context.Context, SlotExecutionInput) ([]byte, error)
-	PrepareProvider    func(context.Context, SlotExecutionInput, func(context.Context, GenerationSuccess) error) (PreparedGenerationProvider, error)
-	RevalidateProvider func(context.Context, SlotExecutionInput, GenerationProviderMetadata) error
-	MaxSourceBytes     int
-	ReadProviderOutput GenerationOutputRecovery
+	ColorReworkInventory productasset.ImageSetInventoryReader
+	Methods              ImageMethodContext
+	StorageCapacity      storagecapacity.Writer
+	MaxStorageBytes      int64
+	Facts                GenerationFactRepository
+	Resources            GenerationResources
+	Authorizer           ExecutionAuthorizer
+	ReadMemberLimit      func(context.Context, string, string) (GenerationMemberLimit, error)
+	ReadSourceBytes      func(context.Context, SlotExecutionInput) ([]byte, error)
+	PrepareProvider      func(context.Context, SlotExecutionInput, func(context.Context, GenerationSuccess) error) (PreparedGenerationProvider, error)
+	RevalidateProvider   func(context.Context, SlotExecutionInput, GenerationProviderMetadata) error
+	MaxSourceBytes       int
+	ReadProviderOutput   GenerationOutputRecovery
 }
 type GenerationExecution struct {
 	dependencies GenerationExecutionDependencies
@@ -70,7 +72,7 @@ func (e *GenerationExecution) QuoteSlot(ctx context.Context, input SlotExecution
 	if methodErr != nil {
 		return SlotUsageQuote{}, methodErr
 	}
-	defer release()
+	release()
 	input = preparedInput
 	provider, err := e.dependencies.PrepareProvider(ctx, input, func(context.Context, GenerationSuccess) error { return ErrProviderContractViolation })
 	if err != nil {
@@ -231,6 +233,11 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 	}
 	if err = e.dependencies.RevalidateProvider(ctx, input, m); err != nil {
 		return closeBeforeDispatch(err)
+	}
+	if rework := input.ImageSet.ColorImageRework(); rework != nil {
+		if _, err = readColorReworkInventory(ctx, e.dependencies.ColorReworkInventory, input.TenantID, input.ImageSet.Source, rework.Head); err != nil {
+			return closeBeforeDispatch(err)
+		}
 	}
 	if err = ctx.Err(); err != nil {
 		return closeBeforeDispatch(err)
