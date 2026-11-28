@@ -30,6 +30,29 @@ func WithStoreCenter(records *gorm.DB) CurrentApplicationOption {
 	}
 }
 
+func WithShopifyPairingTrial() CurrentApplicationOption {
+	return func(o *currentApplicationOptions) { o.shopifyPairingTrial = true }
+}
+
+func shopifyPairingTrialRoutes(routes []httproute.Descriptor) []httproute.Descriptor {
+	const stores = "/api/v1/workbench/stores"
+	var permitted []httproute.Descriptor
+	for _, route := range routes {
+		switch route.Method {
+		case http.MethodGet:
+			switch route.Path {
+			case "/api/v1/workbench/context", "/api/v1/workbench/store-catalog", stores, stores + "/:store_id", stores + "/:store_id/summary":
+				permitted = append(permitted, route)
+			}
+		case http.MethodPost:
+			if route.Path == stores || route.Path == storehttp.ShopifyPairingPath {
+				permitted = append(permitted, route)
+			}
+		}
+	}
+	return permitted
+}
+
 func WithStoreOfficialApplications(applications *storeapp.OfficialApplicationRegistry) CurrentApplicationOption {
 	return func(o *currentApplicationOptions) {
 		o.officialStoreConfigs++
@@ -114,6 +137,11 @@ func buildCurrentStoreCenterModule(ctx context.Context, records *gorm.DB, author
 	}
 	if shopify != nil {
 		if err := handler.SetShopifyConnections(shopify); err != nil {
+			return nil, err
+		}
+	}
+	if receivePrivacy := applications.IsolatedShopifyPrivacyReceiver(repo); receivePrivacy != nil {
+		if err := handler.SetIsolatedShopifyPrivacyReceiver(receivePrivacy); err != nil {
 			return nil, err
 		}
 	}

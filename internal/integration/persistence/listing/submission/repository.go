@@ -609,8 +609,12 @@ func (r *Repository) lockAttempt(ctx context.Context, tx *gorm.DB, organizationI
 	if err := requireShopifyGuard(ctx, tx, original, false); err != nil {
 		return submission.ExecutionAttempt{}, "", err
 	}
+	return lockAttemptRow(ctx, tx, organizationID, attemptID)
+}
+
+func lockAttemptRow(ctx context.Context, tx *gorm.DB, organizationID, attemptID string) (submission.ExecutionAttempt, string, error) {
 	var row executionAttemptRow
-	err = tx.WithContext(ctx).Table(attemptTable).Clauses(clause.Locking{Strength: "UPDATE"}).
+	err := tx.WithContext(ctx).Table(attemptTable).Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("organization_id = ? AND attempt_id = ?", organizationID, attemptID).Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return submission.ExecutionAttempt{}, "", submission.ErrExecutionNotFound

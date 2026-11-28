@@ -33,6 +33,19 @@ func TestOnlineOAuthURLRequestsOnlyProductWrite(t *testing.T) {
 	}
 }
 
+func TestIsolatedDevelopmentPairingClientBudget(t *testing.T) {
+	const callback = "https://127.0.0.1:36528/api/shopify/callback"
+	normal := fixtureOAuthClient(t, nil)
+	trialOAuth, trialAdmin, err := NewDevelopmentPairingClients("fixture-app", fixtureClientSecret, callback)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if normal.http.Timeout != 5*time.Second || NewDevelopmentAdminClient(nil).http.Timeout != 5*time.Second ||
+		trialOAuth.http.Timeout != 8*time.Second || trialAdmin.http.Timeout != 8*time.Second || !trialAdmin.developmentStoresOnly {
+		t.Fatal("pairing must have bounded budgets without changing normal Shopify clients")
+	}
+}
+
 func TestOwnerCodeRequiresAValidCallbackAndOwnerScope(t *testing.T) {
 	for _, tc := range []struct {
 		name, body string

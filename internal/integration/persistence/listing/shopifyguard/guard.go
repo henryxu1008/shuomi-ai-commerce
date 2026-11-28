@@ -182,7 +182,7 @@ func InstallIsolated(ctx context.Context, db *gorm.DB) (*LiveIsolation, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &LiveIsolation{pool: pool}, nil
+	return newLiveIsolation(pool), nil
 }
 
 // Command uses only local owner identifiers. Installation attribution is a
@@ -270,8 +270,24 @@ func captureSources(tx *gorm.DB, command Command) ([]string, error) {
 			sources = append(sources, attempt.Source)
 		}
 	}
+	var mediaPlans bool
+	if err := tx.Raw("SELECT to_regclass(?) IS NOT NULL", MediaSyncPlanTable).Row().Scan(&mediaPlans); err != nil {
+		return nil, ErrUnavailable
+	}
+	if mediaPlans {
+		var mediaSources []string
+		err := tx.Raw(`SELECT DISTINCT p.source_key FROM `+MediaSyncPlanTable+` p
+			JOIN `+MediaSyncStepTable+` s USING (organization_id,plan_id)
+			JOIN `+dispatchTable+` d USING (organization_id,attempt_id)
+			WHERE p.organization_id=? AND p.shop_key=? AND p.generation=? AND d.shop_key=p.shop_key AND d.generation=p.generation`,
+			command.Organization, command.ShopKey, command.Generation).Scan(&mediaSources).Error
+		if err != nil {
+			return nil, ErrUnavailable
+		}
+		sources = append(sources, mediaSources...)
+	}
 	slices.Sort(sources)
-	return sources, nil
+	return slices.Compact(sources), nil
 }
 
 func readCommand(tx *gorm.DB, id string) (Command, error) {

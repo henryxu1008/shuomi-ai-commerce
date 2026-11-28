@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
 )
@@ -18,6 +20,29 @@ type shopifyNoticeRouteFixture struct {
 	body    string
 	calls   int
 	failure error
+}
+
+func TestIsolatedShopifyPrivacyRoutesAreMountedOnlyWithReceiptReceiver(t *testing.T) {
+	base := module.NewRegistry()
+	require.NoError(t, NewModule(&Handler{}).Register(base))
+	for _, route := range base.Routes() {
+		require.NotEqual(t, ShopifyShopRedactPath, route.Path)
+	}
+	h := &Handler{}
+	receive := func(context.Context, string, string, string, []byte) error { return nil }
+	require.NoError(t, h.SetIsolatedShopifyPrivacyReceiver(receive))
+	registry := module.NewRegistry()
+	require.NoError(t, NewModule(h).Register(registry))
+	found := false
+	for _, route := range registry.Routes() {
+		if route.Method == http.MethodPost && route.Path == ShopifyShopRedactPath {
+			found = true
+			require.NotNil(t, route.Handler)
+			require.Empty(t, route.Permission)
+			require.Equal(t, httproute.AuthPolicyPublic, route.AuthPolicy)
+		}
+	}
+	require.True(t, found)
 }
 
 func (f *shopifyNoticeRouteFixture) LifecycleNotificationsEnabled() bool           { return f.enabled }

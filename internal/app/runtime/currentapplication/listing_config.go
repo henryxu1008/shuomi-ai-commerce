@@ -3,15 +3,19 @@ package currentapplication
 import (
 	"errors"
 	"net"
+	"reflect"
 	"strconv"
+
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 )
 
 // Supply uses the current Product and Store owners, the existing Asset owner,
 // and the Temporal SDK. Presence is explicit admission; omitted stays closed.
 type SupplyChainConfig struct {
-	AssetDatabase     DatabaseConfig `json:"assetDatabase"`
-	TemporalAddress   string         `json:"temporalAddress"`
-	TemporalNamespace string         `json:"temporalNamespace"`
+	AssetDatabase           DatabaseConfig                            `json:"assetDatabase"`
+	TemporalAddress         string                                    `json:"temporalAddress,omitempty"`
+	TemporalNamespace       string                                    `json:"temporalNamespace,omitempty"`
+	ShopifyPreviewArtifacts *coreconfig.ImageAgentArtifactStoreConfig `json:"shopifyPreviewArtifacts,omitempty"`
 }
 
 // SourceMaterials admits only original source approval and Product diagnostics.
@@ -68,6 +72,9 @@ func (c *Config) validateListing() error {
 	if c.ImageAgent != nil && !sameDatabaseTarget(s.AssetDatabase, c.ImageAgent.Database) || c.ProductAgent != nil && c.ProductAgent.Enabled && !c.ProductAgent.ContentTitleOnly && !c.ProductAgent.ContentOnly && !sameDatabaseTarget(s.AssetDatabase, c.ProductAgent.AssetDatabase) {
 		return errors.New("supply must use the current canonical Asset database")
 	}
+	if s.ShopifyPreviewArtifacts != nil {
+		return c.validateShopifyPreview(s, store)
+	}
 	host, port, err := net.SplitHostPort(s.TemporalAddress)
 	if err != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
 		return errors.New("supply Temporal address must use a literal loopback address")
@@ -75,6 +82,33 @@ func (c *Config) validateListing() error {
 	p, err := strconv.Atoi(port)
 	if err != nil || p < 1 || p > 65535 || !boundedValue(s.TemporalNamespace, 128) {
 		return errors.New("supply Temporal namespace or port invalid")
+	}
+	return nil
+}
+
+func (c *Config) ShopifyPreviewOnly() bool {
+	return c.SupplyChain != nil && c.SupplyChain.ShopifyPreviewArtifacts != nil
+}
+
+func (c *Config) validateShopifyPreview(s *SupplyChainConfig, store *StoreCenterConfig) error {
+	allowed := Config{
+		SchemaVersion: c.SchemaVersion, Listen: c.Listen, Identity: c.Identity,
+		SourceAccountDatabase: c.SourceAccountDatabase, CommercialOwnerDatabase: c.CommercialOwnerDatabase,
+		StorageCapacity:            c.StorageCapacity,
+		ProductAcquisitionDatabase: c.ProductAcquisitionDatabase, ProductCollections: c.ProductCollections,
+		StoreCenter: store, SupplyChain: s, Membership: c.Membership, ListingKitAuthorization: c.ListingKitAuthorization,
+	}
+	if c.StorageCapacity {
+		allowed.MoneyOwnerDatabase = c.MoneyOwnerDatabase
+	}
+	if !reflect.DeepEqual(*c, allowed) || !net.ParseIP(c.Listen.Host).IsLoopback() ||
+		s.TemporalAddress != "" || s.TemporalNamespace != "" || !s.ShopifyPreviewArtifacts.IsolatedTrialGeneratedURLs {
+		return errors.New("Shopify draft preview requires loopback and excludes workflow execution and unrelated modules")
+	}
+	shopify := store.Shopify
+	allowedStore := StoreCenterConfig{Enabled: true, Database: store.Database, Shopify: shopify}
+	if !reflect.DeepEqual(*store, allowedStore) || shopify == nil || shopify.StartedInstallation || shopify.LifecycleNotifications {
+		return errors.New("Shopify draft preview requires only an existing Shopify installation")
 	}
 	return nil
 }

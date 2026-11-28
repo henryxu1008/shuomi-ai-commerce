@@ -58,6 +58,8 @@ type Config struct {
 	NotificationCenterDatabase           *DatabaseConfig                           `json:"notificationCenterDatabase,omitempty"`
 	Knowledge                            *KnowledgeConfig                          `json:"knowledge,omitempty"`
 	StoreCenter                          *StoreCenterConfig                        `json:"storeCenter,omitempty"`
+	ShopifyPairingTrial                  bool                                      `json:"shopifyPairingTrial,omitempty"`
+	ShopifyMediaTrial                    *ShopifyMediaTrialConfig                  `json:"shopifyMediaTrial,omitempty"`
 	LocalTrial                           *LocalTrialConfig                         `json:"localTrial,omitempty"`
 	SchemaVersion                        int                                       `json:"schemaVersion"`
 	Listen                               ListenConfig                              `json:"listen"`
@@ -645,6 +647,12 @@ func (cfg *Config) validate() error {
 	if err := cfg.validateStoreCenter(); err != nil {
 		return err
 	}
+	if err := cfg.validateShopifyPairingTrial(); err != nil {
+		return err
+	}
+	if err := cfg.validateShopifyMediaTrial(); err != nil {
+		return err
+	}
 	if err := cfg.LocalTrial.validate(cfg); err != nil {
 		return err
 	}
@@ -799,6 +807,9 @@ func (cfg *Config) CoreConfig() *coreconfig.Config {
 		core.ImageAgent.Generation = image.Generation
 		core.ImageAgent.Admission = coreconfig.ImageAgentAdmissionConfig{Enabled: true, AllowedTenantIDs: append([]string(nil), image.AllowedOrganizationIDs...)}
 		core.ImageAgent.ArtifactStore = coreconfig.ImageAgentArtifactStoreConfig{Enabled: true, Provider: "s3", PublicBase: image.PublicBase, IsolatedTrialGeneratedURLs: image.IsolatedTrialGeneratedURLs, S3: coreconfig.ImageAgentArtifactStoreS3Config{Bucket: image.Bucket}}
+	}
+	if trial := cfg.ShopifyMediaTrial; trial != nil {
+		core.ImageAgent.ArtifactStore = trial.ImageArtifacts
 	}
 	if cfg.SourceMedia != nil {
 		core.ProductCollectionSourceMedia = *cfg.SourceMedia

@@ -192,6 +192,8 @@ type currentApplicationOptions struct {
 	storeObservationDependencies *StoreObservationsDependencies
 	storeCenters                 int
 	storeCenterDB                *gorm.DB
+	shopifyPairingTrial          bool
+	shopifyMediaTrial            bool
 	localTrials                  int
 	localTrialDB                 *gorm.DB
 	officialStoreApplications    *storeapp.OfficialApplicationRegistry
@@ -511,8 +513,11 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if supplied.sourceMaterials > 1 || supplied.sourceMaterials > 0 && (supplied.sourceMaterialDB == nil || supplied.sourceMaterialDB == supplied.productAcquisitionDB || supplied.productCollections != 1 || supplied.acquisitionPlans != 1 || supplied.privateDraftTrials > 0 || cfg.ListingKit.Zitadel.TenantDirectoryToken == "" || supplied.listing != nil && supplied.listing.AssetDB != supplied.sourceMaterialDB) {
 		return nil, errors.New("source materials require one current Preparation and independent canonical Asset owner")
 	}
-	if supplied.listings > 1 || supplied.listings > 0 && (supplied.listing == nil || supplied.listing.AssetDB == nil || supplied.listing.Starter == nil || supplied.listing.NewWorker == nil || supplied.listing.Worker == nil || supplied.productCollections != 1 || supplied.productAcquisitionDB == nil || supplied.storeCenters != 1 || supplied.officialStoreApplications == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "") {
-		return nil, errors.New("supply chain requires current Product, Store, Asset and workflow owners")
+	if supplied.listings > 1 || supplied.listings > 0 && (supplied.listing == nil || supplied.listing.AssetDB == nil || supplied.productCollections != 1 || supplied.productAcquisitionDB == nil || supplied.storeCenters != 1 || supplied.officialStoreApplications == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "") {
+		return nil, errors.New("supply chain requires current Product, Store and Asset owners")
+	}
+	if supplied.listing != nil && !supplied.listing.shopifyPreviewOnly && (supplied.listing.Starter == nil || supplied.listing.NewWorker == nil || supplied.listing.Worker == nil) {
+		return nil, errors.New("supply chain execution requires its workflow owner")
 	}
 	if supplied.localTrials > 0 {
 		if supplied.localTrialDB == nil || supplied.storeCenters != 1 || supplied.storeCenterDB == nil || factories.buildLocalTrial == nil || supplied.productAcquisitionDB != nil || supplied.productAgent != nil || supplied.aiWorkbench != nil || supplied.imageAgentDB != nil {
@@ -1688,6 +1693,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		AmazonStoreAuthorization:  supplied.amazonStoreAuthorization != nil,
 		ResearchPaginationFixture: supplied.researchFixture != nil && supplied.researchFixture.PaginationEnabled,
 	}
+	routeFeatures.ShopifyMediaTrial = supplied.shopifyMediaTrial
 	if err := validateCurrentApplicationRoutesInternal(bundle.routes, factories.buildAccountAudit != nil, factories.buildAcquisition != nil, cfg.Referrals.Enabled, factories.buildMembership != nil, includeAccountProfile, includeAccountAllocation, factories.buildBrowserCapture != nil, routeFeatures); err != nil {
 		return nil, err
 	}
@@ -1695,6 +1701,15 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	// routes and their live enterprise read boundary on the mounted bundle.
 	if workbench.handler != nil {
 		workbench.handler.SetStorageCapacityAvailable(cfg.StorageCapacity)
+	}
+	if supplied.shopifyMediaTrial {
+		return buildCurrentApplicationHTTPServer(shopifyMediaTrialRoutes(bundle.routes), *workbench.authDependencies), nil
+	}
+	if supplied.listing != nil && supplied.listing.shopifyPreviewOnly {
+		return buildCurrentApplicationHTTPServer(shopifyDraftPreviewRoutes(bundle.routes), *workbench.authDependencies), nil
+	}
+	if supplied.shopifyPairingTrial {
+		return buildCurrentApplicationHTTPServer(shopifyPairingTrialRoutes(bundle.routes), *workbench.authDependencies), nil
 	}
 	server := buildCurrentApplicationHTTPServer(bundle.routes, *workbench.authDependencies)
 	if storeCapabilities.ShopifyStartedInstallation {
@@ -1832,6 +1847,7 @@ type currentApplicationOptionalRoutes struct {
 	Shopify              bool
 	ShopifyInstall       bool
 	ShopifyLifecycle     bool
+	ShopifyMediaTrial    bool
 	GoogleMerchant       bool
 	StoreObservations    bool
 	LocalTrial           bool
@@ -2105,6 +2121,12 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		admitted = append(admitted,
 			currentApplicationRoute{Method: http.MethodPost, Path: storehttp.ShopifyUninstalledPath},
 			currentApplicationRoute{Method: http.MethodPost, Path: storehttp.ShopifyScopesUpdatedPath})
+	}
+	if optional.ShopifyMediaTrial {
+		if !optional.ShopifyLifecycle || !optional.Shopify || !optional.StoreCenter {
+			return errors.New("isolated Shopify media trial requires current Shopify lifecycle and Store owners")
+		}
+		admitted = append(admitted, currentApplicationRoute{Method: http.MethodPost, Path: storehttp.ShopifyShopRedactPath})
 	}
 	if optional.StoreObservations {
 		if !optional.StoreCenter {
@@ -2638,6 +2660,14 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				descriptor.Permission != "" || descriptor.OrganizationTargetResolver != nil || descriptor.RequestTimeout != storehttp.ShopifyLifecycleTimeout ||
 				descriptor.RejectUnreadRequestBody || descriptor.Handler == nil {
 				return errors.New("Shopify notification loses signature or request bounds")
+			}
+		}
+		if descriptor.Path == storehttp.ShopifyShopRedactPath {
+			if !optional.ShopifyMediaTrial || descriptor.Method != http.MethodPost || descriptor.Module != storehttp.ModuleName ||
+				descriptor.AuthPolicy != httproute.AuthPolicyPublic || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyNone ||
+				descriptor.Permission != "" || descriptor.OrganizationTargetResolver != nil || descriptor.RequestTimeout != storehttp.ShopifyLifecycleTimeout ||
+				descriptor.RejectUnreadRequestBody || descriptor.Handler == nil {
+				return errors.New("isolated Shopify shop-redact receipt loses signed public route boundary")
 			}
 		}
 		if storehttp.IsAmazonAuthorizationPath(descriptor.Path) {

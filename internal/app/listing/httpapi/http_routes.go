@@ -93,6 +93,8 @@ func ListingRoutes(app *listingapp.Application, bind func(context.Context, strin
 		{"GET", "/temu-create-metrics", "temu-create-metrics", preparation.PermissionRead},
 		{"GET", "/submission-overview-metrics", "submission-overview-metrics", preparation.PermissionRead},
 		{"POST", "/shein-sales-mapping-preview", "shein-sales-mapping-preview", preparation.PermissionManage},
+		{"POST", "/shopify-draft-media-preview", "shopify-draft-media-preview", preparation.PermissionManage},
+		{"POST", "/shopify-draft-media-confirm", "shopify-draft-media-confirm", preparation.PermissionSubmit},
 		{"POST", "/shein-completion-preview", "shein-completion-preview", preparation.PermissionManage},
 		{"POST", "/shein-color-split-preview", "color-split-preview", preparation.PermissionManage},
 		{"POST", "/shein-color-splits", "create-color-split", preparation.PermissionManage},
@@ -123,12 +125,21 @@ func ListingRoutes(app *listingapp.Application, bind func(context.Context, strin
 		if strings.HasPrefix(spec.path, "/amazon-listings/") && (app == nil || app.Amazon == nil) {
 			continue
 		}
+		if spec.action == "shopify-draft-media-confirm" && !app.ShopifyMediaConfirmationEnabled() {
+			continue
+		}
 		budget := 20 * time.Second
 		if strings.HasPrefix(spec.path, "/shein-publication/") || strings.Contains(spec.path, "/status") {
 			budget = 30 * time.Second
 		}
 		if strings.HasPrefix(spec.path, "/amazon-listings/") {
 			budget = 100 * time.Second
+		}
+		if spec.action == "shopify-draft-media-preview" {
+			budget = 65 * time.Second
+		}
+		if spec.action == "shopify-draft-media-confirm" {
+			budget = 27 * time.Second
 		}
 		result = append(result, httproute.Descriptor{Method: spec.method, Path: ListingBasePath + spec.path, Module: "supply-chain", Permission: spec.permission, AuthPolicy: httproute.AuthPolicyVerifiedIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: budget, Handler: httproute.WithRequestBodyReadTimeout(3e9, func(c *gin.Context) {
 			c.Header("Cache-Control", "no-store")
@@ -418,6 +429,21 @@ func ListingRoutes(app *listingapp.Application, bind func(context.Context, strin
 				output, err = app.Publication(ctx, c.Param("source_id"), c.Param("store_id"))
 			case "publication-status":
 				output, err = app.PublicationStatus(ctx, c.Param("source_id"), c.Param("store_id"), c.Param("receipt_id"))
+			case "shopify-draft-media-confirm":
+				var input listingapp.ShopifyMediaConfirmationRequest
+				key, e := listingBody(c.Request, &input, true)
+				if e != nil {
+					listingError(c, e)
+					return
+				}
+				output, err = app.ConfirmShopifyMedia(ctx, key, input)
+			case "shopify-draft-media-preview":
+				var input listingapp.ShopifyMediaPreviewRequest
+				if _, e := listingBody(c.Request, &input, false); e != nil {
+					listingError(c, e)
+					return
+				}
+				output, err = app.PreviewShopifyMedia(ctx, input)
 			case "record":
 				output, err = app.ReadRecord(ctx, c.Param("record_id"))
 			case "target-command":

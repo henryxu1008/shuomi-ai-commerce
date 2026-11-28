@@ -25,8 +25,9 @@ type ShopifyApplication struct {
 }
 
 type ShopifyConnections struct {
-	store *storecenter.MemberScopedStoreRepository
-	app   ShopifyApplication
+	store          *storecenter.MemberScopedStoreRepository
+	app            ShopifyApplication
+	trialLifecycle *shopifyTrialLifecycle
 }
 
 func NewShopifyConnections(store *storecenter.MemberScopedStoreRepository, app ShopifyApplication) (*ShopifyConnections, error) {

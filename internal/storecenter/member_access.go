@@ -115,7 +115,11 @@ func lockActiveMemberGrant(tx *gorm.DB, access StoreMemberAccess, storeID, stren
 		return nil
 	}
 	var row storeMemberGrantRow
-	err := tx.Clauses(clause.Locking{Strength: strength}).Where("organization_id = ? AND store_id = ? AND member_id = ? AND active = ?", access.OrganizationID, storeID, access.MemberID, true).Take(&row).Error
+	query := tx.Where("organization_id = ? AND store_id = ? AND member_id = ? AND active = ?", access.OrganizationID, storeID, access.MemberID, true)
+	if strength != "" {
+		query = query.Clauses(clause.Locking{Strength: strength})
+	}
+	err := query.Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return ErrNotFound
 	}

@@ -61,6 +61,13 @@ func (m routeModule) Register(registry *kernelmodule.Registry) error {
 		registry.AddRoutes(*installation)
 	}
 	registry.AddRoutes(m.handler.shopifyLifecycleRoutes()...)
+	if m.handler.isolatedShopifyPrivacyReceiver != nil {
+		for _, route := range IsolatedShopifyPrivacyReceiptRoutes(m.handler.isolatedShopifyPrivacyReceiver) {
+			if route.Path == ShopifyShopRedactPath {
+				registry.AddRoutes(route)
+			}
+		}
+	}
 	registry.AddRoutes(m.handler.amazonAuthorizationRoutes()...)
 	if m.handler.google != nil {
 		registry.AddRoutes(GoogleStoreRoutes(m.handler)...)

@@ -14,6 +14,8 @@ import (
 	fulfillmentruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/fulfillment"
 	observationruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/storeobservations"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/amazon"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/shopifyguard"
+	submissionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/submission"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/sds"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/supplymarket"
 	"net"
@@ -70,6 +72,9 @@ type Dependencies struct {
 	OpenCommercialOwner           func(context.Context, DatabaseConfig) (*gorm.DB, error)
 	OpenMoneyOwner                func(context.Context, DatabaseConfig) (*gorm.DB, error)
 	OpenProductAcquisition        func(context.Context, DatabaseConfig) (*gorm.DB, error)
+	OpenShopifyMediaInitializer   func(context.Context, DatabaseConfig) (*gorm.DB, error)
+	OpenShopifyMediaServing       func(context.Context, DatabaseConfig) (*gorm.DB, error)
+	OpenShopifyMediaServingRO     func(context.Context, DatabaseConfig) (*gorm.DB, error)
 	OpenImageAgent                func(context.Context, DatabaseConfig) (*gorm.DB, error)
 	OpenImageSetWorker            func(context.Context, string, DatabaseConfig) (*coreconfig.Config, *gorm.DB, error)
 	DialImageSetWorkflow          func(context.Context, string, string) (client.Client, func() error, error)
@@ -154,6 +159,11 @@ type ApplicationFeatures struct {
 	CommercialBillingRecoveryStop                        *func()
 	ResourceConsumerRecoveryStop                         *func()
 	ProductAcquisitionDB                                 *gorm.DB
+	ShopifyMediaLedgerDB                                 *gorm.DB
+	ShopifyMediaFreezeDB                                 *gorm.DB
+	ShopifyMediaTrial                                    *ShopifyMediaTrialConfig
+	ShopifyMediaLiveIsolation                            *shopifyguard.LiveIsolation
+	ShopifyMediaRestartReadOnly                          bool
 	ProductCollections                                   bool
 	AcquisitionPlans                                     bool
 	SupplyCompletionDrafts                               bool
@@ -231,7 +241,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		if err != nil {
 			return err
 		}
-		officialApplications, err = cfg.StoreCenter.Shopify.prepare(ctx, officialApplications)
+		officialApplications, err = cfg.StoreCenter.Shopify.prepare(ctx, officialApplications, cfg.ShopifyPairingTrial)
 		if err != nil {
 			return err
 		}
@@ -331,7 +341,8 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 	if cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "" && (dependencies.OpenApprovedAssets == nil || cfg.ImageAgent.Generation.Enabled && (dependencies.OpenImageSetWorker == nil || dependencies.DialImageSetWorkflow == nil)) {
 		return errors.New("full image set worker lifecycle unavailable")
 	}
-	if cfg.SupplyChain != nil && (dependencies.OpenApprovedAssets == nil || dependencies.DialProductWorkflow == nil || dependencies.NewApplicationWithFeatures == nil) {
+	if cfg.SupplyChain != nil && (dependencies.OpenApprovedAssets == nil || dependencies.NewApplicationWithFeatures == nil ||
+		!cfg.ShopifyPreviewOnly() && dependencies.DialProductWorkflow == nil) {
 		return errors.New("supply chain runtime dependencies unavailable")
 	}
 	if (cfg.SourceMaterials != nil || cfg.SheinOfflineRecords != nil || cfg.ControlledLocalDraft != nil) && (dependencies.OpenApprovedAssets == nil || dependencies.NewApplicationWithFeatures == nil) {
@@ -423,6 +434,66 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		defer func() { resultErr = errors.Join(resultErr, dependencies.CloseDatabase(productDB)) }()
 		if err := startupContext.Err(); err != nil {
 			return fmt.Errorf("current application startup canceled: %w", err)
+		}
+	}
+	var shopifyMediaDB *gorm.DB
+	var shopifyMediaFreezeDB *gorm.DB
+	var shopifyMediaLive *shopifyguard.LiveIsolation
+	var shopifyMediaRestartReadOnly bool
+	if trial := cfg.ShopifyMediaTrial; trial != nil {
+		if dependencies.OpenShopifyMediaServingRO == nil || dependencies.OpenShopifyMediaServing == nil || dependencies.OpenShopifyMediaInitializer == nil || productDB == nil || dependencies.NewApplicationWithFeatures == nil {
+			return errors.New("isolated Shopify media runtime lifecycle unavailable")
+		}
+		inspectionDB, openErr := dependencies.OpenShopifyMediaServingRO(startupContext, trial.ProductMediaServing)
+		if openErr != nil || inspectionDB == nil || inspectionDB == productDB {
+			return errors.New("open Shopify media evidence reader failed")
+		}
+		state, inspectErr := shopifyguard.InspectMediaTrialInstall(startupContext, inspectionDB)
+		if inspectErr != nil {
+			_ = dependencies.CloseDatabase(inspectionDB)
+			return errors.New("Shopify media journal is partial or unavailable; refusing to reinstall")
+		}
+		if state == shopifyguard.MediaTrialInstallExisting {
+			shopifyMediaDB = inspectionDB
+			shopifyMediaRestartReadOnly = true
+			shopifyMediaFreezeDB, openErr = dependencies.OpenShopifyMediaServing(startupContext, trial.ProductMediaServing)
+			if openErr != nil || shopifyMediaFreezeDB == nil || shopifyMediaFreezeDB == shopifyMediaDB {
+				_ = dependencies.CloseDatabase(shopifyMediaDB)
+				return errors.New("open Shopify uninstall freeze pool failed")
+			}
+		} else {
+			if err := dependencies.CloseDatabase(inspectionDB); err != nil {
+				return errors.New("close Shopify media inspection pool failed")
+			}
+			shopifyMediaDB, err = dependencies.OpenShopifyMediaServing(startupContext, trial.ProductMediaServing)
+			if err != nil || shopifyMediaDB == nil || shopifyMediaDB == productDB {
+				return errors.New("open Shopify media serving pool failed")
+			}
+			shopifyMediaFreezeDB = shopifyMediaDB
+			initializer, initErr := dependencies.OpenShopifyMediaInitializer(startupContext, trial.ProductInitializer)
+			if initErr != nil || initializer == nil || initializer == productDB || initializer == shopifyMediaDB {
+				_ = dependencies.CloseDatabase(shopifyMediaDB)
+				return errors.New("open Shopify media initializer failed")
+			}
+			shopifyMediaLive, initErr = shopifyguard.InstallIsolated(startupContext, initializer)
+			if initErr == nil {
+				initErr = submissionstore.InstallIsolatedShopifyMediaSchema(startupContext, initializer, shopifyMediaLive)
+			}
+			if initErr == nil {
+				initErr = shopifyguard.GrantIsolatedMediaServingPermissions(startupContext, initializer)
+			}
+			if initErr == nil {
+				initErr = shopifyguard.HandoffIsolatedMediaServingPool(startupContext, initializer, shopifyMediaDB, shopifyMediaLive)
+			}
+			closeErr := dependencies.CloseDatabase(initializer)
+			if initErr != nil || closeErr != nil {
+				_ = dependencies.CloseDatabase(shopifyMediaDB)
+				return errors.Join(errors.New("Shopify media pool handoff failed"), initErr, closeErr)
+			}
+		}
+		defer func(db *gorm.DB) { resultErr = errors.Join(resultErr, dependencies.CloseDatabase(db)) }(shopifyMediaDB)
+		if shopifyMediaFreezeDB != nil && shopifyMediaFreezeDB != shopifyMediaDB {
+			defer func(db *gorm.DB) { resultErr = errors.Join(resultErr, dependencies.CloseDatabase(db)) }(shopifyMediaFreezeDB)
 		}
 	}
 	var agentDB, agentReviewDB, agentAssetDB *gorm.DB
@@ -637,6 +708,9 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 	if cfg.ControlledLocalDraft != nil {
 		assetConfig = &cfg.ControlledLocalDraft.AssetDatabase
 	}
+	if cfg.ShopifyMediaTrial != nil {
+		assetConfig = &cfg.ShopifyMediaTrial.AssetDatabase
+	}
 	if cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "" {
 		assetConfig = &cfg.ImageAgent.AssetDatabase
 	}
@@ -651,14 +725,14 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			}
 		}
 		defer func() { resultErr = errors.Join(resultErr, dependencies.CloseDatabase(pool)) }()
-		if cfg.SupplyChain != nil || cfg.SourceMaterials != nil || cfg.SheinOfflineRecords != nil || cfg.ControlledLocalDraft != nil {
+		if cfg.SupplyChain != nil || cfg.SourceMaterials != nil || cfg.SheinOfflineRecords != nil || cfg.ControlledLocalDraft != nil || cfg.ShopifyMediaTrial != nil {
 			approvedAssetDB = pool
 		}
 		if cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "" {
 			imageAssetDB = pool
 		}
 	}
-	if s := cfg.SupplyChain; s != nil {
+	if s := cfg.SupplyChain; s != nil && !cfg.ShopifyPreviewOnly() {
 		var closeWorkflow func() error
 		listingWorkflow, closeWorkflow, err = dependencies.DialProductWorkflow(startupContext, s.TemporalAddress, s.TemporalNamespace)
 		if err != nil || listingWorkflow == nil || closeWorkflow == nil {
@@ -1169,7 +1243,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 				stopCommercialBillingRecovery()
 			}
 		}()
-		server, err = dependencies.NewApplicationWithFeatures(startupContext, sourceAccountDB, ApplicationFeatures{TitlePilot: cfg.TitlePilot, RegisterTitlePilotOperator: registerOperator, VerifyTitlePilotIsolation: verifyOperator, ChannelCredentialManagement: credentialManager, ChannelModelQuery: modelQuery, ChannelCredentials: executionChannelSecrets, SHEINUSTrial: sheinTrial, AmazonFirstPage: amazonFirstPage, SheinOfflineRecords: cfg.SheinOfflineRecords != nil, BrowserKernelDB: browserKernelDB, BrowserKernel: cfg.BrowserKernel, SharedModels: sharedManager, PlatformChannels: platformChannels, Search: webSearch, OfficialModelPrices: priceManager, AutomaticFX: fxControl, CurrentTextPolicies: textReader, CurrentImagePolicies: imageReader, DataServicesDB: dataDB, DataServices: cfg.DataServices, DataServicesProvider: dataProvider, DataServicesWorkflow: dataWorkflow, DataServicesWorker: dataWorkerSlot, ReportCenterDB: reportDB, SheinTargetReportSources: cfg.ReportCenter != nil && cfg.ReportCenter.SheinTargetSourcesEnabled, MarketStorage: marketStorage, POD: cfg.POD, PODCredentials: podCredentials, PODAssetDB: podAssetDB, PODWorkflow: podWorkflow, PODWorker: &podWorker, AgentCustomizationDB: customizationDB, ProjectCenterDB: projectDB, MarketResearchDB: researchDB, ResearchFixture: cfg.ResearchFixture, ResearchManualOriginal: cfg.ResearchManualOriginal, MarketResearchSupplierReview: cfg.MarketResearch != nil && cfg.MarketResearch.SupplierReview, OperationsCockpit: cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit, ToolMarketDB: toolMarketDB, ToolMarket: cfg.ToolMarket, Ecoservices: ecoservicesRuntime, NotificationCenterDB: notificationDB, Knowledge: knowledgeService, OfficialStoreApplications: officialApplications, StoreCenterDB: storeDB, LocalTrialDB: trialDB, MoneyOwnerDB: moneyOwnerDB, CommercialBillingRecoveryStop: &stopCommercialBillingRecovery, ResourceConsumerRecoveryStop: &stopResourceConsumerRecovery, ProductAgentDB: agentDB, ProductReviewDB: agentReviewDB, ProductAgentAssetDB: agentAssetDB, ProductAgent: cfg.ProductAgent, AIWorkbenchDB: workbenchDB, AIWorkbench: cfg.AIWorkbench, ChatImageStorage: chatImageStorage, AIWorkbenchScheduleClient: workbenchScheduleClient, AIWorkbenchScheduleStop: &workbenchScheduleStop, CommercialOwnerDB: commercialOwnerDB, ProductAcquisitionDB: productDB, ProductCollections: cfg.ProductCollections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyCompletionDrafts: cfg.SupplyCompletionDrafts, SourceMaterials: cfg.SourceMaterials != nil, PrivateDraftTrial: cfg.PrivateDraftTrial, ControlledLocalDraft: cfg.ControlledLocalDraft, SourceMediaStorage: sourceMediaStorage, ApprovedAssetDB: approvedAssetDB, Fulfillment: fulfillmentConfiguration, FulfillmentWorkflow: fulfillmentWorkflow, FulfillmentLifecycle: &fulfillmentLifecycle, StoreObservationsWorkflow: observationWorkflow, StoreObservationsLifecycle: &observationLifecycle, StoreObservationsPreparationOnly: cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.PreparationOnly, ListingWorkflow: listingWorkflow, ListingWorker: &listingWorker, FullImageSet: cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "", ImageAgentDB: imageDB, ImageSetAssetDB: imageAssetDB, ImageSetWorkerDB: imageWorkerDB, ImageSetWorkerConfig: imageWorkerConfig, ImageSetTemporal: imageTemporal, ImageSetWorker: &imageWorker, AccountAuditImageDB: auditImageDB, AccountAuditProductDB: auditProductDB, ImageAgentWorkflow: imageWorkflow, ReferralDB: referralDB, ReferralMaturityStop: &stopReferralMaturity, MembershipDB: membershipDB, Membership: cfg.Membership, RuntimeContext: ctx}, core, logger)
+		server, err = dependencies.NewApplicationWithFeatures(startupContext, sourceAccountDB, ApplicationFeatures{TitlePilot: cfg.TitlePilot, RegisterTitlePilotOperator: registerOperator, VerifyTitlePilotIsolation: verifyOperator, ChannelCredentialManagement: credentialManager, ChannelModelQuery: modelQuery, ChannelCredentials: executionChannelSecrets, SHEINUSTrial: sheinTrial, AmazonFirstPage: amazonFirstPage, SheinOfflineRecords: cfg.SheinOfflineRecords != nil, BrowserKernelDB: browserKernelDB, BrowserKernel: cfg.BrowserKernel, SharedModels: sharedManager, PlatformChannels: platformChannels, Search: webSearch, OfficialModelPrices: priceManager, AutomaticFX: fxControl, CurrentTextPolicies: textReader, CurrentImagePolicies: imageReader, DataServicesDB: dataDB, DataServices: cfg.DataServices, DataServicesProvider: dataProvider, DataServicesWorkflow: dataWorkflow, DataServicesWorker: dataWorkerSlot, ReportCenterDB: reportDB, SheinTargetReportSources: cfg.ReportCenter != nil && cfg.ReportCenter.SheinTargetSourcesEnabled, MarketStorage: marketStorage, POD: cfg.POD, PODCredentials: podCredentials, PODAssetDB: podAssetDB, PODWorkflow: podWorkflow, PODWorker: &podWorker, AgentCustomizationDB: customizationDB, ProjectCenterDB: projectDB, MarketResearchDB: researchDB, ResearchFixture: cfg.ResearchFixture, ResearchManualOriginal: cfg.ResearchManualOriginal, MarketResearchSupplierReview: cfg.MarketResearch != nil && cfg.MarketResearch.SupplierReview, OperationsCockpit: cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit, ToolMarketDB: toolMarketDB, ToolMarket: cfg.ToolMarket, Ecoservices: ecoservicesRuntime, NotificationCenterDB: notificationDB, Knowledge: knowledgeService, OfficialStoreApplications: officialApplications, StoreCenterDB: storeDB, LocalTrialDB: trialDB, MoneyOwnerDB: moneyOwnerDB, CommercialBillingRecoveryStop: &stopCommercialBillingRecovery, ResourceConsumerRecoveryStop: &stopResourceConsumerRecovery, ProductAgentDB: agentDB, ProductReviewDB: agentReviewDB, ProductAgentAssetDB: agentAssetDB, ProductAgent: cfg.ProductAgent, AIWorkbenchDB: workbenchDB, AIWorkbench: cfg.AIWorkbench, ChatImageStorage: chatImageStorage, AIWorkbenchScheduleClient: workbenchScheduleClient, AIWorkbenchScheduleStop: &workbenchScheduleStop, CommercialOwnerDB: commercialOwnerDB, ProductAcquisitionDB: productDB, ShopifyMediaLedgerDB: shopifyMediaDB, ShopifyMediaFreezeDB: shopifyMediaFreezeDB, ShopifyMediaTrial: cfg.ShopifyMediaTrial, ShopifyMediaLiveIsolation: shopifyMediaLive, ShopifyMediaRestartReadOnly: shopifyMediaRestartReadOnly, ProductCollections: cfg.ProductCollections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyCompletionDrafts: cfg.SupplyCompletionDrafts, SourceMaterials: cfg.SourceMaterials != nil, PrivateDraftTrial: cfg.PrivateDraftTrial, ControlledLocalDraft: cfg.ControlledLocalDraft, SourceMediaStorage: sourceMediaStorage, ApprovedAssetDB: approvedAssetDB, Fulfillment: fulfillmentConfiguration, FulfillmentWorkflow: fulfillmentWorkflow, FulfillmentLifecycle: &fulfillmentLifecycle, StoreObservationsWorkflow: observationWorkflow, StoreObservationsLifecycle: &observationLifecycle, StoreObservationsPreparationOnly: cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.PreparationOnly, ListingWorkflow: listingWorkflow, ListingWorker: &listingWorker, FullImageSet: cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "", ImageAgentDB: imageDB, ImageSetAssetDB: imageAssetDB, ImageSetWorkerDB: imageWorkerDB, ImageSetWorkerConfig: imageWorkerConfig, ImageSetTemporal: imageTemporal, ImageSetWorker: &imageWorker, AccountAuditImageDB: auditImageDB, AccountAuditProductDB: auditProductDB, ImageAgentWorkflow: imageWorkflow, ReferralDB: referralDB, ReferralMaturityStop: &stopReferralMaturity, MembershipDB: membershipDB, Membership: cfg.Membership, RuntimeContext: ctx}, core, logger)
 	} else if membershipDB != nil {
 		server, err = dependencies.NewApplicationWithMembership(startupContext, sourceAccountDB, membershipDB, core, cfg.Membership, logger)
 	} else if referralDB != nil {
@@ -1242,7 +1316,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			return errors.New("start POD worker failed")
 		}
 	}
-	if cfg.SupplyChain != nil {
+	if cfg.SupplyChain != nil && !cfg.ShopifyPreviewOnly() {
 		if listingWorker == nil {
 			_ = listener.Close()
 			return errors.New("supply worker was not assembled")

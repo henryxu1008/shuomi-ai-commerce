@@ -7,11 +7,15 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"errors"
+	"net"
 	"net/url"
 	"path/filepath"
+	"reflect"
 	"strings"
+	"time"
 
 	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 	wire "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/shopify"
 )
 
@@ -27,6 +31,139 @@ type ShopifyConfig struct {
 	SigningKeyID           string `json:"signingKeyId"`
 	StartedInstallation    bool   `json:"startedInstallation"`
 	LifecycleNotifications bool   `json:"lifecycleNotifications"`
+}
+
+// ShopifyMediaTrialConfig admits one fixed, loopback-only development-store
+// media synchronization trial. Every database owner is independently named.
+type ShopifyMediaTrialConfig struct {
+	ProductInitializer  DatabaseConfig                           `json:"productInitializer"`
+	ProductServing      DatabaseConfig                           `json:"productServing"`
+	ProductMediaServing DatabaseConfig                           `json:"productMediaServing"`
+	AssetDatabase       DatabaseConfig                           `json:"assetDatabase"`
+	ImageArtifacts      coreconfig.ImageAgentArtifactStoreConfig `json:"imageArtifacts"`
+	OrganizationID      string                                   `json:"organizationId"`
+	ActorID             string                                   `json:"actorId"`
+	MemberID            string                                   `json:"memberId"`
+	SourceID            string                                   `json:"sourceId"`
+	ProductKey          string                                   `json:"productKey"`
+	SourceVersion       int64                                    `json:"sourceVersion"`
+	ApprovedDigest      string                                   `json:"approvedDigest"`
+	StoreID             string                                   `json:"storeId"`
+	ShopKey             string                                   `json:"shopKey"`
+	Generation          int64                                    `json:"generation"`
+	ApplicationGID      string                                   `json:"applicationGid"`
+	ShopGID             string                                   `json:"shopGid"`
+	InstallationGID     string                                   `json:"installationGid"`
+	Domain              string                                   `json:"domain"`
+	DraftProductGID     string                                   `json:"draftProductGid"`
+	GalleryDigest       string                                   `json:"galleryDigest"`
+	AppendDigest        string                                   `json:"appendDigest"`
+	ServiceStartsAt     time.Time                                `json:"serviceStartsAt"`
+	ServiceExpiresAt    time.Time                                `json:"serviceExpiresAt"`
+}
+
+func (cfg *Config) validateShopifyMediaTrial() error {
+	if cfg.ShopifyMediaTrial == nil {
+		return nil
+	}
+	const message = "Shopify media trial requires a fixed loopback fixture and independent least-privilege owners"
+	trial := cfg.ShopifyMediaTrial
+	store := cfg.StoreCenter
+	if cfg.ShopifyPairingTrial || store == nil || !store.Enabled || store.Shopify == nil ||
+		!net.ParseIP(cfg.Listen.Host).IsLoopback() || cfg.Identity.TenantDirectoryToken == "" ||
+		trial.SourceVersion < 1 || trial.Generation < 1 || !trial.ServiceExpiresAt.After(trial.ServiceStartsAt) ||
+		trial.ServiceExpiresAt.Sub(trial.ServiceStartsAt) > 24*time.Hour ||
+		trial.DraftProductGID == "gid://shopify/Product/10419372589218" {
+		return errors.New(message)
+	}
+	if !trial.ImageArtifacts.Enabled || !trial.ImageArtifacts.IsolatedTrialGeneratedURLs || trial.ImageArtifacts.Provider != "s3" ||
+		trial.ImageArtifacts.PublicBase == "" || trial.ImageArtifacts.S3.Bucket == "" || trial.ImageArtifacts.S3.AccessKeyID == "" || trial.ImageArtifacts.S3.SecretAccessKey == "" {
+		return errors.New(message)
+	}
+	for _, db := range []DatabaseConfig{trial.ProductInitializer, trial.ProductServing, trial.ProductMediaServing, trial.AssetDatabase, store.Database} {
+		if err := db.validate("shopifyMediaTrial.database"); err != nil || !net.ParseIP(db.Host).IsLoopback() {
+			return errors.New(message)
+		}
+	}
+	if err := cfg.validateAssetOwnerIsolation(trial.AssetDatabase); err != nil {
+		return errors.New(message)
+	}
+	if !sameDatabaseTarget(trial.ProductInitializer, trial.ProductServing) || !sameDatabaseTarget(trial.ProductInitializer, trial.ProductMediaServing) ||
+		trial.ProductInitializer.User == trial.ProductServing.User || trial.ProductServing.User != "source_acquisition_runtime" ||
+		trial.ProductMediaServing.User != "shopify_media_runtime" || trial.ProductMediaServing.User == trial.ProductServing.User ||
+		trial.ProductInitializer.Database == trial.AssetDatabase.Database || trial.ProductServing.Database == store.Database.Database ||
+		trial.ProductInitializer.Database == store.Database.Database || trial.AssetDatabase.Database == store.Database.Database ||
+		trial.AssetDatabase.Database == trial.ProductServing.Database || trial.ProductServing.MaxConnections > 8 || trial.ProductMediaServing.MaxConnections > 8 ||
+		trial.AssetDatabase.User != "supply_asset_runtime" ||
+		trial.ProductInitializer.User != "acquisition_owner" || !validTrialDigest(trial.ApprovedDigest) ||
+		!validTrialDigest(trial.GalleryDigest) || !validTrialDigest(trial.AppendDigest) ||
+		!strings.HasPrefix(trial.ApplicationGID, "gid://shopify/App/") ||
+		!strings.HasPrefix(trial.ShopGID, "gid://shopify/Shop/") ||
+		!strings.HasPrefix(trial.InstallationGID, "gid://shopify/AppInstallation/") ||
+		!strings.HasPrefix(trial.DraftProductGID, "gid://shopify/Product/") ||
+		!strings.HasSuffix(trial.Domain, ".myshopify.com") ||
+		store.Shopify.ApplicationGID != trial.ApplicationGID || store.Shopify.LifecycleNotifications != true ||
+		!boundedValue(trial.OrganizationID, 128) || !boundedValue(trial.ActorID, 128) ||
+		!boundedValue(trial.MemberID, 128) || !boundedValue(trial.SourceID, 128) ||
+		!boundedValue(trial.ProductKey, 256) || !boundedValue(trial.StoreID, 128) || !boundedValue(trial.ShopKey, 128) {
+		return errors.New(message)
+	}
+	allowed := Config{SchemaVersion: cfg.SchemaVersion, Listen: cfg.Listen, Identity: cfg.Identity,
+		SourceAccountDatabase: cfg.SourceAccountDatabase, CommercialOwnerDatabase: cfg.CommercialOwnerDatabase,
+		ListingKitAuthorization: cfg.ListingKitAuthorization,
+		ProductCollections:      true, ProductAcquisitionDatabase: &trial.ProductServing,
+		StoreCenter: store, ShopifyMediaTrial: trial}
+	if cfg.ProductAcquisitionDatabase == nil || !reflect.DeepEqual(*cfg.ProductAcquisitionDatabase, trial.ProductServing) {
+		return errors.New(message)
+	}
+	if !reflect.DeepEqual(*cfg, allowed) {
+		return errors.New(message)
+	}
+	return nil
+}
+
+func validTrialDigest(value string) bool {
+	if len(value) != 64 {
+		return false
+	}
+	for _, r := range value {
+		if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+func (cfg *Config) validateShopifyPairingTrial() error {
+	if !cfg.ShopifyPairingTrial {
+		return nil
+	}
+	const message = "Shopify pairing trial requires a dedicated loopback Store with only pairing configured"
+	store := cfg.StoreCenter
+	if store == nil || !store.Enabled || store.Shopify == nil || cfg.Identity.TenantDirectoryToken == "" ||
+		!net.ParseIP(cfg.Listen.Host).IsLoopback() || !net.ParseIP(store.Database.Host).IsLoopback() {
+		return errors.New(message)
+	}
+	shopify := store.Shopify
+	callback, err := url.Parse(shopify.CallbackURL)
+	if err != nil || !net.ParseIP(callback.Hostname()).IsLoopback() || callback.Port() == "" ||
+		callback.Path != "/api/shopify/callback" || shopify.StartedInstallation || shopify.LifecycleNotifications ||
+		!reflect.DeepEqual(*store, StoreCenterConfig{Enabled: true, Database: store.Database, Shopify: shopify}) {
+		return errors.New(message)
+	}
+	allowed := Config{
+		SchemaVersion: cfg.SchemaVersion, Listen: cfg.Listen, Identity: cfg.Identity,
+		SourceAccountDatabase: cfg.SourceAccountDatabase, CommercialOwnerDatabase: cfg.CommercialOwnerDatabase,
+		Membership: cfg.Membership, ListingKitAuthorization: cfg.ListingKitAuthorization,
+		StoreCenter: store, ShopifyPairingTrial: true, StorageCapacity: cfg.StorageCapacity,
+	}
+	if cfg.StorageCapacity {
+		allowed.MoneyOwnerDatabase = cfg.MoneyOwnerDatabase
+	}
+	if !reflect.DeepEqual(*cfg, allowed) {
+		return errors.New(message)
+	}
+	return nil
 }
 
 func (c *ShopifyConfig) validate() error {
@@ -55,7 +192,7 @@ func (c *ShopifyConfig) validate() error {
 	return nil
 }
 
-func (c *ShopifyConfig) prepare(ctx context.Context, registry *storeapp.OfficialApplicationRegistry) (*storeapp.OfficialApplicationRegistry, error) {
+func (c *ShopifyConfig) prepare(ctx context.Context, registry *storeapp.OfficialApplicationRegistry, pairingTrial bool) (*storeapp.OfficialApplicationRegistry, error) {
 	if c == nil {
 		return registry, nil
 	}
@@ -67,7 +204,14 @@ func (c *ShopifyConfig) prepare(ctx context.Context, registry *storeapp.Official
 		return nil, err
 	}
 	defer clear(secret)
-	oauth, err := wire.NewOAuthClient(nil, c.ClientID, strings.TrimSpace(string(secret)), c.CallbackURL)
+	var oauth *wire.OAuthClient
+	var admin *wire.AdminClient
+	if pairingTrial {
+		oauth, admin, err = wire.NewDevelopmentPairingClients(c.ClientID, strings.TrimSpace(string(secret)), c.CallbackURL)
+	} else {
+		oauth, err = wire.NewOAuthClient(nil, c.ClientID, strings.TrimSpace(string(secret)), c.CallbackURL)
+		admin = wire.NewDevelopmentAdminClient(nil)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +243,7 @@ func (c *ShopifyConfig) prepare(ctx context.Context, registry *storeapp.Official
 		return nil, err
 	}
 	return storeapp.WithShopifyApplication(registry, storeapp.ShopifyApplication{AppID: c.ApplicationGID, InstallURL: c.InstallURL,
-		OAuth: oauth, Admin: wire.NewDevelopmentAdminClient(nil), Issuer: issuer, Protection: protection, StartedInstallation: c.StartedInstallation, LifecycleNotifications: c.LifecycleNotifications})
+		OAuth: oauth, Admin: admin, Issuer: issuer, Protection: protection, StartedInstallation: c.StartedInstallation, LifecycleNotifications: c.LifecycleNotifications})
 }
 
 func parseShopifySigningKey(raw []byte) (*ecdsa.PrivateKey, error) {

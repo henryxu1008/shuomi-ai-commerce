@@ -5,9 +5,34 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+
 	wire "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/shopify"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
+
+type shopifyTrialLifecycle struct {
+	binding storecenter.ShopifyBinding
+	freeze  func(context.Context, string, string, int64) error
+}
+
+// NewShopifyTrialConnections uses the normal pairing and authorization owner
+// but never automatically resumes an installation after a stop notice.
+func NewShopifyTrialConnections(store *storecenter.MemberScopedStoreRepository, app ShopifyApplication, binding storecenter.ShopifyBinding,
+	freeze func(context.Context, string, string, int64) error) (*ShopifyConnections, error) {
+	connections, err := NewShopifyConnections(store, app)
+	shop, invalidShop := uuid.Parse(binding.ShopKey)
+	record, invalidRecord := uuid.Parse(binding.StoreID)
+	if err != nil || !connections.LifecycleNotificationsEnabled() || freeze == nil || binding.AppID != app.AppID ||
+		!authidentity.IsBoundedIdentifier(binding.OrganizationID) || binding.ShopID == "" || binding.InstallationID == "" ||
+		binding.Generation < 1 || invalidShop != nil || shop == uuid.Nil || shop.String() != binding.ShopKey ||
+		invalidRecord != nil || record == uuid.Nil || record.String() != binding.StoreID {
+		return nil, storecenter.ErrOfficialConnectionUnavailable
+	}
+	connections.trialLifecycle = &shopifyTrialLifecycle{binding: binding, freeze: freeze}
+	return connections, nil
+}
 
 func (a *ShopifyConnections) LifecycleNotificationsEnabled() bool {
 	return a != nil && a.store.ShopifyLifecycleInstalled() && a.app.LifecycleNotifications
@@ -27,9 +52,19 @@ func (a *ShopifyConnections) ReceiveShopifyLifecycle(ctx context.Context, topic,
 	if !notice.RequiresCheck {
 		return nil
 	}
-	return a.store.ReceiveShopifyLifecycle(ctx, storecenter.ShopifyLifecycleNotice{
-		AppID: a.app.AppID, ShopID: notice.ShopID, Topic: topic, EventID: eventID, BodyHash: notice.BodyHash,
-	}, time.Now())
+	event := storecenter.ShopifyLifecycleNotice{AppID: a.app.AppID, ShopID: notice.ShopID, Topic: topic,
+		EventID: eventID, BodyHash: notice.BodyHash}
+	if a.trialLifecycle == nil {
+		return a.store.ReceiveShopifyLifecycle(ctx, event, time.Now())
+	}
+	binding := a.trialLifecycle.binding
+	if err := a.store.ReceivePairedShopifyTrialLifecycle(ctx, event, time.Now(), binding); err != nil {
+		return err
+	}
+	if err := a.trialLifecycle.freeze(ctx, binding.OrganizationID, binding.ShopKey, binding.Generation); err != nil {
+		return storecenter.ErrOfficialConnectionUnavailable
+	}
+	return nil
 }
 
 // ReconcileShopifyLifecycle runs outside webhook delivery. A transient or
@@ -37,6 +72,9 @@ func (a *ShopifyConnections) ReceiveShopifyLifecycle(ctx context.Context, topic,
 func (a *ShopifyConnections) ReconcileShopifyLifecycle(ctx context.Context) error {
 	if a == nil || !a.store.ShopifyLifecycleInstalled() {
 		return storecenter.ErrOfficialConnectionUnavailable
+	}
+	if a.trialLifecycle != nil {
+		return nil
 	}
 	for i := 0; i < 4; i++ {
 		claim, err := a.store.ClaimShopifyLifecycle(ctx, a.app.AppID, time.Now())

@@ -1,3 +1,7 @@
+import {
+ matchesShopifyMediaPreview, shopifyMediaConfirmInput, shopifyMediaConfirmSchema,
+ shopifyMediaPreviewInput, shopifyMediaPreviewSchema, type ShopifyMediaConfirmInput, type ShopifyMediaPreviewInput,
+} from "../contracts/shopify-media-preview";
 import {sheinSalesRequestSchema,type SheinSalesRequest} from "../contracts/shein-sales-mapping";
 import * as plans from "@/lib/contracts/upload-plan";
 import {sourceProductInputsSchema} from "@/lib/contracts/source-materials";
@@ -12,6 +16,21 @@ import { SupplyAPIError } from "./supply-error";
 import {amazonListingInputSchema,amazonConfirmSchema,amazonListingResultSchema,amazonReviewInputSchema,amazonReviewSchema,matchesAmazonListingResponse} from "@/lib/contracts/amazon-listing";
 
 export type SupplyScope=CollectionScope & {draftKind?:c.DraftKind;draftSourceId?:string};
+export async function previewShopifyDraftMedia(scope: SupplyScope, input: ShopifyMediaPreviewInput, signal?: AbortSignal) {
+ const command = shopifyMediaPreviewInput.parse(input);
+ const result = await send(base+"/shopify-draft-media-preview",scope,shopifyMediaPreviewSchema,signal,{method:"POST",command});
+ if (!matchesShopifyMediaPreview(result, command)) throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);
+ return result;
+}
+
+export async function confirmShopifyDraftMedia(scope:SupplyScope,input:ShopifyMediaConfirmInput,key:string,signal?:AbortSignal) {
+ const result = await send(base+"/shopify-draft-media-confirm",scope,shopifyMediaConfirmSchema,signal,{
+  method:"POST",command:shopifyMediaConfirmInput.parse(input),key:collectionID.parse(key),mutates:true,
+ });
+ if(result.operationId!==key)throw new SupplyAPIError("OUTCOME_UNKNOWN",503);
+ return result;
+}
+
 export type SupplyIntent=Readonly<SupplyScope & { key:string; route:"create-color-split"|"cancel-upload-plan"|"create-upload-plan"|"continue-upload-plan"|"shein-shelf-confirm"|"save-completion-draft"|"transfer"|"save-target"|"approve"|"create-operation"|"resolve-upload"|"review-decision"|"review-apply"; command:unknown; lookupOnly?:true }>;
 // An existing unresolved local command is retained without assigning a URL
 // namespace. Only an explicit matching page purpose may look up its key.
@@ -163,7 +182,8 @@ async function send<T extends z.ZodType>(path:string,scope:SupplyScope,schema:T,
  const bounded=/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
  if(!bounded.test(scope.userId)||!bounded.test(scope.organizationId))throw new SupplyAPIError("INVALID_REQUEST",400);
  const controller=new AbortController();const abort=()=>controller.abort();signal?.addEventListener("abort",abort,{once:true});if(signal?.aborted)abort();
- const timeout=setTimeout(abort,path.includes("/amazon-listings/")?108_000:path.includes("/shein-publication/")?32_000:27_000);const unavailable=()=>new SupplyAPIError(input?.mutates?"OUTCOME_UNKNOWN":"DEPENDENCY_UNAVAILABLE",input?.mutates?503:502);
+ const budget=path===base+"/shopify-draft-media-preview"?73_000:path.includes("/amazon-listings/")?108_000:path.includes("/shein-publication/")?32_000:27_000;
+ const timeout=setTimeout(abort,budget);const unavailable=()=>new SupplyAPIError(input?.mutates?"OUTCOME_UNKNOWN":"DEPENDENCY_UNAVAILABLE",input?.mutates?503:502);
  try{
   const headers=new Headers({Accept:"application/json","X-Expected-Organization-ID":scope.organizationId,"X-Expected-User-ID":scope.userId});
   if(input?.command!==undefined)headers.set("Content-Type","application/json");if(input?.key)headers.set("Idempotency-Key",input.key);

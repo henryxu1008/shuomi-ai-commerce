@@ -40,12 +40,27 @@ func (*OAuthClient) String() string   { return "Shopify OAuth client [redacted]"
 func (*OAuthClient) GoString() string { return "Shopify OAuth client [redacted]" }
 
 func NewOAuthClient(transport *http.Client, clientID, clientSecret, callbackURL string) (*OAuthClient, error) {
+	return newOAuthClient(transport, clientID, clientSecret, callbackURL, adminTimeout)
+}
+
+// NewDevelopmentPairingClients is used by the loopback-only pairing trial. The
+// two provider calls share the existing Workbench request deadline.
+func NewDevelopmentPairingClients(clientID, clientSecret, callbackURL string) (*OAuthClient, *AdminClient, error) {
+	const timeout = 8 * time.Second
+	oauth, err := newOAuthClient(nil, clientID, clientSecret, callbackURL, timeout)
+	if err != nil {
+		return nil, nil, err
+	}
+	return oauth, &AdminClient{http: boundedClientFor(nil, timeout), developmentStoresOnly: true}, nil
+}
+
+func newOAuthClient(transport *http.Client, clientID, clientSecret, callbackURL string, timeout time.Duration) (*OAuthClient, error) {
 	callback, err := url.Parse(callbackURL)
 	if err != nil || callback.Scheme != "https" || callback.Hostname() == "" || callback.User != nil || callback.Fragment != "" ||
 		callback.RawQuery != "" || callback.ForceQuery || !oauthParameterPattern.MatchString(clientID) || !validToken(clientSecret) {
 		return nil, ErrInvalidRequest
 	}
-	return &OAuthClient{http: boundedClient(transport), clientID: clientID, clientSecret: clientSecret, callbackURL: callbackURL}, nil
+	return &OAuthClient{http: boundedClientFor(transport, timeout), clientID: clientID, clientSecret: clientSecret, callbackURL: callbackURL}, nil
 }
 
 // AuthorizationURL is used after Shopify has initiated installation for the

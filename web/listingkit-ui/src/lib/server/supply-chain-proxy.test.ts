@@ -3,6 +3,29 @@ import { buildWorkbenchUpstreamRequest, buildWorkbenchBrowserResponse } from "./
 import {sheinImportFixture} from "@/test/shein-import-fixture";
 const id="550e8400-e29b-41d4-a716-446655440000";
 const scope={cookie:"shuomi_effective_organization=org-a","X-Expected-Organization-ID":"org-a","X-Expected-User-ID":"actor-a"};
+it("keys a Shopify draft media confirmation and rejects any other receipt",async()=>{
+ vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost");
+ const path=["supply-preparations","shopify-draft-media-confirm"];
+ const body={sourceId:id,storeId:id,product:"12345",confirmationHash:"a".repeat(64)};
+ const request=(origin:string,key?:string)=>new Request(`http://localhost/api/workbench/${path.join("/")}`,{
+  method:"POST",headers:{...scope,Origin:origin,"Content-Type":"application/json",...key?{"Idempotency-Key":key}:{}},
+  body:JSON.stringify(body),
+ });
+ const upstream=await buildWorkbenchUpstreamRequest(request("http://localhost",id),path,"server-token","actor-a");
+ expect(upstream).not.toBeInstanceOf(Response);if(upstream instanceof Response)return;
+ expect(upstream.sourceMutation).toBe(true);
+ expect(upstream.expectedStoreId).toBe(id);
+ expect(upstream.init.body).toBe(JSON.stringify(body));
+ const receipt={operationId:id,status:"pending"};
+ const respond=(value:unknown)=>buildWorkbenchBrowserResponse(Response.json(value),upstream.responseContract,
+  upstream.expectedStoreId,{sourceMutation:upstream.sourceMutation});
+ expect(await (await respond(receipt)).json()).toEqual(receipt);
+ expect(await (await respond({...receipt,operationId:"550e8400-e29b-41d4-a716-446655440001"})).json())
+  .toMatchObject({code:"OUTCOME_UNKNOWN"});
+ for(const requestWithMissingBoundary of [request("http://localhost"),request("https://other.test",id)]){
+  expect(await buildWorkbenchUpstreamRequest(requestWithMissingBoundary,path,"server-token","actor-a")).toBeInstanceOf(Response);
+ }
+});
 it("binds the read-only sales mapping preview through the BFF without adding a command key",async()=>{
  const f=sheinImportFixture(),selection={dimensions:[{sourceName:"color",attributeId:12,main:true}],values:[{sourceName:"color",sourceValue:"blue",optionId:34}],rows:[{sourceIndex:0,skcIndex:0,skuIndex:0}],images:[]};
  const body={sourceId:f.request.sourceId,baseRecordId:f.request.baseRecordId,completionDraft:f.request.completionDraft,selection};

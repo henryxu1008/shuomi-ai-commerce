@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -27,11 +28,18 @@ import (
 
 	aistore "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/store"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi"
+	imageapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/imageagent"
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
 	appruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	imageworker "github.com/henryxu1008/shuomi-ai-commerce/internal/app/worker/imageagent"
 	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	submissionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/submission"
+	submission "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
 	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 func main() {
@@ -57,6 +65,34 @@ func execute() error {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		return json.NewEncoder(os.Stdout).Encode(currentapplication.InspectModules(ctx, cfg, nil))
+	}
+	openRuntimeDB := platformdatabase.OpenExistingWritableContext
+	openStoreDB := platformdatabase.OpenExistingWritableContext
+	shopifyPairingTrial := cfg.ShopifyPairingTrial
+	var previewImages imageapp.GeneratedMaterialByteReader
+	if shopifyPairingTrial {
+		openRuntimeDB = platformdatabase.OpenExistingReadOnlyContext
+	}
+	if cfg.ShopifyPreviewOnly() {
+		openRuntimeDB = platformdatabase.OpenExistingReadOnlyContext
+		openStoreDB = platformdatabase.OpenExistingReadOnlyContext
+		artifactConfig := &coreconfig.Config{}
+		artifactConfig.ImageAgent.ArtifactStore = *cfg.SupplyChain.ShopifyPreviewArtifacts
+		reader, err := imageworker.NewImageSetMaterialReader(artifactConfig)
+		if err != nil {
+			return fmt.Errorf("open Shopify preview image reader: %w", err)
+		}
+		previewImages = reader.Read
+	}
+	if cfg.ShopifyMediaTrial != nil {
+		openRuntimeDB = platformdatabase.OpenExistingReadOnlyContext
+		artifactConfig := &coreconfig.Config{}
+		artifactConfig.ImageAgent.ArtifactStore = cfg.ShopifyMediaTrial.ImageArtifacts
+		reader, err := imageworker.NewImageSetMaterialReader(artifactConfig)
+		if err != nil {
+			return fmt.Errorf("open Shopify media trial image reader: %w", err)
+		}
+		previewImages = reader.Read
 	}
 	logger := logrus.New()
 	logger.SetFormatter(&logrus.JSONFormatter{})
@@ -110,24 +146,33 @@ func execute() error {
 			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
 		},
 		OpenStoreCenter: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
-			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
+			return openStoreDB(ctx, databaseConfig(cfg))
 		},
 		OpenLocalTrial: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
 			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
 		},
 
 		OpenSourceAccount: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
-			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
+			return openRuntimeDB(ctx, databaseConfig(cfg))
 		},
 
 		OpenCommercialOwner: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
-			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
+			return openRuntimeDB(ctx, databaseConfig(cfg))
 		},
 		OpenMoneyOwner: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
-			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
+			return openRuntimeDB(ctx, databaseConfig(cfg))
 		},
 		OpenProductAcquisition: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
+			return openRuntimeDB(ctx, databaseConfig(cfg))
+		},
+		OpenShopifyMediaInitializer: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
 			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
+		},
+		OpenShopifyMediaServing: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
+			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
+		},
+		OpenShopifyMediaServingRO: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
+			return platformdatabase.OpenExistingReadOnlyContext(ctx, databaseConfig(cfg))
 		},
 		OpenImageAgent: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
 			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
@@ -141,7 +186,7 @@ func execute() error {
 			return current, func() error { current.Close(); return nil }, nil
 		},
 		OpenApprovedAssets: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
-			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
+			return openRuntimeDB(ctx, databaseConfig(cfg))
 		},
 		DialProductWorkflow:           dialCurrentWorkflow,
 		DialStoreObservationsWorkflow: dialCurrentWorkflow,
@@ -176,10 +221,25 @@ func execute() error {
 			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
 		},
 		OpenMembership: func(ctx context.Context, cfg currentapplication.DatabaseConfig) (*gorm.DB, error) {
-			return platformdatabase.OpenExistingWritableContext(ctx, databaseConfig(cfg))
+			return openRuntimeDB(ctx, databaseConfig(cfg))
 		},
 		NewApplicationWithFeatures: func(ctx context.Context, source *gorm.DB, features currentapplication.ApplicationFeatures, cfg *coreconfig.Config, logger *logrus.Logger) (*http.Server, error) {
 			options := make([]httpapi.CurrentApplicationOption, 0, 6)
+			var isolatedShopifyBinding *storecenter.ShopifyBinding
+			if t := features.ShopifyMediaTrial; t != nil {
+				applications, bindErr := storeapp.WithIsolatedShopifyTrialLifecycle(ctx, features.OfficialStoreApplications,
+					features.StoreCenterDB, features.ShopifyMediaFreezeDB, features.ShopifyMediaLiveIsolation,
+					t.OrganizationID, t.StoreID, t.ShopKey, t.ApplicationGID, t.ShopGID, t.InstallationGID, t.Domain,
+					t.Generation, features.ShopifyMediaRestartReadOnly)
+				if bindErr != nil {
+					return nil, fmt.Errorf("bind isolated Shopify uninstall freeze: %w", bindErr)
+				}
+				features.OfficialStoreApplications = applications
+				isolatedShopifyBinding = applications.IsolatedShopifyTrialBinding()
+				if isolatedShopifyBinding == nil {
+					return nil, fmt.Errorf("isolated Shopify binding unavailable")
+				}
+			}
 			if features.SharedModels != nil {
 				pricing := httpapi.ModelRoutePricingDependencies{Search: features.Search, Shared: features.SharedModels, Prices: features.OfficialModelPrices, Credentials: features.ChannelCredentialManagement}
 				if features.Search != nil && features.AIWorkbench != nil {
@@ -297,6 +357,9 @@ func execute() error {
 					options = append(options, httpapi.WithStoreOfficialApplications(features.OfficialStoreApplications))
 				}
 			}
+			if shopifyPairingTrial {
+				options = append(options, httpapi.WithShopifyPairingTrial())
+			}
 			if features.Fulfillment != nil {
 				options = append(options, httpapi.WithFulfillment(fulfillmentmodule.Dependencies{Configuration: features.Fulfillment, Starter: fulfillmentruntime.Starter{Client: features.FulfillmentWorkflow}, NewWorker: fulfillmentruntime.WorkerFactory(features.FulfillmentWorkflow, features.FulfillmentLifecycle), Lifecycle: features.FulfillmentLifecycle}))
 			}
@@ -355,7 +418,29 @@ func execute() error {
 			if t := features.ControlledLocalDraft; t != nil {
 				options = append(options, httpapi.WithControlledLocalDraft(httpapi.ControlledLocalDraftDependencies{Policy: t.Policy(), AssetDB: features.ApprovedAssetDB}))
 			}
-			if features.ListingWorkflow != nil {
+			if t := features.ShopifyMediaTrial; t != nil {
+				productID := t.DraftProductGID[strings.LastIndex(t.DraftProductGID, "/")+1:]
+				confirmation := &listingapp.ShopifyMediaConfirmation{
+					Organization: t.OrganizationID, SourceID: t.SourceID, StoreID: t.StoreID,
+					Domain: t.Domain, Product: productID, ShopKey: t.ShopKey, Generation: t.Generation,
+					PairedInstallation: isolatedShopifyBinding,
+				}
+				if features.ShopifyMediaRestartReadOnly {
+					confirmation.ReadOnly = true
+					confirmation.ReadStatus = func(ctx context.Context, op submission.ShopifyMediaOperation) (submission.ShopifyMediaPlan, submission.ShopifyMediaStatus, bool, error) {
+						return submissionstore.ReadOnlyShopifyMediaStatus(ctx, features.ShopifyMediaLedgerDB, op)
+					}
+				} else {
+					journal, journalErr := submissionstore.NewIsolatedShopifyMediaJournal(ctx, features.ShopifyMediaLedgerDB, features.ShopifyMediaLiveIsolation)
+					if journalErr != nil {
+						return nil, fmt.Errorf("open isolated Shopify media journal: %w", journalErr)
+					}
+					confirmation.Sync.Journal = journal
+				}
+				options = append(options, httpapi.WithShopifyMediaTrial(features.ApprovedAssetDB, previewImages, confirmation))
+			} else if previewImages != nil {
+				options = append(options, httpapi.WithShopifyDraftPreview(features.ApprovedAssetDB, previewImages))
+			} else if features.ListingWorkflow != nil {
 				options = append(options, httpapi.WithListing(httpapi.ListingDependencies{AssetDB: features.ApprovedAssetDB, Starter: listingoperation.TemporalOperationStarter{Client: features.ListingWorkflow}, NewWorker: listingoperation.WorkerFactory(features.ListingWorkflow), Worker: features.ListingWorker}))
 			}
 			if features.MarketStorage != nil {

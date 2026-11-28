@@ -2,6 +2,7 @@ package storecenter_test
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 	"testing"
 	"time"
@@ -9,7 +10,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
+
+type shopifyPreviewAuthorizer func(context.Context, storecenter.ProductExecutionSubject) (storecenter.ProductExecutionAuthorization, error)
+
+func (a shopifyPreviewAuthorizer) AuthorizeProductExecution(ctx context.Context, subject storecenter.ProductExecutionSubject) (storecenter.ProductExecutionAuthorization, error) {
+	return a(ctx, subject)
+}
 
 func TestShopifyAmazonAndGoogleStoreSchemasComposeOnEmptyStore(t *testing.T) {
 	for _, order := range []string{"Amazon first", "Shopify first"} {
@@ -155,4 +163,40 @@ func TestShopifyPairingIsConsumedOnceAndShopRemainsExclusive(t *testing.T) {
 	require.Equal(t, destination.StoreID, moved.StoreID)
 	require.Equal(t, result.Generation+1, moved.Generation)
 
+	t.Run("reads the granted Shopify installation without admitting sends or revoked members", func(t *testing.T) {
+		require.NoError(t, db.Exec("UPDATE workbench_stores SET service_status='active',service_started_at=?,service_expires_at=? WHERE organization_id=? AND id=?", now.Add(-time.Hour), now.Add(time.Hour), moved.OrganizationID, moved.StoreID).Error)
+		limited, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		subject := storecenter.ProductExecutionSubject{OrganizationID: moved.OrganizationID, ActorID: "subject-create", MemberID: authorizer.member, Purpose: storecenter.ProductPurposeStatus}
+		authorize := shopifyPreviewAuthorizer(func(_ context.Context, subject storecenter.ProductExecutionSubject) (storecenter.ProductExecutionAuthorization, error) {
+			return storecenter.ProductExecutionAuthorization{Allowed: true, Access: storecenter.StoreMemberAccess{OrganizationID: subject.OrganizationID, ActorID: subject.ActorID, MemberID: subject.MemberID}}, nil
+		})
+		read := func(check func(storecenter.ProductExecutionReader)) {
+			require.NoError(t, db.WithContext(limited).Transaction(func(tx *gorm.DB) error {
+				readonly, err := storecenter.NewMemberScopedStoreRepository(tx, authorizer)
+				require.NoError(t, err)
+				check(readonly.WithShopifyLifecycle(true).ShopifyPreviewReader())
+				return nil
+			}, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true}))
+		}
+		read(func(reader storecenter.ProductExecutionReader) {
+			material, err := reader.ReadProductExecution(limited, subject, moved.StoreID, authorize, now)
+			require.NoError(t, err)
+			require.Equal(t, &moved, material.Shopify)
+			rules := subject
+			rules.Purpose = storecenter.ProductPurposeRules
+			material, err = reader.ReadProductExecution(limited, rules, moved.StoreID, authorize, now)
+			require.NoError(t, err)
+			require.Equal(t, &moved, material.Shopify)
+			publish := subject
+			publish.Purpose = storecenter.ProductPurposePublish
+			_, err = reader.ReadProductExecution(limited, publish, moved.StoreID, authorize, now)
+			require.ErrorIs(t, err, storecenter.ErrNotFound)
+		})
+		require.NoError(t, db.Exec("UPDATE workbench_store_member_grants SET active=false WHERE organization_id=? AND store_id=? AND member_id=?", moved.OrganizationID, moved.StoreID, subject.MemberID).Error)
+		read(func(reader storecenter.ProductExecutionReader) {
+			_, err := reader.ReadProductExecution(limited, subject, moved.StoreID, authorize, now)
+			require.ErrorIs(t, err, storecenter.ErrNotFound)
+		})
+	})
 }

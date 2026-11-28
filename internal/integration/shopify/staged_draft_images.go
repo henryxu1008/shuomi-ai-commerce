@@ -67,31 +67,19 @@ func (w *DraftWrite) StageImages(ctx context.Context, contents [][]byte) ([]stri
 		}
 		inputs[i] = stagedImageInput{Filename: fmt.Sprintf("%s-%d.png", prefix, i+1), MIMEType: stagedMimeType, Method: "POST", Resource: "IMAGE"}
 	}
-	var data struct {
-		Result *struct {
-			Targets    []stagedImageTarget `json:"stagedTargets"`
-			UserErrors []json.RawMessage   `json:"userErrors"`
-		} `json:"stagedUploadsCreate"`
+	targets, err := w.client.prepareStagedImages(ctx, w.installation, w.token, inputs)
+	if err != nil {
+		return nil, err
 	}
-	if w.client.query(ctx, w.installation.Domain, w.token, stagedUploadsQuery, map[string][]stagedImageInput{"input": inputs}, &data) != nil ||
-		data.Result == nil || data.Result.UserErrors == nil || len(data.Result.UserErrors) != 0 || len(data.Result.Targets) != len(contents) {
-		return nil, fmt.Errorf("prepare Shopify staged images: %w", errAdminResponse)
-	}
-
-	resources := make([]string, len(contents))
-	for i, target := range data.Result.Targets {
-		if !target.valid(inputs[i].Filename) {
-			return nil, fmt.Errorf("validate Shopify staged image target %d: %w", i+1, errAdminResponse)
-		}
+	resources := make([]string, len(targets))
+	for i, target := range targets {
 		resources[i] = target.ResourceURL
 	}
-	client := httpimage.NewPublicImageHTTPClient()
-	client.Timeout = 10 * time.Second
-	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	client := newStagedUploadClient()
 	defer client.CloseIdleConnections()
 	group, uploadContext := errgroup.WithContext(ctx)
 	group.SetLimit(3)
-	for i, target := range data.Result.Targets {
+	for i, target := range targets {
 		group.Go(func() error {
 			return target.upload(uploadContext, client, inputs[i].Filename, contents[i])
 		})
@@ -100,6 +88,32 @@ func (w *DraftWrite) StageImages(ctx context.Context, contents [][]byte) ([]stri
 		return nil, err
 	}
 	return resources, nil
+}
+
+func (c *AdminClient) prepareStagedImages(ctx context.Context, installation Installation, token string, inputs []stagedImageInput) ([]stagedImageTarget, error) {
+	var data struct {
+		Result *struct {
+			Targets    []stagedImageTarget `json:"stagedTargets"`
+			UserErrors []json.RawMessage   `json:"userErrors"`
+		} `json:"stagedUploadsCreate"`
+	}
+	if c.query(ctx, installation.Domain, token, stagedUploadsQuery, map[string][]stagedImageInput{"input": inputs}, &data) != nil ||
+		data.Result == nil || data.Result.UserErrors == nil || len(data.Result.UserErrors) != 0 || len(data.Result.Targets) != len(inputs) {
+		return nil, fmt.Errorf("prepare Shopify staged images: %w", errAdminResponse)
+	}
+	for i, target := range data.Result.Targets {
+		if !target.valid(inputs[i].Filename) {
+			return nil, fmt.Errorf("validate Shopify staged image target %d: %w", i+1, errAdminResponse)
+		}
+	}
+	return data.Result.Targets, nil
+}
+
+func newStagedUploadClient() *http.Client {
+	client := httpimage.NewPublicImageHTTPClient()
+	client.Timeout = 10 * time.Second
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	return client
 }
 
 func stagedResource(value string) (*url.URL, bool) {
@@ -140,32 +154,9 @@ func (t stagedImageTarget) valid(filename string) bool {
 }
 
 func (t stagedImageTarget) upload(ctx context.Context, client *http.Client, filename string, contents []byte) error {
-	var body bytes.Buffer
-	form := multipart.NewWriter(&body)
-	for _, parameter := range t.Parameters {
-		if form.WriteField(parameter.Name, parameter.Value) != nil {
-			return errAdminResponse
-		}
-	}
-	header := make(textproto.MIMEHeader)
-	header.Set("Content-Disposition", multipart.FileContentDisposition("file", filename))
-	header.Set("Content-Type", stagedMimeType)
-	file, err := form.CreatePart(header)
+	response, err := t.post(ctx, client, filename, contents)
 	if err != nil {
-		return errAdminResponse
-	}
-	if _, err := file.Write(contents); err != nil || form.Close() != nil {
-		return errAdminResponse
-	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, stagedPostURL, &body)
-	if err != nil {
-		return errAdminResponse
-	}
-	request.GetBody = nil
-	request.Header.Set("Content-Type", form.FormDataContentType())
-	response, err := client.Do(request)
-	if err != nil {
-		return fmt.Errorf("send Shopify staged image: %w", err)
+		return err
 	}
 	defer response.Body.Close()
 	switch response.StatusCode {
@@ -174,4 +165,35 @@ func (t stagedImageTarget) upload(ctx context.Context, client *http.Client, file
 	default:
 		return fmt.Errorf("send Shopify staged image returned status %d: %w", response.StatusCode, errAdminResponse)
 	}
+}
+
+func (t stagedImageTarget) post(ctx context.Context, client *http.Client, filename string, contents []byte) (*http.Response, error) {
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	for _, parameter := range t.Parameters {
+		if form.WriteField(parameter.Name, parameter.Value) != nil {
+			return nil, errAdminResponse
+		}
+	}
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition", multipart.FileContentDisposition("file", filename))
+	header.Set("Content-Type", stagedMimeType)
+	file, err := form.CreatePart(header)
+	if err != nil {
+		return nil, errAdminResponse
+	}
+	if _, err := file.Write(contents); err != nil || form.Close() != nil {
+		return nil, errAdminResponse
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, stagedPostURL, &body)
+	if err != nil {
+		return nil, errAdminResponse
+	}
+	request.GetBody = nil
+	request.Header.Set("Content-Type", form.FormDataContentType())
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("send Shopify staged image: %w", err)
+	}
+	return response, nil
 }
