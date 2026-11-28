@@ -79,12 +79,12 @@ func (cfg *Config) validateShopifyMediaTrial() error {
 		}
 	}
 	if !sameDatabaseTarget(trial.ProductInitializer, trial.ProductServing) ||
-		trial.ProductInitializer.User == trial.ProductServing.User || trial.ProductServing.User != "listing_runtime" ||
+		trial.ProductInitializer.User == trial.ProductServing.User || trial.ProductServing.User != "source_acquisition_runtime" ||
 		trial.ProductInitializer.Database == trial.AssetDatabase.Database || trial.ProductServing.Database == store.Database.Database ||
 		trial.ProductInitializer.Database == store.Database.Database || trial.AssetDatabase.Database == store.Database.Database ||
 		trial.AssetDatabase.Database == trial.ProductServing.Database || trial.ProductServing.MaxConnections > 8 ||
 		trial.AssetDatabase.User != "supply_asset_runtime" ||
-		trial.ProductInitializer.User != "listing_owner" || !validTrialDigest(trial.ApprovedDigest) ||
+		trial.ProductInitializer.User != "acquisition_owner" || !validTrialDigest(trial.ApprovedDigest) ||
 		!validTrialDigest(trial.GalleryDigest) || !validTrialDigest(trial.AppendDigest) ||
 		!strings.HasPrefix(trial.ApplicationGID, "gid://shopify/App/") ||
 		!strings.HasPrefix(trial.ShopGID, "gid://shopify/Shop/") ||

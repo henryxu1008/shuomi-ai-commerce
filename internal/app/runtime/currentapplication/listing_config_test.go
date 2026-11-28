@@ -125,10 +125,10 @@ func TestShopifyMediaTrialManifestPinsFixtureAndRejectsUnsafeComposition(t *test
 		ClientSecret: filepath.Join(root, "secret"), PairingKey: filepath.Join(root, "pairing"), SigningKey: filepath.Join(root, "signing"),
 		PairingKeyID: "pairing-1", SigningKeyID: "signing-1", LifecycleNotifications: true,
 	}}
-	productInit := DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "listing_owner", Password: "fixture", Database: "media_product", MaxConnections: 2}
+	productInit := DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "acquisition_owner", Password: "fixture", Database: "media_product", MaxConnections: 2}
 	trial := &ShopifyMediaTrialConfig{
 		ProductInitializer: productInit,
-		ProductServing:     DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "listing_runtime", Password: "fixture", Database: "media_product", MaxConnections: 4},
+		ProductServing:     DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "source_acquisition_runtime", Password: "fixture", Database: "media_product", MaxConnections: 4},
 		AssetDatabase:      DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "supply_asset_runtime", Password: "fixture", Database: "media_assets", MaxConnections: 4},
 		OrganizationID:     "org-test", ActorID: "actor-test", MemberID: "member-test", SourceID: "source-test", ProductKey: "own-test", SourceVersion: 1,
 		ApprovedDigest: strings.Repeat("a", 64), StoreID: "store-test", ShopKey: "shop-key-test", Generation: 1,
