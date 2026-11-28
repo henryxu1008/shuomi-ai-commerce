@@ -32,6 +32,7 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
@@ -64,29 +65,26 @@ func TestIsolatedShopifyMediaServingPoolHandoff(t *testing.T) {
 		require.NoError(t, effects.InstallIsolatedShopifyMediaSchema(ctx, owner, isolation))
 		return isolation
 	}
-	const grants = `
-		GRANT SELECT, INSERT, UPDATE ON public.listing_submission_execution_attempts,public.listing_submission_target_fences,
-			public.listing_shopify_dispatches,public.listing_shopify_media_sync_plans TO shopify_media_serve;
-		GRANT SELECT,INSERT ON public.listing_shopify_media_sync_steps,public.listing_shopify_frozen_generations,
-			public.listing_shopify_restricted_sources TO shopify_media_serve;
-		GRANT SELECT ON public.listing_submission_official_intents TO shopify_media_serve;
-	`
 	admin := openDatabase(dsn)
 	isolation := install(admin)
-	require.NoError(t, admin.Exec("CREATE ROLE shopify_media_serve LOGIN PASSWORD 'isolated-serving-fixture'").Error)
-	require.NoError(t, admin.Exec("REVOKE TEMPORARY ON DATABASE shopify_media FROM PUBLIC").Error)
-	require.NoError(t, admin.Exec(grants).Error)
-	require.NoError(t, admin.Exec("CREATE DATABASE shopify_media_other TEMPLATE shopify_media").Error)
-	require.NoError(t, admin.Exec("CREATE DATABASE shopify_media_pinned").Error)
+	require.NoError(t, admin.Exec("CREATE ROLE shopify_media_runtime LOGIN PASSWORD 'isolated-serving-fixture'").Error)
+	require.NoError(t, shopifyguard.GrantIsolatedMediaServingPermissions(ctx, admin))
 	servingURL, err := url.Parse(dsn)
 	require.NoError(t, err)
+	require.NoError(t, admin.Exec("CREATE DATABASE shopify_media_other TEMPLATE shopify_media").Error)
+	require.NoError(t, admin.Exec("CREATE DATABASE shopify_media_pinned").Error)
+	servingURL.User = url.UserPassword("shopify_media_runtime", "isolated-serving-fixture")
+	serving := openDatabase(servingURL.String())
+	state, err := shopifyguard.InspectMediaTrialInstall(ctx, serving)
+	require.NoError(t, err)
+	require.Equal(t, shopifyguard.MediaTrialInstallExisting, state)
+	require.NoError(t, shopifyguard.VerifyIsolatedMediaServingPool(ctx, serving))
 	pinnedAdminURL := *servingURL
 	pinnedAdminURL.Path = "/shopify_media_pinned"
+	pinnedAdminURL.User = url.UserPassword("fixture", "isolated-fixture")
 	pinned := openDatabase(pinnedAdminURL.String())
 	pinnedIsolation := install(pinned)
-	require.NoError(t, pinned.Exec("REVOKE TEMPORARY ON DATABASE shopify_media_pinned FROM PUBLIC").Error)
-	require.NoError(t, pinned.Exec(grants).Error)
-	servingURL.User = url.UserPassword("shopify_media_serve", "isolated-serving-fixture")
+	require.NoError(t, shopifyguard.GrantIsolatedMediaServingPermissions(ctx, pinned))
 	pinnedServingURL := *servingURL
 	pinnedServingURL.Path = pinnedAdminURL.Path
 	pinnedServing := openDatabase(pinnedServingURL.String())
@@ -96,7 +94,6 @@ func TestIsolatedShopifyMediaServingPoolHandoff(t *testing.T) {
 		"do not transfer a witness once a journal exists on the installer pool")
 	require.NoError(t, shopifyguard.VerifyLiveIsolation(pinned, pinnedIsolation))
 
-	serving := openDatabase(servingURL.String())
 	_, err = effects.NewIsolatedShopifyMediaJournal(ctx, serving, isolation)
 	require.Error(t, err)
 	require.Error(t, shopifyguard.HandoffIsolatedMediaServingPool(ctx, admin, openDatabase(dsn), isolation))
@@ -105,9 +102,9 @@ func TestIsolatedShopifyMediaServingPoolHandoff(t *testing.T) {
 	other := openDatabase(otherURL.String())
 	require.NoError(t, admin.Exec("REVOKE TEMPORARY ON DATABASE shopify_media_other FROM PUBLIC").Error)
 	require.Error(t, shopifyguard.HandoffIsolatedMediaServingPool(ctx, admin, other, isolation))
-	require.NoError(t, admin.Exec("GRANT DELETE ON public.listing_shopify_media_sync_plans TO shopify_media_serve").Error)
+	require.NoError(t, admin.Exec("GRANT DELETE ON public.listing_shopify_media_sync_plans TO shopify_media_runtime").Error)
 	require.Error(t, shopifyguard.HandoffIsolatedMediaServingPool(ctx, admin, serving, isolation))
-	require.NoError(t, admin.Exec("REVOKE DELETE ON public.listing_shopify_media_sync_plans FROM shopify_media_serve").Error)
+	require.NoError(t, admin.Exec("REVOKE DELETE ON public.listing_shopify_media_sync_plans FROM shopify_media_runtime").Error)
 	require.NoError(t, shopifyguard.HandoffIsolatedMediaServingPool(ctx, admin, serving, isolation))
 	require.Error(t, shopifyguard.HandoffIsolatedMediaServingPool(ctx, admin, serving, isolation))
 	require.Error(t, shopifyguard.VerifyLiveIsolation(admin, isolation))
@@ -141,6 +138,10 @@ func TestIsolatedShopifyMediaServingPoolHandoff(t *testing.T) {
 	first := readFreeze()
 	require.NoError(t, stop(ctx, plan.Owner.OrganizationID, plan.ShopKey, plan.Generation))
 	require.Equal(t, first, readFreeze(), "a retry cannot invent a new freeze command")
+	restartedFreeze, err := shopifyguard.NewIsolatedMediaFreezeOnly(ctx, serving, plan.Owner.OrganizationID, plan.ShopKey, plan.Generation)
+	require.NoError(t, err)
+	require.NoError(t, restartedFreeze(ctx, plan.Owner.OrganizationID, plan.ShopKey, plan.Generation))
+	require.Equal(t, first, readFreeze(), "restart freeze adapter reuses the same scoped command")
 	drained, err := shopifyguard.DrainReadyIsolated(ctx, serving, isolation, first)
 	require.NoError(t, err)
 	require.True(t, drained)
@@ -204,6 +205,11 @@ func TestIsolatedShopifyMediaSync(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, submission.ShopifyMediaComplete, result)
 		require.Equal(t, 1, shop.count(submission.ShopifyMediaAssociate))
+		readPlan, savedStatus, found, err := effects.ReadOnlyShopifyMediaStatus(ctx, db, plan.Operation())
+		require.NoError(t, err)
+		require.True(t, found)
+		require.Equal(t, plan, readPlan)
+		require.Equal(t, submission.ShopifyMediaComplete, savedStatus)
 		changed := plan
 		changed.ApprovalHash = collection.Digest("other approval")
 		_, err = service.Confirm(ctx, changed)
@@ -599,6 +605,19 @@ func testShopifyMediaConfirmationRoute(t *testing.T, ctx context.Context, db *go
 	response := confirm(router, plan.ID, "44", proof)
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	require.JSONEq(t, fmt.Sprintf(`{"operationId":%q,"status":"complete"}`, plan.ID), response.Body.String())
+	trial.ReadOnly = true
+	trial.Sync = submission.ShopifyMediaSync{}
+	trial.BuildPlan = nil
+	trial.PairedInstallation = &storecenter.ShopifyBinding{OrganizationID: plan.Owner.OrganizationID, StoreID: storeID, ShopKey: plan.ShopKey,
+		Generation: plan.Generation, ShopifyInstallation: storecenter.ShopifyInstallation{AppID: "gid://shopify/App/1", ShopID: "gid://shopify/Shop/1",
+			InstallationID: "gid://shopify/AppInstallation/1", Domain: trial.Domain, Currency: "USD"}}
+	trial.ReadStatus = func(ctx context.Context, operation submission.ShopifyMediaOperation) (submission.ShopifyMediaPlan, submission.ShopifyMediaStatus, bool, error) {
+		return effects.ReadOnlyShopifyMediaStatus(ctx, db, operation)
+	}
+	app.ShopifyMedia = &listingapp.ShopifyMediaPreviewService{}
+	readOnlyResponse := confirm(router, plan.ID, "44", proof)
+	require.Equal(t, http.StatusOK, readOnlyResponse.Code, readOnlyResponse.Body.String())
+	require.JSONEq(t, fmt.Sprintf(`{"operationId":%q,"status":"complete"}`, plan.ID), readOnlyResponse.Body.String())
 	plan.BeforeHash = collection.Digest("Shopify has now appended")
 	response = confirm(router, plan.ID, "44", proof)
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())

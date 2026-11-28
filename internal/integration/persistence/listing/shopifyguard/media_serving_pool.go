@@ -5,10 +5,126 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/binary"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
 )
+
+const MediaServingRole = "shopify_media_runtime"
+
+type MediaTrialInstallState int
+
+const (
+	MediaTrialInstallFresh MediaTrialInstallState = iota + 1
+	MediaTrialInstallExisting
+)
+
+// InspectMediaTrialInstall distinguishes a new schema from a complete prior
+// install without opening the initializer role or changing persistent state.
+func InspectMediaTrialInstall(ctx context.Context, db *gorm.DB) (MediaTrialInstallState, error) {
+	if ctx == nil || db == nil || db.Dialector.Name() != "postgres" {
+		return 0, ErrUnavailable
+	}
+	var base, frozen, restricted, dispatches, plans, steps bool
+	if err := db.WithContext(ctx).Raw(`SELECT
+		to_regclass('public.listing_submission_execution_attempts') IS NOT NULL,
+		to_regclass('public.listing_shopify_frozen_generations') IS NOT NULL,
+		to_regclass('public.listing_shopify_restricted_sources') IS NOT NULL,
+		to_regclass('public.listing_shopify_dispatches') IS NOT NULL,
+		to_regclass(?) IS NOT NULL,
+		to_regclass(?) IS NOT NULL`, MediaSyncPlanTable, MediaSyncStepTable).Row().Scan(&base, &frozen, &restricted, &dispatches, &plans, &steps); err != nil || !base {
+		return 0, ErrUnavailable
+	}
+	installed := []bool{frozen, restricted, dispatches, plans, steps}
+	present := 0
+	for _, exists := range installed {
+		if exists {
+			present++
+		}
+	}
+	if present == 0 {
+		return MediaTrialInstallFresh, nil
+	}
+	if present != len(installed) {
+		return 0, ErrUnavailable
+	}
+	if err := VerifyIsolatedMediaServingPool(ctx, db); err != nil {
+		return 0, err
+	}
+	return MediaTrialInstallExisting, nil
+}
+
+// VerifyIsolatedMediaServingPool verifies the exact low-privilege Product
+// media role without installing tables, issuing a witness, or granting writes.
+func VerifyIsolatedMediaServingPool(ctx context.Context, db *gorm.DB) error {
+	if ctx == nil || db == nil || db.Dialector.Name() != "postgres" {
+		return ErrUnavailable
+	}
+	pool, err := db.DB()
+	if err != nil {
+		return ErrUnavailable
+	}
+	tx, err := pool.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return ErrUnavailable
+	}
+	defer tx.Rollback()
+	var ready bool
+	if err := tx.QueryRowContext(ctx, "SELECT to_regclass($1) IS NOT NULL AND to_regclass($2) IS NOT NULL", MediaSyncPlanTable, MediaSyncStepTable).Scan(&ready); err != nil || !ready || !admittedMediaServingRole(ctx, tx) {
+		return ErrUnavailable
+	}
+	return nil
+}
+
+// GrantIsolatedMediaServingPermissions admits the pre-provisioned fixed role
+// only to the isolated media ledger and same-generation freeze tables. The
+// Product source-serving role remains a separate pool owned by Product.
+func GrantIsolatedMediaServingPermissions(ctx context.Context, initializer *gorm.DB) error {
+	if ctx == nil || initializer == nil || initializer.Dialector.Name() != "postgres" {
+		return ErrUnavailable
+	}
+	return initializer.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var exists bool
+		if err := tx.Raw(`SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=?) AND
+			to_regclass(?) IS NOT NULL AND to_regclass(?) IS NOT NULL AND
+			to_regclass('public.listing_shopify_dispatches') IS NOT NULL AND
+			to_regclass('public.listing_shopify_frozen_generations') IS NOT NULL AND
+			to_regclass('public.listing_shopify_restricted_sources') IS NOT NULL`,
+			MediaServingRole, MediaSyncPlanTable, MediaSyncStepTable).Row().Scan(&exists); err != nil || !exists {
+			return ErrUnavailable
+		}
+		statements := []string{
+			"REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM " + MediaServingRole,
+			"REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM " + MediaServingRole,
+			"REVOKE CREATE ON SCHEMA public FROM " + MediaServingRole,
+			"GRANT USAGE ON SCHEMA public TO " + MediaServingRole,
+			"GRANT SELECT,INSERT,UPDATE ON public.listing_submission_execution_attempts,public.listing_submission_target_fences TO " + MediaServingRole,
+			"GRANT SELECT ON public.listing_submission_official_intents TO " + MediaServingRole,
+			"GRANT SELECT,INSERT ON public.listing_shopify_frozen_generations,public.listing_shopify_restricted_sources TO " + MediaServingRole,
+			"GRANT SELECT,INSERT,UPDATE ON public.listing_shopify_dispatches,public.listing_shopify_media_sync_plans TO " + MediaServingRole,
+			"GRANT SELECT,INSERT ON public.listing_shopify_media_sync_steps TO " + MediaServingRole,
+			"REVOKE CREATE,TEMPORARY ON DATABASE " + quoteIdentifierFromCurrentDatabase(tx) + " FROM " + MediaServingRole,
+		}
+		for _, statement := range statements {
+			if strings.Contains(statement, "\x00") || tx.Exec(statement).Error != nil {
+				return ErrUnavailable
+			}
+		}
+		if err := tx.Exec("DO $$ BEGIN EXECUTE format('REVOKE TEMPORARY ON DATABASE %I FROM PUBLIC', current_database()); END $$").Error; err != nil {
+			return ErrUnavailable
+		}
+		return nil
+	})
+}
+
+func quoteIdentifierFromCurrentDatabase(tx *gorm.DB) string {
+	var database string
+	if tx.Raw("SELECT current_database()").Row().Scan(&database) != nil || database == "" {
+		return `""`
+	}
+	return `"` + strings.ReplaceAll(database, `"`, `""`) + `"`
+}
 
 // HandoffIsolatedMediaServingPool moves the in-process installation witness
 // to the dedicated media role before Shopify work begins. The initializer

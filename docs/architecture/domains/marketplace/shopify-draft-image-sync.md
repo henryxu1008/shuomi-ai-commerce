@@ -146,7 +146,7 @@ Product 仍由同一进程、同一受保护运行池以原授权代次锁执行
 
 这个模式使用新的 `shopifyMediaTrial` 清单段，不能借用 `ShopifyPreviewOnly` 或普通 SupplyChain 模式。该段必须显式给出以下值，否则整个进程拒绝启动：
 
-- 回环监听地址，以及严格相同数据库目标上的 Product 初始化角色和 Product 运行角色。初始化角色只用于已有 schema／权限校验和一次性交接，运行角色只允许媒体发送日志及冻结表的既有权限。两者指向不同数据库、该库已有 Shopify 尝试、已经完成交接、运行角色可 DDL，或试图设置临时 schema 都拒绝。
+- 回环监听地址，以及严格相同数据库目标上的 Product 初始化角色、Product 来源读取角色和 Product 媒体日志角色。来源读取角色复用 `source_acquisition_runtime`，仅由固定试用路径调用，用于既有来源／集合读取合同；媒体日志角色为 `shopify_media_runtime`，只允许媒体发送日志、原尝试证据和冻结表的既有权限。初始化角色只用于首次 schema 安装及向媒体日志角色一次性交接。任一角色指向不同数据库、Product 库已有 Shopify 尝试、媒体日志角色无法通过严格权限核验、或试图设置临时 schema 都拒绝。
 - 独立 Asset、Store 和 Product 数据库及其受限角色。Store 仅允许固定测试记录的读取、测试服务窗口与专用应用通知所需的写入。Asset 只含此次测试来源和已采用素材，Product 只含该来源、试用计划与发送证据。所有数据库名必须与留存 owner 不同。
 - 固定企业、操作者和成员，测试来源 ID、ProductKey、版本及采用素材摘要，Store ID、ShopKey、授权代次、App／Shop／安装 ID、域名，六变体 DRAFT GID、旧图库摘要和拟追加图片摘要。测试服务窗口的开始、截止及最长时长也写入清单。任何空值、重复、超时、非 loopback、目标与配对绑定不一致或原外套 ID 都拒绝。
 
@@ -155,3 +155,13 @@ Product 仍由同一进程、同一受保护运行池以原授权代次锁执行
 路由白名单只有固定夹具的预览、确认、按原操作号的只读状态、`app/uninstalled` 和 `shop/redact`。前两类沿现有身份、来源与提交权限检查，状态读取还必须匹配固定企业、成员、来源、店铺、商品和操作号。`app/uninstalled` 必须走现有已配对 lifecycle receiver，先验证固定 App／Shop／安装和当前 Store binding，再持久化暂停并冻结相同 Product 授权代次，两个事实完成后才返回成功。`shop/redact` 不得从 Shop 域名推断安装或冻结代次。此次试用只在精确 App／Shop 通过验签后保存受限送达收据，不做 Product 冻结或任何清除；若未来需要以它冻结，必须另有能精确绑定安装和授权代次的签名合同与独立准入。
 
 这是一条受限试用路径，不是面向任意商品的正式开关。实现前需由独立评审确认以上固定范围与现有 Product / Store owner 合同一致。验证按以下顺序进行：建立独立六变体 DRAFT 和测试旧图，读回预览，确认一次，读回旧图保留与六个变体关系，再以同一操作号确认一次并证明图库和发送记录不增加。未合并、正式部署或发布。
+
+### 重启后的只读恢复与撤权冻结
+
+实现检查发现两个组合问题。第一，`LiveIsolation` 是进程内证明，`InstallIsolated` 只能在无 Shopify 执行历史的隔离库安装表并签发该证明；媒体日志装配和最初的冻结装配都要求同一证明。若进程在首次写入后重启，不能重新安装或签发媒体写入能力，也不能因此让工作台的原操作回查和精确卸载通知失效。第二，`HandoffIsolatedMediaServingPool` 刻意拒绝有任何媒体日志白名单之外表权限的角色，而现有 `source_acquisition_runtime` 同时具有来源、集合、刊登记录和计划写入权限，不能兼任媒体日志 serving role。把它指定为唯一 Product pool 会使首次护栏交接拒绝启动；放宽日志角色检查又会破坏既有最小权限合同。这两项都使当前核心路径无法按批准架构运行，分类为 `BLOCKER`。本补充在 Writer 修改运行代码前替代前文未限定池分离和进程重启的启动步骤。
+
+- 首次进程仅在 guard/media 表不存在、Product Shopify 执行历史为空时，使用 Product 初始化角色安装现有隔离护栏和媒体日志表；随后用既有一次性交接证明切换到预置的低权限 `shopify_media_runtime`，关闭初始化连接，再启用工作台确认。既有 `source_acquisition_runtime` 独立用于固定来源／集合读取，媒体日志 pool 独立用于 Product 媒体计划、尝试、护栏和冻结；两个服务连接必须由数据库身份核验确认落在同一个 Product owner 库。不得将来源运行角色的额外授权放宽进媒体日志角色。重启路径不得打开初始化角色、执行 DDL、调用 `InstallIsolated`、调用交接或创建可发放媒体发送许可的 journal。
+- 重启进程只使用同一固定清单中的 `shopify_media_runtime` 验证数据库目标、现有 guard/media schema、受限角色权限及固定记录，并装配只读 operation evidence reader。来源读取仍由既有 `source_acquisition_runtime` 承担；两个 pool 都只在固定试用装配内使用。媒体日志 pool 仅回查现有计划、步骤、尝试、原响应和冻结证据；不得创建计划、获取 run token、调用 `Begin` / `Admit` / `ConfirmOperation` 或派发 Shopify 请求。若找不到与固定来源、商品、店铺和授权代次一致的既有计划，必须拒绝进入工作台媒体恢复路径。
+- 已完成计划收到同一操作号的重复确认时，恢复路径只返回已保存的完成状态，不向 Shopify 发请求，也不改变图库或变体。未完成、未知或证据不完整的操作只返回待核实，不自动重试。预览仍须匹配固定样本及原图库摘要；重启态不得由预览创建首次确认计划。
+- 重启后的 `app/uninstalled` 仍使用现有 Store lifecycle receiver 验签、核对唯一固定 App / Shop / 安装与当前授权代次，并在 Store 暂停持久化后通过 `shopify_media_runtime` 的 freeze-only adapter 对该代次执行已有 `SealIsolated`；该 adapter 不得持有媒体 Provider、journal 写入能力或 dispatch permit。两项持久化均完成后才确认通知。`shop/redact` 仍只记签名送达收据，不冻结、不清除。
+- 新增隔离 PostgreSQL 进程边界测试：首次进程完成一次媒体分步尝试并关闭连接；新进程只用 serving 角色重开，成功只读回查；重复确认不得创建新 permit 或新增 Shopify 调用；精确卸载通知能完成 Store 暂停和同代次 Product 冻结；错误固定身份、缺失计划或不完整证据必须拒绝。

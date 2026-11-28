@@ -140,6 +140,11 @@ func buildCurrentStoreCenterModule(ctx context.Context, records *gorm.DB, author
 			return nil, err
 		}
 	}
+	if receivePrivacy := applications.IsolatedShopifyPrivacyReceiver(repo); receivePrivacy != nil {
+		if err := handler.SetIsolatedShopifyPrivacyReceiver(receivePrivacy); err != nil {
+			return nil, err
+		}
+	}
 	google, err := applications.GoogleConnections(repo)
 	if err != nil {
 		return nil, err

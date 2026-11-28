@@ -123,6 +123,12 @@ type startedShopifyRoutes struct {
 	*storeapp.ShopifyConnections
 }
 
+type lifecycleOnlyShopifyRoutes struct {
+	*storeapp.ShopifyConnections
+}
+
+func (lifecycleOnlyShopifyRoutes) LifecycleNotificationsEnabled() bool { return true }
+
 func (startedShopifyRoutes) StartedInstallationEnabled() bool    { return true }
 func (startedShopifyRoutes) LifecycleNotificationsEnabled() bool { return true }
 
@@ -171,6 +177,51 @@ func TestShopifyStartedInstallationPublicRouteAdmission(t *testing.T) {
 		}
 	}
 	require.True(t, found)
+}
+
+func TestShopifyShopRedactReceiptAdmissionIsolatedToMediaTrial(t *testing.T) {
+	h, err := storehttp.NewHandlerWithServiceLifecycle(inertStoreService{}, &storecenter.ServiceLifecycleApplication{})
+	require.NoError(t, err)
+	require.NoError(t, h.SetOfficialConnections(&storeapp.OfficialConnections{}))
+	require.NoError(t, h.SetShopifyConnections(lifecycleOnlyShopifyRoutes{}))
+	receive := func(context.Context, string, string, string, []byte) error { return nil }
+	require.NoError(t, h.SetIsolatedShopifyPrivacyReceiver(receive))
+	storeModule := storehttp.NewModule(h)
+	storeModule.(interface {
+		ConfigureCatalog(*storecenter.Catalog, *storecenter.MetadataRepository)
+	}).ConfigureCatalog(&storecenter.Catalog{}, &storecenter.MetadataRepository{})
+	require.NoError(t, storeModule.(interface {
+		ConfigureBrowser(*storecenter.BrowserOperations) error
+	}).ConfigureBrowser(&storecenter.BrowserOperations{}))
+	registry := kernelmodule.NewRegistry()
+	require.NoError(t, storeModule.Register(registry))
+	var routes []httproute.Descriptor
+	for _, route := range currentWorkbenchApplicationRoutes {
+		routes = append(routes, httproute.Descriptor{Method: route.Method, Path: route.Path})
+	}
+	routes = append(routes, registry.Routes()...)
+	trialFeatures := currentApplicationOptionalRoutes{StoreCenter: true, Shopify: true, ShopifyLifecycle: true, ShopifyMediaTrial: true}
+	require.NoError(t, validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false, trialFeatures))
+	ordinaryFeatures := trialFeatures
+	ordinaryFeatures.ShopifyMediaTrial = false
+	require.Error(t, validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false, ordinaryFeatures))
+	for i, route := range routes {
+		if route.Path != storehttp.ShopifyShopRedactPath {
+			continue
+		}
+		for _, mutate := range []func(*httproute.Descriptor){
+			func(d *httproute.Descriptor) { d.Method = http.MethodGet },
+			func(d *httproute.Descriptor) { d.AuthPolicy = httproute.AuthPolicyCurrentIdentity },
+			func(d *httproute.Descriptor) { d.RequestTimeout++ },
+			func(d *httproute.Descriptor) { d.Module = "other" },
+		} {
+			changed := append([]httproute.Descriptor(nil), routes...)
+			mutate(&changed[i])
+			require.Error(t, validateCurrentApplicationRoutesInternal(changed, false, false, false, false, false, false, false, trialFeatures))
+		}
+		return
+	}
+	t.Fatal("isolated shop-redact receipt route was not registered")
 }
 
 type inertGoogleStoreConnection struct {

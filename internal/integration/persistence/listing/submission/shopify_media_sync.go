@@ -59,6 +59,44 @@ func InstallIsolatedShopifyMediaSchema(ctx context.Context, db *gorm.DB, live *s
 
 type isolatedMediaJournal struct{ repository *Repository }
 
+// ReadOnlyShopifyMediaStatus performs restart recovery by reading only the
+// original durable plan and status. It never acquires a lease or dispatches.
+func ReadOnlyShopifyMediaStatus(ctx context.Context, db *gorm.DB, operation submission.ShopifyMediaOperation) (submission.ShopifyMediaPlan, submission.ShopifyMediaStatus, bool, error) {
+	if ctx == nil || db == nil || !operation.Valid() || db.Dialector.Name() != "postgres" {
+		return submission.ShopifyMediaPlan{}, "", false, submission.ErrExecutionUnavailable
+	}
+	pool, err := db.DB()
+	if err != nil {
+		return submission.ShopifyMediaPlan{}, "", false, submission.ErrExecutionUnavailable
+	}
+	tx, err := pool.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return submission.ShopifyMediaPlan{}, "", false, submission.ErrExecutionUnavailable
+	}
+	defer tx.Rollback()
+	var body []byte
+	var hash, status string
+	err = tx.QueryRowContext(ctx, "SELECT body_hash,body_json,status FROM "+mediaPlanTable+" WHERE organization_id=$1 AND plan_id=$2", operation.Owner.OrganizationID, operation.ID).Scan(&hash, &body, &status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return submission.ShopifyMediaPlan{}, "", false, nil
+	}
+	if err != nil {
+		return submission.ShopifyMediaPlan{}, "", false, submission.ErrExecutionUnavailable
+	}
+	var plan submission.ShopifyMediaPlan
+	if json.Unmarshal(body, &plan) != nil || !plan.Valid() || plan.Fingerprint() != hash || plan.Operation() != operation {
+		return submission.ShopifyMediaPlan{}, "", false, submission.ErrExecutionUnavailable
+	}
+	result := submission.ShopifyMediaStatus(status)
+	if result != submission.ShopifyMediaPending && result != submission.ShopifyMediaUncertain && result != submission.ShopifyMediaComplete && result != submission.ShopifyMediaExpired {
+		return submission.ShopifyMediaPlan{}, "", false, submission.ErrExecutionUnavailable
+	}
+	if err := tx.Commit(); err != nil {
+		return submission.ShopifyMediaPlan{}, "", false, submission.ErrExecutionUnavailable
+	}
+	return plan, result, true, nil
+}
+
 func NewIsolatedShopifyMediaJournal(ctx context.Context, db *gorm.DB, live *shopifyguard.LiveIsolation) (submission.ShopifyMediaJournal, error) {
 	if err := shopifyguard.VerifyLiveIsolation(db, live); err != nil {
 		return nil, err

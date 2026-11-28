@@ -808,6 +808,9 @@ func (cfg *Config) CoreConfig() *coreconfig.Config {
 		core.ImageAgent.Admission = coreconfig.ImageAgentAdmissionConfig{Enabled: true, AllowedTenantIDs: append([]string(nil), image.AllowedOrganizationIDs...)}
 		core.ImageAgent.ArtifactStore = coreconfig.ImageAgentArtifactStoreConfig{Enabled: true, Provider: "s3", PublicBase: image.PublicBase, IsolatedTrialGeneratedURLs: image.IsolatedTrialGeneratedURLs, S3: coreconfig.ImageAgentArtifactStoreS3Config{Bucket: image.Bucket}}
 	}
+	if trial := cfg.ShopifyMediaTrial; trial != nil {
+		core.ImageAgent.ArtifactStore = trial.ImageArtifacts
+	}
 	if cfg.SourceMedia != nil {
 		core.ProductCollectionSourceMedia = *cfg.SourceMedia
 		core.ProductCollectionSourceMediaIsolatedTrial = cfg.SourceMediaIsolatedTrial

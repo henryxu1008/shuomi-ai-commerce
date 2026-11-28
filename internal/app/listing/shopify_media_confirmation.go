@@ -30,6 +30,8 @@ type ShopifyMediaConfirmation struct {
 	Sync                     submission.ShopifyMediaSync
 	PairedInstallation       *storecenter.ShopifyBinding
 	BuildPlan                func(context.Context, submission.ShopifyMediaOperation, preparation.SourceItem) (submission.ShopifyMediaPlan, error)
+	ReadOnly                 bool
+	ReadStatus               func(context.Context, submission.ShopifyMediaOperation) (submission.ShopifyMediaPlan, submission.ShopifyMediaStatus, bool, error)
 }
 
 func (a *Application) ShopifyMediaConfirmationEnabled() bool {
@@ -37,7 +39,7 @@ func (a *Application) ShopifyMediaConfirmationEnabled() bool {
 		return false
 	}
 	trial := a.ShopifyMediaConfirm
-	if trial.Sync.Journal == nil || !collection.ValidID(trial.SourceID) || !collection.ValidID(trial.StoreID) ||
+	if (!trial.ReadOnly && trial.Sync.Journal == nil || trial.ReadOnly && trial.ReadStatus == nil) || !collection.ValidID(trial.SourceID) || !collection.ValidID(trial.StoreID) ||
 		!trial.scopeMatches(ShopifyMediaPreviewRequest{SourceID: trial.SourceID, StoreID: trial.StoreID, Product: trial.Product}) {
 		return false
 	}
@@ -97,6 +99,19 @@ func (a *Application) ConfirmShopifyMedia(ctx context.Context, id string, input 
 	operation, err := trial.operation(input.ShopifyMediaPreviewRequest, id, scope, item)
 	if err != nil {
 		return ShopifyMediaConfirmationResult{}, err
+	}
+	if trial.ReadOnly {
+		plan, status, found, readErr := trial.ReadStatus(ctx, operation)
+		if readErr != nil {
+			return ShopifyMediaConfirmationResult{}, readErr
+		}
+		if !found {
+			return ShopifyMediaConfirmationResult{}, preparation.ErrUnavailable
+		}
+		if plan.Operation() != operation || plan.PreviewHash() != input.ConfirmationHash {
+			return ShopifyMediaConfirmationResult{}, preparation.ErrConflict
+		}
+		return ShopifyMediaConfirmationResult{OperationID: id, Status: status}, nil
 	}
 	sync := trial.Sync
 	if trial.PairedInstallation != nil {

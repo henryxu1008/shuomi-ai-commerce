@@ -1,13 +1,17 @@
 package storecenterapp
 
 import (
+	"context"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/shopifyguard"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	tiktok "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/tiktokshop"
 	walmart "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart"
+	"gorm.io/gorm"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type OfficialApplicationRegistration struct {
@@ -30,6 +34,58 @@ type OfficialApplicationRegistry struct {
 	walmartProvider   walmart.Authorization
 	walmartProtection walmart.CredentialProtection
 	shopify           *ShopifyApplication
+	shopifyTrial      *shopifyTrialLifecycle
+}
+
+type isolatedShopifyBindingRow struct {
+	OrganizationID, ShopKey, StoreID, AppID, ShopID string
+	Generation                                      int64
+}
+
+func (isolatedShopifyBindingRow) TableName() string { return "workbench_store_shopify_shops" }
+
+type isolatedShopifyAuthorizationRow struct {
+	OrganizationID, ShopKey, InstallationID, Domain, Currency string
+	Generation                                                int64
+	RevokedAt                                                 *time.Time
+}
+
+func (isolatedShopifyAuthorizationRow) TableName() string {
+	return "workbench_store_shopify_authorizations"
+}
+
+// WithIsolatedShopifyTrialLifecycle binds the signed uninstall notice to one
+// current Store authorization and a Product freeze-only adapter.
+func WithIsolatedShopifyTrialLifecycle(ctx context.Context, r *OfficialApplicationRegistry, storeDB, productDB *gorm.DB, live *shopifyguard.LiveIsolation,
+	organization, storeID, shopKey, appID, shopID, installationID, domain string, generation int64, readOnlyRestart bool) (*OfficialApplicationRegistry, error) {
+	if ctx == nil || r == nil || !r.ShopifyLifecycleConfigured() || storeDB == nil || productDB == nil {
+		return nil, storecenter.ErrOfficialConnectionUnavailable
+	}
+	var shop isolatedShopifyBindingRow
+	var authorization isolatedShopifyAuthorizationRow
+	if err := storeDB.WithContext(ctx).Where("app_id=? AND shop_id=?", appID, shopID).Take(&shop).Error; err != nil ||
+		shop.OrganizationID != organization || shop.StoreID != storeID || shop.ShopKey != shopKey || shop.Generation != generation {
+		return nil, storecenter.ErrOfficialConnectionUnavailable
+	}
+	if err := storeDB.WithContext(ctx).Where("organization_id=? AND shop_key=? AND generation=?", organization, shopKey, generation).Take(&authorization).Error; err != nil ||
+		authorization.InstallationID != installationID || authorization.Domain != domain || authorization.RevokedAt != nil {
+		return nil, storecenter.ErrOfficialConnectionUnavailable
+	}
+	binding := storecenter.ShopifyBinding{OrganizationID: organization, StoreID: storeID, ShopKey: shopKey, Generation: generation,
+		ShopifyInstallation: storecenter.ShopifyInstallation{AppID: appID, ShopID: shopID, InstallationID: installationID, Domain: domain, Currency: authorization.Currency}}
+	var freeze func(context.Context, string, string, int64) error
+	var err error
+	if readOnlyRestart {
+		freeze, err = shopifyguard.NewIsolatedMediaFreezeOnly(ctx, productDB, organization, shopKey, generation)
+	} else {
+		freeze, err = shopifyguard.NewIsolatedMediaFreeze(ctx, productDB, live, organization, shopKey, generation)
+	}
+	if err != nil {
+		return nil, storecenter.ErrOfficialConnectionUnavailable
+	}
+	copy := *r
+	copy.shopifyTrial = &shopifyTrialLifecycle{binding: binding, freeze: freeze}
+	return &copy, nil
 }
 
 // TikTok uses a canonical seller grant and its own credential contract.
@@ -45,6 +101,7 @@ func WithTikTokApplication(r *OfficialApplicationRegistry, provider tiktok.Selle
 	result := &OfficialApplicationRegistry{entries: map[officialApplicationKey]officialApplicationEntry{}, tiktokProvider: provider, tiktokProtection: protection}
 	if r != nil {
 		result.shopify = r.shopify
+		result.shopifyTrial = r.shopifyTrial
 		result.google = r.google
 		result.walmartProvider = r.walmartProvider
 		result.walmartProtection = r.walmartProtection
@@ -66,6 +123,7 @@ func WithWalmartApplication(r *OfficialApplicationRegistry, p walmart.Authorizat
 	out := &OfficialApplicationRegistry{entries: map[officialApplicationKey]officialApplicationEntry{}, walmartProvider: p, walmartProtection: protection}
 	if r != nil {
 		out.shopify = r.shopify
+		out.shopifyTrial = r.shopifyTrial
 		out.google = r.google
 		out.tiktokProvider = r.tiktokProvider
 		out.tiktokProtection = r.tiktokProtection
@@ -103,6 +161,21 @@ func (r *OfficialApplicationRegistry) ShopifyLifecycleConfigured() bool {
 	return r.ShopifyConfigured() && r.shopify.LifecycleNotifications
 }
 
+func (r *OfficialApplicationRegistry) IsolatedShopifyTrialBinding() *storecenter.ShopifyBinding {
+	if r == nil || r.shopifyTrial == nil {
+		return nil
+	}
+	binding := r.shopifyTrial.binding
+	return &binding
+}
+
+func (r *OfficialApplicationRegistry) IsolatedShopifyPrivacyReceiver(repo *storecenter.MemberScopedStoreRepository) func(context.Context, string, string, string, []byte) error {
+	if r == nil || r.shopifyTrial == nil || r.shopify == nil || repo == nil {
+		return nil
+	}
+	return IsolatedShopifyPrivacyReceiver(repo, r.shopify.AppID, r.shopify.OAuth, time.Now)
+}
+
 func (r *OfficialApplicationRegistry) ShopifyStartedInstallationConfigured() bool {
 	return r.ShopifyConfigured() && r.shopify.StartedInstallation
 }
@@ -110,6 +183,9 @@ func (r *OfficialApplicationRegistry) ShopifyStartedInstallationConfigured() boo
 func (r *OfficialApplicationRegistry) ShopifyConnections(repo *storecenter.MemberScopedStoreRepository) (*ShopifyConnections, error) {
 	if !r.ShopifyConfigured() {
 		return nil, nil
+	}
+	if r.shopifyTrial != nil {
+		return NewShopifyTrialConnections(repo, *r.shopify, r.shopifyTrial.binding, r.shopifyTrial.freeze)
 	}
 	return NewShopifyConnections(repo, *r.shopify)
 }

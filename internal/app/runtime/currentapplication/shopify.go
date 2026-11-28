@@ -15,6 +15,7 @@ import (
 	"time"
 
 	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 	wire "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/shopify"
 )
 
@@ -35,28 +36,30 @@ type ShopifyConfig struct {
 // ShopifyMediaTrialConfig admits one fixed, loopback-only development-store
 // media synchronization trial. Every database owner is independently named.
 type ShopifyMediaTrialConfig struct {
-	ProductInitializer DatabaseConfig `json:"productInitializer"`
-	ProductServing     DatabaseConfig `json:"productServing"`
-	AssetDatabase      DatabaseConfig `json:"assetDatabase"`
-	OrganizationID     string         `json:"organizationId"`
-	ActorID            string         `json:"actorId"`
-	MemberID           string         `json:"memberId"`
-	SourceID           string         `json:"sourceId"`
-	ProductKey         string         `json:"productKey"`
-	SourceVersion      int64          `json:"sourceVersion"`
-	ApprovedDigest     string         `json:"approvedDigest"`
-	StoreID            string         `json:"storeId"`
-	ShopKey            string         `json:"shopKey"`
-	Generation         int64          `json:"generation"`
-	ApplicationGID     string         `json:"applicationGid"`
-	ShopGID            string         `json:"shopGid"`
-	InstallationGID    string         `json:"installationGid"`
-	Domain             string         `json:"domain"`
-	DraftProductGID    string         `json:"draftProductGid"`
-	GalleryDigest      string         `json:"galleryDigest"`
-	AppendDigest       string         `json:"appendDigest"`
-	ServiceStartsAt    time.Time      `json:"serviceStartsAt"`
-	ServiceExpiresAt   time.Time      `json:"serviceExpiresAt"`
+	ProductInitializer  DatabaseConfig                           `json:"productInitializer"`
+	ProductServing      DatabaseConfig                           `json:"productServing"`
+	ProductMediaServing DatabaseConfig                           `json:"productMediaServing"`
+	AssetDatabase       DatabaseConfig                           `json:"assetDatabase"`
+	ImageArtifacts      coreconfig.ImageAgentArtifactStoreConfig `json:"imageArtifacts"`
+	OrganizationID      string                                   `json:"organizationId"`
+	ActorID             string                                   `json:"actorId"`
+	MemberID            string                                   `json:"memberId"`
+	SourceID            string                                   `json:"sourceId"`
+	ProductKey          string                                   `json:"productKey"`
+	SourceVersion       int64                                    `json:"sourceVersion"`
+	ApprovedDigest      string                                   `json:"approvedDigest"`
+	StoreID             string                                   `json:"storeId"`
+	ShopKey             string                                   `json:"shopKey"`
+	Generation          int64                                    `json:"generation"`
+	ApplicationGID      string                                   `json:"applicationGid"`
+	ShopGID             string                                   `json:"shopGid"`
+	InstallationGID     string                                   `json:"installationGid"`
+	Domain              string                                   `json:"domain"`
+	DraftProductGID     string                                   `json:"draftProductGid"`
+	GalleryDigest       string                                   `json:"galleryDigest"`
+	AppendDigest        string                                   `json:"appendDigest"`
+	ServiceStartsAt     time.Time                                `json:"serviceStartsAt"`
+	ServiceExpiresAt    time.Time                                `json:"serviceExpiresAt"`
 }
 
 func (cfg *Config) validateShopifyMediaTrial() error {
@@ -73,16 +76,24 @@ func (cfg *Config) validateShopifyMediaTrial() error {
 		trial.DraftProductGID == "gid://shopify/Product/10419372589218" {
 		return errors.New(message)
 	}
-	for _, db := range []DatabaseConfig{trial.ProductInitializer, trial.ProductServing, trial.AssetDatabase, store.Database} {
+	if !trial.ImageArtifacts.Enabled || !trial.ImageArtifacts.IsolatedTrialGeneratedURLs || trial.ImageArtifacts.Provider != "s3" ||
+		trial.ImageArtifacts.PublicBase == "" || trial.ImageArtifacts.S3.Bucket == "" || trial.ImageArtifacts.S3.AccessKeyID == "" || trial.ImageArtifacts.S3.SecretAccessKey == "" {
+		return errors.New(message)
+	}
+	for _, db := range []DatabaseConfig{trial.ProductInitializer, trial.ProductServing, trial.ProductMediaServing, trial.AssetDatabase, store.Database} {
 		if err := db.validate("shopifyMediaTrial.database"); err != nil || !net.ParseIP(db.Host).IsLoopback() {
 			return errors.New(message)
 		}
 	}
-	if !sameDatabaseTarget(trial.ProductInitializer, trial.ProductServing) ||
+	if err := cfg.validateAssetOwnerIsolation(trial.AssetDatabase); err != nil {
+		return errors.New(message)
+	}
+	if !sameDatabaseTarget(trial.ProductInitializer, trial.ProductServing) || !sameDatabaseTarget(trial.ProductInitializer, trial.ProductMediaServing) ||
 		trial.ProductInitializer.User == trial.ProductServing.User || trial.ProductServing.User != "source_acquisition_runtime" ||
+		trial.ProductMediaServing.User != "shopify_media_runtime" || trial.ProductMediaServing.User == trial.ProductServing.User ||
 		trial.ProductInitializer.Database == trial.AssetDatabase.Database || trial.ProductServing.Database == store.Database.Database ||
 		trial.ProductInitializer.Database == store.Database.Database || trial.AssetDatabase.Database == store.Database.Database ||
-		trial.AssetDatabase.Database == trial.ProductServing.Database || trial.ProductServing.MaxConnections > 8 ||
+		trial.AssetDatabase.Database == trial.ProductServing.Database || trial.ProductServing.MaxConnections > 8 || trial.ProductMediaServing.MaxConnections > 8 ||
 		trial.AssetDatabase.User != "supply_asset_runtime" ||
 		trial.ProductInitializer.User != "acquisition_owner" || !validTrialDigest(trial.ApprovedDigest) ||
 		!validTrialDigest(trial.GalleryDigest) || !validTrialDigest(trial.AppendDigest) ||
@@ -99,7 +110,12 @@ func (cfg *Config) validateShopifyMediaTrial() error {
 	}
 	allowed := Config{SchemaVersion: cfg.SchemaVersion, Listen: cfg.Listen, Identity: cfg.Identity,
 		SourceAccountDatabase: cfg.SourceAccountDatabase, CommercialOwnerDatabase: cfg.CommercialOwnerDatabase,
+		ListingKitAuthorization: cfg.ListingKitAuthorization,
+		ProductCollections:      true, ProductAcquisitionDatabase: &trial.ProductServing,
 		StoreCenter: store, ShopifyMediaTrial: trial}
+	if cfg.ProductAcquisitionDatabase == nil || !reflect.DeepEqual(*cfg.ProductAcquisitionDatabase, trial.ProductServing) {
+		return errors.New(message)
+	}
 	if !reflect.DeepEqual(*cfg, allowed) {
 		return errors.New(message)
 	}

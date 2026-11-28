@@ -127,10 +127,13 @@ func TestShopifyMediaTrialManifestPinsFixtureAndRejectsUnsafeComposition(t *test
 	}}
 	productInit := DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "acquisition_owner", Password: "fixture", Database: "media_product", MaxConnections: 2}
 	trial := &ShopifyMediaTrialConfig{
-		ProductInitializer: productInit,
-		ProductServing:     DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "source_acquisition_runtime", Password: "fixture", Database: "media_product", MaxConnections: 4},
-		AssetDatabase:      DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "supply_asset_runtime", Password: "fixture", Database: "media_assets", MaxConnections: 4},
-		OrganizationID:     "org-test", ActorID: "actor-test", MemberID: "member-test", SourceID: "source-test", ProductKey: "own-test", SourceVersion: 1,
+		ProductInitializer:  productInit,
+		ProductServing:      DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "source_acquisition_runtime", Password: "fixture", Database: "media_product", MaxConnections: 4},
+		ProductMediaServing: DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "shopify_media_runtime", Password: "fixture", Database: "media_product", MaxConnections: 4},
+		AssetDatabase:       DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "supply_asset_runtime", Password: "fixture", Database: "media_assets", MaxConnections: 4},
+		ImageArtifacts: coreconfig.ImageAgentArtifactStoreConfig{Enabled: true, Provider: "s3", PublicBase: "https://assets.example.test/media", IsolatedTrialGeneratedURLs: true,
+			S3: coreconfig.ImageAgentArtifactStoreS3Config{Bucket: "test-images", Region: "local", AccessKeyID: "fixture", SecretAccessKey: "fixture", UsePathStyle: true, ArtifactMode: "aws"}},
+		OrganizationID:      "org-test", ActorID: "actor-test", MemberID: "member-test", SourceID: "source-test", ProductKey: "own-test", SourceVersion: 1,
 		ApprovedDigest: strings.Repeat("a", 64), StoreID: "store-test", ShopKey: "shop-key-test", Generation: 1,
 		ApplicationGID: store.Shopify.ApplicationGID, ShopGID: "gid://shopify/Shop/85113995426", InstallationGID: "gid://shopify/AppInstallation/783089041570",
 		Domain: "shuomi-upload-test-1613.myshopify.com", DraftProductGID: "gid://shopify/Product/123456",
@@ -138,17 +141,19 @@ func TestShopifyMediaTrialManifestPinsFixtureAndRejectsUnsafeComposition(t *test
 		ServiceStartsAt: time.Now().UTC(), ServiceExpiresAt: time.Now().UTC().Add(time.Hour),
 	}
 	cfg := Config{SchemaVersion: base.SchemaVersion, Listen: ListenConfig{Host: "127.0.0.1", Port: 36529}, Identity: base.Identity,
+		ListingKitAuthorization: base.ListingKitAuthorization, ProductCollections: true, ProductAcquisitionDatabase: &trial.ProductServing,
 		SourceAccountDatabase: base.SourceAccountDatabase, CommercialOwnerDatabase: base.CommercialOwnerDatabase,
 		StoreCenter: &store, ShopifyMediaTrial: trial}
 	require.NoError(t, cfg.validateShopifyMediaTrial())
 
 	for name, mutate := range map[string]func(*Config){
-		"normal modules excluded": func(c *Config) { c.SupplyChain = base.SupplyChain },
-		"pairing mode excluded":   func(c *Config) { c.ShopifyPairingTrial = true },
-		"source copy rejected":    func(c *Config) { c.ShopifyMediaTrial.SourceID = "" },
-		"original coat rejected":  func(c *Config) { c.ShopifyMediaTrial.DraftProductGID = "gid://shopify/Product/10419372589218" },
-		"database collision":      func(c *Config) { c.ShopifyMediaTrial.AssetDatabase.Database = c.StoreCenter.Database.Database },
-		"expired fixture":         func(c *Config) { c.ShopifyMediaTrial.ServiceExpiresAt = c.ShopifyMediaTrial.ServiceStartsAt },
+		"normal modules excluded":  func(c *Config) { c.SupplyChain = base.SupplyChain },
+		"pairing mode excluded":    func(c *Config) { c.ShopifyPairingTrial = true },
+		"media pool role is fixed": func(c *Config) { c.ShopifyMediaTrial.ProductMediaServing.User = "source_acquisition_runtime" },
+		"source copy rejected":     func(c *Config) { c.ShopifyMediaTrial.SourceID = "" },
+		"original coat rejected":   func(c *Config) { c.ShopifyMediaTrial.DraftProductGID = "gid://shopify/Product/10419372589218" },
+		"database collision":       func(c *Config) { c.ShopifyMediaTrial.AssetDatabase.Database = c.StoreCenter.Database.Database },
+		"expired fixture":          func(c *Config) { c.ShopifyMediaTrial.ServiceExpiresAt = c.ShopifyMediaTrial.ServiceStartsAt },
 		"long fixture": func(c *Config) {
 			c.ShopifyMediaTrial.ServiceExpiresAt = c.ShopifyMediaTrial.ServiceStartsAt.Add(25 * time.Hour)
 		},

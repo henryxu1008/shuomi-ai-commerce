@@ -44,7 +44,10 @@ type ListingDependencies struct {
 	Worker                 *listingapp.OperationWorker
 	shopifyGeneratedImages imageapp.GeneratedMaterialByteReader
 	shopifyPreviewOnly     bool
+	shopifyMediaTrial      *listingapp.ShopifyMediaConfirmation
 }
+
+func (d ListingDependencies) shopifyMediaTrialEnabled() bool { return d.shopifyMediaTrial != nil }
 
 func WithListing(d ListingDependencies) CurrentApplicationOption {
 	return func(o *currentApplicationOptions) { o.listings++; o.listing = &d }
@@ -52,6 +55,14 @@ func WithListing(d ListingDependencies) CurrentApplicationOption {
 
 func WithShopifyDraftPreview(assets *gorm.DB, images imageapp.GeneratedMaterialByteReader) CurrentApplicationOption {
 	return WithListing(ListingDependencies{AssetDB: assets, shopifyGeneratedImages: images, shopifyPreviewOnly: true})
+}
+
+func WithShopifyMediaTrial(assets *gorm.DB, images imageapp.GeneratedMaterialByteReader, confirmation *listingapp.ShopifyMediaConfirmation) CurrentApplicationOption {
+	return func(o *currentApplicationOptions) {
+		o.listings++
+		o.listing = &ListingDependencies{AssetDB: assets, shopifyGeneratedImages: images, shopifyPreviewOnly: true, shopifyMediaTrial: confirmation}
+		o.shopifyMediaTrial = true
+	}
 }
 
 type listingModule struct {
@@ -75,7 +86,7 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 		return empty, preparation.ErrUnavailable
 	}
 	if d.shopifyPreviewOnly {
-		if !apps.ShopifyConfigured() || capabilities.ShopifyLifecycle || capabilities.ShopifyStartedInstallation || d.shopifyGeneratedImages == nil {
+		if !apps.ShopifyConfigured() || (!d.shopifyMediaTrialEnabled() && (capabilities.ShopifyLifecycle || capabilities.ShopifyStartedInstallation)) || d.shopifyGeneratedImages == nil {
 			return empty, preparation.ErrUnavailable
 		}
 	} else if d.Starter == nil || d.NewWorker == nil || d.Worker == nil {
@@ -116,7 +127,9 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 	storeRepo = storeRepo.WithShopifyLifecycle(capabilities.ShopifyLifecycle)
 	var executionStores storecenter.ProductExecutionReader = storeRepo
 	if d.shopifyPreviewOnly {
-		executionStores = storeRepo.ShopifyPreviewReader()
+		if !d.shopifyMediaTrialEnabled() {
+			executionStores = storeRepo.ShopifyPreviewReader()
+		}
 	} else if d.localDraftPolicy != nil {
 		executionStores = formalDraftStores{storeRepo, d.localDraftPolicy.Scope.OrganizationID, d.localDraftPolicy.Binding.StoreID}
 	}
@@ -187,6 +200,9 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 			return empty, preparation.ErrUnavailable
 		}
 		app.ShopifyMedia = &listingapp.ShopifyMediaPreviewService{Store: access, Inventory: inventory, ReadImage: d.shopifyGeneratedImages}
+	}
+	if d.shopifyMediaTrial != nil {
+		app.ShopifyMediaConfirm = d.shopifyMediaTrial
 	}
 	app.ValidateDraftRead = formalDraftRead
 	app.StageProjection = stageProjection

@@ -49,15 +49,16 @@ type ServiceLifecycleService interface {
 }
 
 type Handler struct {
-	google              GoogleConnectionService
-	browser             BrowserOperationService
-	catalog             *storecenter.Catalog
-	metadata            *storecenter.MetadataRepository
-	service             StoreService
-	serviceLifecycle    ServiceLifecycleService
-	officialConnections OfficialConnectionService
-	shopifyConnections  ShopifyConnectionService
-	amazonAuthorization *amazonAuthorizationHTTP
+	google                         GoogleConnectionService
+	browser                        BrowserOperationService
+	catalog                        *storecenter.Catalog
+	metadata                       *storecenter.MetadataRepository
+	service                        StoreService
+	serviceLifecycle               ServiceLifecycleService
+	officialConnections            OfficialConnectionService
+	shopifyConnections             ShopifyConnectionService
+	isolatedShopifyPrivacyReceiver func(context.Context, string, string, string, []byte) error
+	amazonAuthorization            *amazonAuthorizationHTTP
 }
 
 type OfficialConnectionService interface {
@@ -75,6 +76,14 @@ func (h *Handler) SetOfficialConnections(service OfficialConnectionService) erro
 		return errors.New("official Store connection service unavailable or already supplied")
 	}
 	h.officialConnections = service
+	return nil
+}
+
+func (h *Handler) SetIsolatedShopifyPrivacyReceiver(receive func(context.Context, string, string, string, []byte) error) error {
+	if h == nil || receive == nil || h.isolatedShopifyPrivacyReceiver != nil {
+		return errors.New("isolated Shopify privacy receipt receiver unavailable or already supplied")
+	}
+	h.isolatedShopifyPrivacyReceiver = receive
 	return nil
 }
 
